@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Fix duplicate table-cell commits when Enter is followed by blur; preserve the
+  edited value and a single undo step.
+
 ## 0.1.0-preview.1
 
 - Establish an independent source-available Markdown core repository.
