@@ -1,0 +1,20 @@
+[
+  {
+    "id": "commonmark-0.31.2",
+    "url": "https://spec.commonmark.org/0.31.2/spec.json",
+    "upstreamSha256": "d431b29d97b6f73e69d547109cf5081578fac931e72afe95639ebe766c1b2a20",
+    "sha256": "d431b29d97b6f73e69d547109cf5081578fac931e72afe95639ebe766c1b2a20",
+    "cases": 652,
+    "license": "CC-BY-SA-4.0",
+    "file": "commonmark-0.31.2.json"
+  },
+  {
+    "id": "gfm-0.29",
+    "url": "https://raw.githubusercontent.com/github/cmark-gfm/0.29.0.gfm.13/test/spec.txt",
+    "upstreamSha256": "7d8e5814befec287ac116786d81ff14e0adc9b13295b4494649e995408fd871c",
+    "sha256": "82d510919bccca351d88111dcf25f750ab104e091921ad4b7df53fbb404efbee",
+    "cases": 672,
+    "license": "CC-BY-SA-4.0",
+    "file": "gfm-0.29.json"
+  }
+]

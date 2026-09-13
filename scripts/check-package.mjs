@@ -5,6 +5,9 @@ if (pkg.license !== "SEE LICENSE IN LICENSE") throw new Error("Incorrect license
 for (const file of ["LICENSE","COMMERCIAL-LICENSE.md","ATTRIBUTION.md","THIRD_PARTY_NOTICES.md","dist/index.js","dist/core.js","dist/style.css","dist/interaction.css","dist/types/sdk.d.ts","dist/types/core.d.ts"]) {
   if (!existsSync(file)) throw new Error("Missing distribution file: " + file);
 }
+for (const [entry,value] of Object.entries(pkg.exports)) {
+  for(const file of typeof value === "string" ? [value] : Object.values(value)) if(!existsSync(file)) throw new Error(`Missing export ${entry}: ${file}`);
+}
 const pack = JSON.parse(execFileSync("npm", ["pack","--dry-run","--json","--ignore-scripts"], {encoding:"utf8"}))[0];
 const names = pack.files.map(file => file.path);
 for (const required of ["LICENSE","ATTRIBUTION.md","THIRD_PARTY_NOTICES.md","COMMERCIAL-LICENSE.md","licenses/lucide.txt","licenses/graphviz-COPYING.txt","licenses/graphviz-colorbrewer.txt","licenses/graphviz-rbtree.txt","licenses/expat-COPYING.txt","licenses/emscripten.txt"])

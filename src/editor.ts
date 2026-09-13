@@ -1,3 +1,8 @@
+import {disposeInteractions} from "./renderInteraction";
+import {bindEngines} from "./renderEngines";
+import {bindUI, type UIOptions, setUIText, setUILabel} from "./uiContext";
+import {allowedImageURL} from "./resources";
+import {resolveProfile, type MarkdownProfile} from "./syntaxProfiles";
 import {calloutTypes, resolveCallout} from "./callouts";
 import {calloutRanges} from "./calloutEditing";
 import {dispatchSourcePatches} from "./editorPatches";
@@ -14,14 +19,14 @@ import {HeadingIndex, type OutlineHeading} from "./headingIndex";
 import {resolveHeadingLink} from "./linkNavigation";
 import {editCurrentLink} from "./liveLinks";
 import {appearanceScale, appearanceWidth} from "./typography";
-import {TechnicalMarkdownReader, type ReaderHost} from "./reader";
+import {TechnicalMarkdownReader, type ReaderHost, type SelectionReference} from "./reader";
 import {createAttribution, type AttributionPlacement} from "./attribution";
 import {observeTypography} from "./typography";
 import {technicalMarkdownProfile} from "./syntaxContract";
 
 export type EditorMode = "reader" | "live" | "source";
 export type EditorDocument = {
-  documentId: string; revision: string; source: string;
+  documentId: string; revision: string; source: string; profile?: MarkdownProfile;
   documentPath?: string; contentState?: "streaming" | "settled";
 };
 export type DraftChange = {
@@ -62,6 +67,8 @@ export class TeggMarkdownEditor {
   private sequence = 0;
   private acknowledgedSequence = 0;
   private savedSource: string;
+  private stopEngines: () => void;
+  private ui: ReturnType<typeof bindUI>;
   private destroyed = false;
   private composing = false;
   private accessible = false;
@@ -80,15 +87,18 @@ export class TeggMarkdownEditor {
     this.document = {...input}; this.savedSource = input.source;
     this.modeValue = input.contentState === "streaming" ? "reader" : mode;
     this.frame.className = "tegg-sdk-frame tegg-surface";
+    this.frame.dataset.layout = host.layout ?? "internal"; this.frame.dataset.chrome = host.chrome ?? "default";
     this.editorRoot.className = "tegg-sdk-content tegg-sdk-editor tegg-surface";
     this.readerRoot.className = "tegg-sdk-content";
     this.frame.append(this.readerRoot, this.editorRoot);
     const attribution = createAttribution(host.attribution); if (attribution) this.frame.append(attribution);
     root.append(this.frame);
+    this.ui = bindUI(this.frame, host);
+    this.stopEngines = bindEngines(this.frame, host.engines);
     this.stopTypography = observeTypography(this.editorRoot);
     this.readerRoot.tabIndex = -1;
-    this.readerRoot.setAttribute("aria-label", "Markdown Reader");
-    this.reader = new TechnicalMarkdownReader(this.readerRoot, {...host, openLink: href => this.handleLink(href)});
+    setUILabel(this.readerRoot, "Markdown Reader");
+    this.reader = new TechnicalMarkdownReader(this.readerRoot, new Proxy(host,{get: (target,key) => key === "openLink" ? (href: string) => this.handleLink(href) : Reflect.get(target,key)}));
     this.viewValue = new EditorView({parent: this.editorRoot, state: this.createState(input)});
     this.frame.addEventListener("tegg-open-link", this.openLink);
     this.frame.addEventListener("tegg-copy-text", this.copyText);
@@ -98,6 +108,7 @@ export class TeggMarkdownEditor {
     this.setAppearance({}); this.applyMode(); this.queueState(); this.queueOutline();
   }
   private validate(input: EditorDocument) {
+    resolveProfile(input?.profile);
     if (!input || typeof input.documentId !== "string" || typeof input.revision !== "string" || typeof input.source !== "string")
       throw new TypeError("documentId, revision and source must be strings");
     if (input.documentPath !== undefined && typeof input.documentPath !== "string") throw new TypeError("documentPath must be a string");
@@ -141,7 +152,7 @@ export class TeggMarkdownEditor {
     }
     const menu = document.createElement("select"); this.calloutMenu = menu;
     menu.className = "tegg-sdk-callout-menu"; menu.size = 8;
-    menu.setAttribute("aria-label", "Callout type");
+    setUILabel(menu, "Callout type");
     for (const type of calloutTypes) {
       const option = document.createElement("option");option.value=type.id;option.textContent=type.label;menu.append(option);
     }
@@ -162,7 +173,7 @@ export class TeggMarkdownEditor {
       editorSetup, markdown({extensions: GFM}), EditorView.lineWrapping,
       EditorState.lineSeparator.of(input.source.includes("\r\n") ? "\r\n" : "\n"),
       keymap.of([indentWithTab]),
-      resourceContext.of({documentPath: input.documentPath ?? "", resolveImage: this.host.resolveImage}),
+      resourceContext.of({documentPath: input.documentPath ?? "", profile: input.profile, engines: this.host.engines, resolveImage: (src, path) => allowedImageURL(this.host.resolveImage?.(src, path) ?? src, this.host.resourcePolicy) ?? ""}),
       EditorView.contentAttributes.of({"aria-label":"Markdown Editor"}),
       this.preview.of(this.modeValue === "live" && !this.accessible ? livePreview : []),
       this.editable.of([EditorView.editable.of(input.contentState !== "streaming"), EditorState.readOnly.of(input.contentState === "streaming")]),
@@ -175,6 +186,7 @@ export class TeggMarkdownEditor {
       }),
       EditorView.updateListener.of(update => {
         if (update.docChanged || update.selectionSet || update.focusChanged) this.queueState();
+        if (update.selectionSet) {try {this.host.onSelection?.(this.selection());} catch(error) {this.report(error);}}
         if (!update.docChanged) return;
         this.document.source = update.state.sliceDoc();
         this.sequence++; this.queueOutline();
@@ -200,7 +212,7 @@ export class TeggMarkdownEditor {
   update(input: EditorDocument): UpdateResult {
     this.assertAlive(); this.validate(input);
     if (this.composing || this.viewValue.composing) return "composing";
-    if (JSON.stringify(input) === JSON.stringify(this.document)) return "unchanged";
+    if ((["documentId", "revision", "source", "documentPath", "contentState", "profile"] as const).every(key => input[key] === this.document[key])) return "unchanged";
     if (this.dirty) {
       this.host.onConflict?.({...input}, this.snapshot()); return "conflict";
     }
@@ -244,6 +256,7 @@ export class TeggMarkdownEditor {
     return true;
   }
   private applyMode() {
+    disposeInteractions(this.frame);
     this.modeEpoch++;
     this.calloutMenu?.remove(); this.calloutMenu=undefined;
     this.editorRoot.dataset.mode = this.modeValue;
@@ -257,6 +270,9 @@ export class TeggMarkdownEditor {
   command(command: string): boolean {
     this.assertAlive();
     if (!this.state.toolbarEnabled || (!supportedCommands.has(command) && !(command.startsWith("callout:") && calloutTypes.some(item => item.id === command.slice(8))))) return false;
+    const profile = this.document.profile ?? "tegg";
+    if (profile !== "tegg" && ["wikilink", "highlight", "subscript", "superscript", "graphviz"].includes(command)) return false;
+    if (profile === "gfm" && (["mathBlock", "mermaid", "footnote", "callout"].includes(command) || command.startsWith("callout:"))) return false;
     this.viewValue.focus();
     if (command === "undo") return undo(this.viewValue);
     if (command === "redo") return redo(this.viewValue);
@@ -273,7 +289,8 @@ export class TeggMarkdownEditor {
       canUndo:enabled && undoDepth(this.viewValue.state) > 0, canRedo:enabled && redoDepth(this.viewValue.state) > 0};
   }
   private queueState = () => {
-    if (this.stateQueued || this.destroyed) return;
+    // Hosts without a toolbar subscriber can read state explicitly when needed.
+    if (!this.host.onStateChange || this.stateQueued || this.destroyed) return;
     this.stateQueued = true;
     queueMicrotask(() => {
       this.stateQueued = false; if (this.destroyed) return;
@@ -283,12 +300,19 @@ export class TeggMarkdownEditor {
       try {this.host.onStateChange?.(state);} catch (error) {this.report(error);}
     });
   };
+  selection(): SelectionReference {
+    this.assertAlive(); const selection = this.viewValue.state.selection.main;
+    const from = this.viewValue.state.sliceDoc(0,selection.from).length;
+    const to = this.viewValue.state.sliceDoc(0,selection.to).length;
+    return {documentId:this.document.documentId,revision:this.document.revision,generation:this.generation,sequence:this.sequence,text:this.source.slice(from,to),range:{from,to}};
+  }
   outline(): OutlineSnapshot {
     this.assertAlive();
     return {documentId:this.document.documentId, generation:this.generation, sequence:this.sequence,
-      headings:this.headings.update(this.source).map(item => ({...item}))};
+      headings:this.headings.update(this.source, this.document.profile).map(item => ({...item}))};
   }
   private queueOutline() {
+    if (!this.host.onOutlineChange) return;
     clearTimeout(this.outlineTimer);
     this.outlineTimer = setTimeout(() => {
       if (this.destroyed) return;
@@ -301,11 +325,11 @@ export class TeggMarkdownEditor {
   async navigateHeading(id: string, snapshot: OutlineSnapshot = this.outline()): Promise<boolean> {
     this.assertAlive();
     if (snapshot.documentId !== this.document.documentId || snapshot.generation !== this.generation || snapshot.sequence !== this.sequence) return false;
-    const target = this.headings.update(this.source).find(item => item.id === id);
+    const target = this.headings.update(this.source, this.document.profile).find(item => item.id === id);
     return target ? this.navigateTarget(target) : false;
   }
   async navigateFragment(fragment: string): Promise<boolean> {
-    this.assertAlive(); const target = resolveHeadingLink(this.source, fragment);
+    this.assertAlive(); const target = resolveHeadingLink(this.source, fragment, this.document.profile);
     return target ? this.navigateTarget(target) : false;
   }
   private async navigateTarget(target: {from:number; anchor:string}): Promise<boolean> {
@@ -326,6 +350,7 @@ export class TeggMarkdownEditor {
     }
     return true;
   }
+  setUI(options: UIOptions) {this.assertAlive(); this.ui.update(options); this.reader.setUI(options);}
   setAppearance(appearance: EditorAppearance): void {
     this.assertAlive(); this.appearance = {...this.appearance,...appearance};
     this.appearance.fontScale = appearanceScale(this.appearance.fontScale);
@@ -351,11 +376,11 @@ export class TeggMarkdownEditor {
   }
   destroy(): void {
     if (this.destroyed) return;
-    this.destroyed = true; clearTimeout(this.compositionTimer); clearTimeout(this.outlineTimer);
+    this.destroyed = true; disposeInteractions(this.frame); clearTimeout(this.compositionTimer); clearTimeout(this.outlineTimer);
     this.frame.removeEventListener("focusin", this.queueState); this.frame.removeEventListener("focusout", this.queueState);
     this.frame.removeEventListener("tegg-open-link", this.openLink);
     this.frame.removeEventListener("tegg-copy-text", this.copyText);
     this.frame.removeEventListener("tegg-callout-menu", this.openCalloutMenu);
-    this.viewValue.destroy(); this.reader.destroy(); this.stopTypography(); this.frame.remove();
+    this.ui.destroy(); this.stopEngines(); this.viewValue.destroy(); this.reader.destroy(); this.stopTypography(); this.frame.remove();
   }
 }

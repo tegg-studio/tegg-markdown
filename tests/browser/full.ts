@@ -1,0 +1,12 @@
+import {TeggMarkdownReader} from '@tegg/markdown/reader';
+import {katexEngine} from '@tegg/markdown/engines/katex';
+import {highlightEngine} from '@tegg/markdown/engines/highlight';
+import {mermaidEngine} from '@tegg/markdown/engines/mermaid';
+import {graphvizEngine} from '@tegg/markdown/engines/graphviz';
+import {githubGeometryRenderers} from '@tegg/markdown/engines/geometry';
+import '@tegg/markdown/reader.css';
+import 'katex/dist/katex.min.css';
+const errors:string[]=[];
+const reader=new TeggMarkdownReader(document.querySelector('main')!,{engines:{math:katexEngine,highlight:highlightEngine,mermaid:mermaidEngine,graphviz:graphvizEngine},renderers:githubGeometryRenderers,onError(error){errors.push(String(error));}});
+const source='# Optional engine host\n\n$x^2 + y^2$\n\n```mermaid\nflowchart LR\n A-->B\n```\n\n```dot\ndigraph {a -> b}\n```\n\n```geojson\n{"type":"Polygon","coordinates":[[[0,0],[4,0],[4,4],[0,0]]]}\n```\n\n```topojson\n{"type":"Topology","arcs":[[[0,0],[2,0],[0,2]]],"objects":{"path":{"type":"LineString","arcs":[0]}}}\n```\n\n```stl\nsolid triangle\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid triangle\n```';
+(window as any).full={errors,reader,ready:reader.render({documentId:'engines',revision:'1',source,profile:'tegg'}),source};

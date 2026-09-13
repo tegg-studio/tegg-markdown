@@ -1,702 +1,882 @@
 {
-  "scope": "Installed production npm dependencies; embedded non-npm assets are listed in THIRD_PARTY_NOTICES.md",
+  "scope": "Installed required dependencies and optional engine/React peer closures; embedded assets have separate complete notices.",
   "dependencies": [
     {
       "name": "@antfu/install-pkg",
       "version": "1.1.0",
       "license": "MIT",
-      "purl": "pkg:npm/%40antfu/install-pkg@1.1.0",
+      "purl": "pkg:npm/%40antfu%2Finstall-pkg@1.1.0",
       "integrity": "sha512-MGQsmw10ZyI+EJo45CdSER4zEb+p31LpDAFp2Z3gkSd1yqVZGi0Ebx++YTEMonJy4oChEMLsxZ64j8FH6sSqtQ==",
       "repository": {
         "type": "git",
         "url": "git+https://github.com/antfu/install-pkg.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@braintree/sanitize-url",
       "version": "7.1.2",
       "license": "MIT",
-      "purl": "pkg:npm/%40braintree/sanitize-url@7.1.2",
+      "purl": "pkg:npm/%40braintree%2Fsanitize-url@7.1.2",
       "integrity": "sha512-jigsZK+sMF/cuiB7sERuo9V7N9jx+dhmHHnQyDSVdpZwVutaBu7WvNYqMDLSgFgfB30n452TP3vjDAvFC973mA==",
       "repository": {
         "type": "git",
         "url": "git+https://github.com/braintree/sanitize-url.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@chevrotain/types",
       "version": "11.1.2",
       "license": "Apache-2.0",
-      "purl": "pkg:npm/%40chevrotain/types@11.1.2",
+      "purl": "pkg:npm/%40chevrotain%2Ftypes@11.1.2",
       "integrity": "sha512-U+HFai5+zmJCkK86QsaJtoITlboZHBqrVketcO2ROv865xfCMSFpELQoz1GkX5GzME8pTa+3kbKrZHQtI0gdbw==",
       "repository": {
         "type": "git",
         "url": "git://github.com/Chevrotain/chevrotain.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@codemirror/autocomplete",
       "version": "6.20.3",
       "license": "MIT",
-      "purl": "pkg:npm/%40codemirror/autocomplete@6.20.3",
+      "purl": "pkg:npm/%40codemirror%2Fautocomplete@6.20.3",
       "integrity": "sha512-tlosUqb+3BbxCxZdu4tKeRghPFC+QM7q4X5YhKV2eCmPG+1r2F3f4AaSz5sCrFqUtX4Jh20VFTKecl16MgiV9g==",
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/codemirror/autocomplete.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@codemirror/commands",
       "version": "6.11.0",
       "license": "MIT",
-      "purl": "pkg:npm/%40codemirror/commands@6.11.0",
+      "purl": "pkg:npm/%40codemirror%2Fcommands@6.11.0",
       "integrity": "sha512-/K4Rl5BN0OtTiPWmJCdqODu38XnDMsDxKY5rgrPnCkutPTJf2wVbkoixLfealF5Kwse/s8P8M5jAiURiwSwnFA==",
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/codemirror/commands.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@codemirror/lang-css",
       "version": "6.3.1",
       "license": "MIT",
-      "purl": "pkg:npm/%40codemirror/lang-css@6.3.1",
+      "purl": "pkg:npm/%40codemirror%2Flang-css@6.3.1",
       "integrity": "sha512-kr5fwBGiGtmz6l0LSJIbno9QrifNMUusivHbnA1H6Dmqy4HZFte3UAICix1VuKo0lMPKQr2rqB+0BkKi/S3Ejg==",
       "repository": {
         "type": "git",
         "url": "https://github.com/codemirror/lang-css.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@codemirror/lang-html",
       "version": "6.4.12",
       "license": "MIT",
-      "purl": "pkg:npm/%40codemirror/lang-html@6.4.12",
+      "purl": "pkg:npm/%40codemirror%2Flang-html@6.4.12",
       "integrity": "sha512-pw2ReWKUqSkbvh76RAT4NYxiogRu+PWkR2ukAwO9uOgrm8uipkzjtKKtNpyeAQwHOqxEeSvAXZ6vr3AfyB9y/w==",
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/codemirror/lang-html.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@codemirror/lang-javascript",
       "version": "6.2.5",
       "license": "MIT",
-      "purl": "pkg:npm/%40codemirror/lang-javascript@6.2.5",
+      "purl": "pkg:npm/%40codemirror%2Flang-javascript@6.2.5",
       "integrity": "sha512-zD4e5mS+50htS7F+TYjBPsiIFGanfVqg4HyUz6WNFikgOPf2BgKlx+TQedI1w6n/IqRBVBbBWmGFdLB/7uxO4A==",
       "repository": {
         "type": "git",
         "url": "git+https://github.com/codemirror/lang-javascript.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@codemirror/lang-markdown",
       "version": "6.5.2",
       "license": "MIT",
-      "purl": "pkg:npm/%40codemirror/lang-markdown@6.5.2",
+      "purl": "pkg:npm/%40codemirror%2Flang-markdown@6.5.2",
       "integrity": "sha512-AwBOdkWYuA//WcM0xO5PfHPUcmz/O2i5o0Nsg1U69SII/loCJlFI1Romd9xp2HYb1kYJRGZotyqRghuHH5n8Kw==",
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/codemirror/lang-markdown.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@codemirror/language",
       "version": "6.12.4",
       "license": "MIT",
-      "purl": "pkg:npm/%40codemirror/language@6.12.4",
+      "purl": "pkg:npm/%40codemirror%2Flanguage@6.12.4",
       "integrity": "sha512-1q4PaT+o6PbgpkJt4Q8Fv5XJxTy4FUZ4MWETtyiDw3J0Pyr9E2vqcKL+k9wcvjNTIsauxvE7OfmWj3FRPHQ76A==",
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/codemirror/language.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@codemirror/lint",
       "version": "6.9.7",
       "license": "MIT",
-      "purl": "pkg:npm/%40codemirror/lint@6.9.7",
+      "purl": "pkg:npm/%40codemirror%2Flint@6.9.7",
       "integrity": "sha512-28/+iWLYxKxsvGYhSYL7zaCZqLz5+FFFDq9tVsvGv9kv8RY4fFAchJ5WX9M3YrrRlTIsECjsXPqeNgnSmNP2dg==",
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/codemirror/lint.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@codemirror/search",
       "version": "6.7.2",
       "license": "MIT",
-      "purl": "pkg:npm/%40codemirror/search@6.7.2",
+      "purl": "pkg:npm/%40codemirror%2Fsearch@6.7.2",
       "integrity": "sha512-gUYkYhT2+n/+VGZ+8EzE5WFkYZUZYm1VOKDudIsNqh42uRVQJ0a6Yss9sdKT3MeOYfuL1N6AZA57oza0Oyr0LA==",
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/codemirror/search.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@codemirror/state",
       "version": "6.7.2",
       "license": "MIT",
-      "purl": "pkg:npm/%40codemirror/state@6.7.2",
+      "purl": "pkg:npm/%40codemirror%2Fstate@6.7.2",
       "integrity": "sha512-U3RiPX62Wl/Gx4ftQ7UxLlloSfsFTQqKa+7vFBYteZGCzkp6oBqcsD7iSwniWRGobCAmDcwZSY+Six3+3ztdfg==",
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/codemirror/state.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@codemirror/view",
       "version": "6.43.10",
       "license": "MIT",
-      "purl": "pkg:npm/%40codemirror/view@6.43.10",
+      "purl": "pkg:npm/%40codemirror%2Fview@6.43.10",
       "integrity": "sha512-vVWLvd4fKWYN/pMcwUrg6dWeublxmSz+V+52ZjW3h64IVN9cRUYLk5Km4JDT9vifxAFfDtNOIFxKYENthcolJQ==",
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/codemirror/view.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@iconify/types",
       "version": "2.0.0",
       "license": "MIT",
-      "purl": "pkg:npm/%40iconify/types@2.0.0",
+      "purl": "pkg:npm/%40iconify%2Ftypes@2.0.0",
       "integrity": "sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==",
       "repository": {
         "type": "git",
         "url": "https://github.com/iconify/iconify.git",
         "directory": "packages/types"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@iconify/utils",
       "version": "3.1.4",
       "license": "MIT",
-      "purl": "pkg:npm/%40iconify/utils@3.1.4",
+      "purl": "pkg:npm/%40iconify%2Futils@3.1.4",
       "integrity": "sha512-b1S7B1k9ohZ+iNTi2ATxbRYG9fTrJmUT0rc46bvVnNxqNRGW7dyo/vRREwyniI5IRN2RSJHDcm+s3BjWrSAjHw==",
       "repository": {
         "type": "git",
         "url": "https://github.com/iconify/iconify.git",
         "directory": "packages/utils"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@lezer/common",
       "version": "1.5.2",
       "license": "MIT",
-      "purl": "pkg:npm/%40lezer/common@1.5.2",
+      "purl": "pkg:npm/%40lezer%2Fcommon@1.5.2",
       "integrity": "sha512-sxQE460fPZyU3sdc8lafxiPwJHBzZRy/udNFynGQky1SePYBdhkBl1kOagA9uT3pxR8K09bOrmTUqA9wb/PjSQ==",
       "repository": {
         "type": "git",
         "url": "https://github.com/lezer-parser/common.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@lezer/css",
       "version": "1.3.6",
       "license": "MIT",
-      "purl": "pkg:npm/%40lezer/css@1.3.6",
+      "purl": "pkg:npm/%40lezer%2Fcss@1.3.6",
       "integrity": "sha512-YJE78Wcg+zX8f10hiHWQ4Az48Qr/c13eId0VtRQYLBpxHDmDeSrXIlkbl+fJGW42rWC/uoUco9mhBZeVWP/A1g==",
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/lezer/css.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@lezer/highlight",
       "version": "1.2.3",
       "license": "MIT",
-      "purl": "pkg:npm/%40lezer/highlight@1.2.3",
+      "purl": "pkg:npm/%40lezer%2Fhighlight@1.2.3",
       "integrity": "sha512-qXdH7UqTvGfdVBINrgKhDsVTJTxactNNxLk7+UMwZhU13lMHaOBlJe9Vqp907ya56Y3+ed2tlqzys7jDkTmW0g==",
       "repository": {
         "type": "git",
         "url": "https://github.com/lezer-parser/highlight.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@lezer/html",
       "version": "1.3.13",
       "license": "MIT",
-      "purl": "pkg:npm/%40lezer/html@1.3.13",
+      "purl": "pkg:npm/%40lezer%2Fhtml@1.3.13",
       "integrity": "sha512-oI7n6NJml729m7pjm9lvLvmXbdoMoi2f+1pwSDJkl9d68zGr7a9Btz8NdHTGQZtW2DA25ybeuv/SyDb9D5tseg==",
       "repository": {
         "type": "git",
         "url": "https://github.com/lezer-parser/html.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@lezer/javascript",
       "version": "1.5.4",
       "license": "MIT",
-      "purl": "pkg:npm/%40lezer/javascript@1.5.4",
+      "purl": "pkg:npm/%40lezer%2Fjavascript@1.5.4",
       "integrity": "sha512-vvYx3MhWqeZtGPwDStM2dwgljd5smolYD2lR2UyFcHfxbBQebqx8yjmFmxtJ/E6nN6u1D9srOiVWm3Rb4tmcUA==",
       "repository": {
         "type": "git",
         "url": "https://github.com/lezer-parser/javascript.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@lezer/lr",
       "version": "1.4.10",
       "license": "MIT",
-      "purl": "pkg:npm/%40lezer/lr@1.4.10",
+      "purl": "pkg:npm/%40lezer%2Flr@1.4.10",
       "integrity": "sha512-rnCpTIBafOx4mRp43xOxDJbFipJm/c0cia/V5TiGlhmMa+wsSdoGmUN3w5Bqrks/09Q/D4tNAmWaT8p6NRi77A==",
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/lezer/lr.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@lezer/markdown",
       "version": "1.7.2",
       "license": "MIT",
-      "purl": "pkg:npm/%40lezer/markdown@1.7.2",
+      "purl": "pkg:npm/%40lezer%2Fmarkdown@1.7.2",
       "integrity": "sha512-iTkYvoVcKt3WkeL7qUDyXHONZEwLio4wj8KTNi2dnjQEXBZKMV63BpQrPqfsM+OkvuRbiSTAcycYAsQzLhRNoQ==",
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/lezer/markdown.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@marijn/find-cluster-break",
       "version": "1.0.4",
       "license": "MIT",
-      "purl": "pkg:npm/%40marijn/find-cluster-break@1.0.4",
+      "purl": "pkg:npm/%40marijn%2Ffind-cluster-break@1.0.4",
       "integrity": "sha512-Wy0V7+SGUjnF9/TkiM1hKVDPj7jKXduPNboMVtHTA8dySMURWqfg/JZ9E2Sq8JgSJmkl7k7Qe9FLeMSrSraWmQ==",
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/marijn/find-cluster-break.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@mermaid-js/parser",
       "version": "1.2.1",
       "license": "MIT",
-      "purl": "pkg:npm/%40mermaid-js/parser@1.2.1",
+      "purl": "pkg:npm/%40mermaid-js%2Fparser@1.2.1",
       "integrity": "sha512-n12NohV3mrUyUL2o93IgG/ifeW9FTyeJn3zDxkhwa8MJ9Fxg3HQMlA3RiGmD/3UnJvheztkjjQAjA2T4LmUcpw==",
       "repository": {
         "type": "git",
         "url": "https://github.com/mermaid-js/mermaid.git",
         "directory": "packages/parser"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3",
       "version": "7.4.3",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3@7.4.3",
+      "purl": "pkg:npm/%40types%2Fd3@7.4.3",
       "integrity": "sha512-lZXZ9ckh5R8uiFVt8ogUNf+pIrK4EsWrx2Np75WvF/eTpJ0FMHNhjXk8CKEx/+gpHbNQyJWehbFaTvqmHWB3ww==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-array",
       "version": "3.2.2",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-array@3.2.2",
+      "purl": "pkg:npm/%40types%2Fd3-array@3.2.2",
       "integrity": "sha512-hOLWVbm7uRza0BYXpIIW5pxfrKe0W+D5lrFiAEYR+pb6w3N2SwSMaJbXdUfSEv+dT4MfHBLtn5js0LAWaO6otw==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-array"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-axis",
       "version": "3.0.6",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-axis@3.0.6",
+      "purl": "pkg:npm/%40types%2Fd3-axis@3.0.6",
       "integrity": "sha512-pYeijfZuBd87T0hGn0FO1vQ/cgLk6E1ALJjfkC0oJ8cbwkZl3TpgS8bVBLZN+2jjGgg38epgxb2zmoGtSfvgMw==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-axis"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-brush",
       "version": "3.0.6",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-brush@3.0.6",
+      "purl": "pkg:npm/%40types%2Fd3-brush@3.0.6",
       "integrity": "sha512-nH60IZNNxEcrh6L1ZSMNA28rj27ut/2ZmI3r96Zd+1jrZD++zD3LsMIjWlvg4AYrHn/Pqz4CF3veCxGjtbqt7A==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-brush"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-chord",
       "version": "3.0.6",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-chord@3.0.6",
+      "purl": "pkg:npm/%40types%2Fd3-chord@3.0.6",
       "integrity": "sha512-LFYWWd8nwfwEmTZG9PfQxd17HbNPksHBiJHaKuY1XeqscXacsS2tyoo6OdRsjf+NQYeB6XrNL3a25E3gH69lcg==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-chord"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-color",
       "version": "3.1.3",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-color@3.1.3",
+      "purl": "pkg:npm/%40types%2Fd3-color@3.1.3",
       "integrity": "sha512-iO90scth9WAbmgv7ogoq57O9YpKmFBbmoEoCHDB2xMBY0+/KVrqAaCDyCE16dUspeOvIxFFRI+0sEtqDqy2b4A==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-color"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-contour",
       "version": "3.0.6",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-contour@3.0.6",
+      "purl": "pkg:npm/%40types%2Fd3-contour@3.0.6",
       "integrity": "sha512-BjzLgXGnCWjUSYGfH1cpdo41/hgdWETu4YxpezoztawmqsvCeep+8QGfiY6YbDvfgHz/DkjeIkkZVJavB4a3rg==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-contour"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-delaunay",
       "version": "6.0.4",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-delaunay@6.0.4",
+      "purl": "pkg:npm/%40types%2Fd3-delaunay@6.0.4",
       "integrity": "sha512-ZMaSKu4THYCU6sV64Lhg6qjf1orxBthaC161plr5KuPHo3CNm8DTHiLw/5Eq2b6TsNP0W0iJrUOFscY6Q450Hw==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-delaunay"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-dispatch",
       "version": "3.0.7",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-dispatch@3.0.7",
+      "purl": "pkg:npm/%40types%2Fd3-dispatch@3.0.7",
       "integrity": "sha512-5o9OIAdKkhN1QItV2oqaE5KMIiXAvDWBDPrD85e58Qlz1c1kI/J0NcqbEG88CoTwJrYe7ntUCVfeUl2UJKbWgA==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-dispatch"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-drag",
       "version": "3.0.7",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-drag@3.0.7",
+      "purl": "pkg:npm/%40types%2Fd3-drag@3.0.7",
       "integrity": "sha512-HE3jVKlzU9AaMazNufooRJ5ZpWmLIoc90A37WU2JMmeq28w1FQqCZswHZ3xR+SuxYftzHq6WU6KJHvqxKzTxxQ==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-drag"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-dsv",
       "version": "3.0.7",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-dsv@3.0.7",
+      "purl": "pkg:npm/%40types%2Fd3-dsv@3.0.7",
       "integrity": "sha512-n6QBF9/+XASqcKK6waudgL0pf/S5XHPPI8APyMLLUHd8NqouBGLsU8MgtO7NINGtPBtk9Kko/W4ea0oAspwh9g==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-dsv"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-ease",
       "version": "3.0.2",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-ease@3.0.2",
+      "purl": "pkg:npm/%40types%2Fd3-ease@3.0.2",
       "integrity": "sha512-NcV1JjO5oDzoK26oMzbILE6HW7uVXOHLQvHshBUW4UMdZGfiY6v5BeQwh9a9tCzv+CeefZQHJt5SRgK154RtiA==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-ease"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-fetch",
       "version": "3.0.7",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-fetch@3.0.7",
+      "purl": "pkg:npm/%40types%2Fd3-fetch@3.0.7",
       "integrity": "sha512-fTAfNmxSb9SOWNB9IoG5c8Hg6R+AzUHDRlsXsDZsNp6sxAEOP0tkP3gKkNSO/qmHPoBFTxNrjDprVHDQDvo5aA==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-fetch"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-force",
       "version": "3.0.10",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-force@3.0.10",
+      "purl": "pkg:npm/%40types%2Fd3-force@3.0.10",
       "integrity": "sha512-ZYeSaCF3p73RdOKcjj+swRlZfnYpK1EbaDiYICEEp5Q6sUiqFaFQ9qgoshp5CzIyyb/yD09kD9o2zEltCexlgw==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-force"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-format",
       "version": "3.0.4",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-format@3.0.4",
+      "purl": "pkg:npm/%40types%2Fd3-format@3.0.4",
       "integrity": "sha512-fALi2aI6shfg7vM5KiR1wNJnZ7r6UuggVqtDA+xiEdPZQwy/trcQaHnwShLuLdta2rTymCNpxYTiMZX/e09F4g==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-format"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-geo",
       "version": "3.1.1",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-geo@3.1.1",
+      "purl": "pkg:npm/%40types%2Fd3-geo@3.1.1",
       "integrity": "sha512-65Emv9fQiQQqphLlRkuQ5ypPsOmWPhtBGCMv61JDPEPMvsx+gzhGf74yw1a78xFKPj6zw4AgQICJoQv0vK9M2w==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-geo"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-hierarchy",
       "version": "3.1.7",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-hierarchy@3.1.7",
+      "purl": "pkg:npm/%40types%2Fd3-hierarchy@3.1.7",
       "integrity": "sha512-tJFtNoYBtRtkNysX1Xq4sxtjK8YgoWUNpIiUee0/jHGRwqvzYxkq0hGVbbOGSz+JgFxxRu4K8nb3YpG3CMARtg==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-hierarchy"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-interpolate",
       "version": "3.0.4",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-interpolate@3.0.4",
+      "purl": "pkg:npm/%40types%2Fd3-interpolate@3.0.4",
       "integrity": "sha512-mgLPETlrpVV1YRJIglr4Ez47g7Yxjl1lj7YKsiMCb27VJH9W8NVM6Bb9d8kkpG/uAQS5AmbA48q2IAolKKo1MA==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-interpolate"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-path",
       "version": "3.1.1",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-path@3.1.1",
+      "purl": "pkg:npm/%40types%2Fd3-path@3.1.1",
       "integrity": "sha512-VMZBYyQvbGmWyWVea0EHs/BwLgxc+MKi1zLDCONksozI4YJMcTt8ZEuIR4Sb1MMTE8MMW49v0IwI5+b7RmfWlg==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-path"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-polygon",
       "version": "3.0.2",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-polygon@3.0.2",
+      "purl": "pkg:npm/%40types%2Fd3-polygon@3.0.2",
       "integrity": "sha512-ZuWOtMaHCkN9xoeEMr1ubW2nGWsp4nIql+OPQRstu4ypeZ+zk3YKqQT0CXVe/PYqrKpZAi+J9mTs05TKwjXSRA==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-polygon"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-quadtree",
       "version": "3.0.6",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-quadtree@3.0.6",
+      "purl": "pkg:npm/%40types%2Fd3-quadtree@3.0.6",
       "integrity": "sha512-oUzyO1/Zm6rsxKRHA1vH0NEDG58HrT5icx/azi9MF1TWdtttWl0UIUsjEQBBh+SIkrpd21ZjEv7ptxWys1ncsg==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-quadtree"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-random",
       "version": "3.0.4",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-random@3.0.4",
+      "purl": "pkg:npm/%40types%2Fd3-random@3.0.4",
       "integrity": "sha512-UHYId5WTCx4L4YNel7NU00XUXXgvgpgZOvp10PuvsQENjMDXhh2RyFc0KBjO7B45ne4Ha1yVH7ii0vnzKkuzWA==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-random"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-scale",
       "version": "4.0.9",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-scale@4.0.9",
+      "purl": "pkg:npm/%40types%2Fd3-scale@4.0.9",
       "integrity": "sha512-dLmtwB8zkAeO/juAMfnV+sItKjlsw2lKdZVVy6LRr0cBmegxSABiLEpGVmSJJ8O08i4+sGR6qQtb6WtuwJdvVw==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-scale"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-scale-chromatic",
       "version": "3.1.0",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-scale-chromatic@3.1.0",
+      "purl": "pkg:npm/%40types%2Fd3-scale-chromatic@3.1.0",
       "integrity": "sha512-iWMJgwkK7yTRmWqRB5plb1kadXyQ5Sj8V/zYlFGMUBbIPKQScw+Dku9cAAMgJG+z5GYDoMjWGLVOvjghDEFnKQ==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-scale-chromatic"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-selection",
       "version": "3.0.11",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-selection@3.0.11",
+      "purl": "pkg:npm/%40types%2Fd3-selection@3.0.11",
       "integrity": "sha512-bhAXu23DJWsrI45xafYpkQ4NtcKMwWnAC/vKrd2l+nxMFuvOT3XMYTIj2opv8vq8AO5Yh7Qac/nSeP/3zjTK0w==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-selection"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-shape",
       "version": "3.2.0",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-shape@3.2.0",
+      "purl": "pkg:npm/%40types%2Fd3-shape@3.2.0",
       "integrity": "sha512-kVd74ta9eof3eJOvbNd1vGKS/XERRyQbT26Og63hIsvDO84cjD5gEOhsXf26w3FSoNlPVz84DOFcKv/oou+fMw==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-shape"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-time",
       "version": "3.0.4",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-time@3.0.4",
+      "purl": "pkg:npm/%40types%2Fd3-time@3.0.4",
       "integrity": "sha512-yuzZug1nkAAaBlBBikKZTgzCeA+k1uy4ZFwWANOfKw5z5LRhV0gNA7gNkKm7HoK+HRN0wX3EkxGk0fpbWhmB7g==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-time"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-time-format",
       "version": "4.0.3",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-time-format@4.0.3",
+      "purl": "pkg:npm/%40types%2Fd3-time-format@4.0.3",
       "integrity": "sha512-5xg9rC+wWL8kdDj153qZcsJ0FWiFt0J5RB6LYUNZjwSnesfblqrI/bJ1wBdJ8OQfncgbJG5+2F+qfqnqyzYxyg==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-time-format"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-timer",
       "version": "3.0.2",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-timer@3.0.2",
+      "purl": "pkg:npm/%40types%2Fd3-timer@3.0.2",
       "integrity": "sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-timer"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-transition",
       "version": "3.0.9",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-transition@3.0.9",
+      "purl": "pkg:npm/%40types%2Fd3-transition@3.0.9",
       "integrity": "sha512-uZS5shfxzO3rGlu0cC3bjmMFKsXv+SmZZcgp0KD22ts4uGXp5EVYGzu/0YdwZeKmddhcAccYtREJKkPfXkZuCg==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-transition"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/d3-zoom",
       "version": "3.0.8",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/d3-zoom@3.0.8",
+      "purl": "pkg:npm/%40types%2Fd3-zoom@3.0.8",
       "integrity": "sha512-iqMC4/YlFCSlO8+2Ii1GGGliCAY4XdeG748w5vQUbevlbDu0zSjH/+jojorQVBK/se0j6DUFNPBGSqD3YWYnDw==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/d3-zoom"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/geojson",
       "version": "7946.0.16",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/geojson@7946.0.16",
+      "purl": "pkg:npm/%40types%2Fgeojson@7946.0.16",
       "integrity": "sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/geojson"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@types/trusted-types",
       "version": "2.0.7",
       "license": "MIT",
-      "purl": "pkg:npm/%40types/trusted-types@2.0.7",
+      "purl": "pkg:npm/%40types%2Ftrusted-types@2.0.7",
       "integrity": "sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==",
       "repository": {
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/trusted-types"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "@upsetjs/venn.js",
       "version": "2.0.0",
       "license": "MIT",
-      "purl": "pkg:npm/%40upsetjs/venn.js@2.0.0",
+      "purl": "pkg:npm/%40upsetjs%2Fvenn.js@2.0.0",
       "integrity": "sha512-WbBhLrooyePuQ1VZxrJjtLvTc4NVfpOyKx0sKqioq9bX1C1m7Jgykkn8gLrtwumBioXIqam8DLxp88Adbue6Hw==",
       "repository": {
         "type": "git",
         "url": "https://github.com/upsetjs/venn.js.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "@viz-js/viz",
       "version": "3.29.0",
       "license": "MIT",
-      "purl": "pkg:npm/%40viz-js/viz@3.29.0",
+      "purl": "pkg:npm/%40viz-js%2Fviz@3.29.0",
       "integrity": "sha512-iq4MTqNCr8pinP4C73JRFx/h2w4QbtHvXINNiPeBv3/C5tSamXwakst6ODlR/l6uh3/SGr7IAGIfSk2qMekiNw==",
       "repository": {
         "type": "git",
         "url": "git+https://github.com/mdaines/viz-js.git",
         "directory": "packages/viz"
-      }
+      },
+      "groups": [
+        "optional:@viz-js/viz"
+      ]
     },
     {
       "name": "argparse",
@@ -704,7 +884,10 @@
       "license": "Python-2.0",
       "purl": "pkg:npm/argparse@2.0.1",
       "integrity": "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==",
-      "repository": "nodeca/argparse"
+      "repository": "nodeca/argparse",
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "codemirror",
@@ -715,7 +898,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/codemirror/basic-setup.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "commander",
@@ -726,7 +912,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/tj/commander.js.git"
-      }
+      },
+      "groups": [
+        "optional:katex"
+      ]
     },
     {
       "name": "commander",
@@ -737,7 +926,24 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/tj/commander.js.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
+    },
+    {
+      "name": "commander",
+      "version": "2.20.3",
+      "license": "MIT",
+      "purl": "pkg:npm/commander@2.20.3",
+      "integrity": "sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/tj/commander.js.git"
+      },
+      "groups": [
+        "optional:topojson-client"
+      ]
     },
     {
       "name": "cose-base",
@@ -748,7 +954,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/iVis-at-Bilkent/cose-base.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "cose-base",
@@ -759,7 +968,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/iVis-at-Bilkent/cose-base.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "crelt",
@@ -770,7 +982,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://code.haverbeke.berlin/marijn/crelt.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "cytoscape",
@@ -781,7 +996,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/cytoscape/cytoscape.js.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "cytoscape-cose-bilkent",
@@ -792,7 +1010,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/cytoscape/cytoscape.js-cose-bilkent.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "cytoscape-fcose",
@@ -803,7 +1024,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/iVis-at-Bilkent/cytoscape.js-fcose.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3",
@@ -814,7 +1038,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-array",
@@ -825,7 +1052,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-array.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-array",
@@ -836,7 +1066,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-array.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-axis",
@@ -847,7 +1080,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-axis.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-brush",
@@ -858,7 +1094,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-brush.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-chord",
@@ -869,7 +1108,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-chord.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-color",
@@ -880,7 +1122,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-color.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-contour",
@@ -891,7 +1136,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-contour.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-delaunay",
@@ -902,7 +1150,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-delaunay.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-dispatch",
@@ -913,7 +1164,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-dispatch.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-drag",
@@ -924,7 +1178,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-drag.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-dsv",
@@ -935,7 +1192,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-dsv.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-ease",
@@ -946,7 +1206,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-ease.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-fetch",
@@ -957,7 +1220,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-fetch.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-force",
@@ -968,7 +1234,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-force.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-format",
@@ -979,7 +1248,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-format.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-geo",
@@ -990,7 +1262,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-geo.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-hierarchy",
@@ -1001,7 +1276,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-hierarchy.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-interpolate",
@@ -1012,7 +1290,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-interpolate.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-path",
@@ -1023,7 +1304,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-path.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-path",
@@ -1034,7 +1318,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-path.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-polygon",
@@ -1045,7 +1332,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-polygon.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-quadtree",
@@ -1056,7 +1346,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-quadtree.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-random",
@@ -1067,7 +1360,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-random.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-sankey",
@@ -1078,7 +1374,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-sankey.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-scale",
@@ -1089,7 +1388,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-scale.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-scale-chromatic",
@@ -1100,7 +1402,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-scale-chromatic.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-selection",
@@ -1111,18 +1416,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-selection.git"
-      }
-    },
-    {
-      "name": "d3-shape",
-      "version": "1.3.7",
-      "license": "BSD-3-Clause",
-      "purl": "pkg:npm/d3-shape@1.3.7",
-      "integrity": "sha512-EUkvKjqPFUAZyOlhY5gzCxCeI0Aep04LwIRpsZ/mLFelJiUfnK56jo5JMDSE7yyP2kLSb6LtF+S5chMk7uqPqw==",
-      "repository": {
-        "type": "git",
-        "url": "https://github.com/d3/d3-shape.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-shape",
@@ -1133,7 +1430,24 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-shape.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
+    },
+    {
+      "name": "d3-shape",
+      "version": "1.3.7",
+      "license": "BSD-3-Clause",
+      "purl": "pkg:npm/d3-shape@1.3.7",
+      "integrity": "sha512-EUkvKjqPFUAZyOlhY5gzCxCeI0Aep04LwIRpsZ/mLFelJiUfnK56jo5JMDSE7yyP2kLSb6LtF+S5chMk7uqPqw==",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/d3/d3-shape.git"
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-time",
@@ -1144,7 +1458,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-time.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-time-format",
@@ -1155,7 +1472,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-time-format.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-timer",
@@ -1166,7 +1486,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-timer.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-transition",
@@ -1177,7 +1500,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-transition.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "d3-zoom",
@@ -1188,7 +1514,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/d3/d3-zoom.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "dagre-d3-es",
@@ -1199,7 +1528,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/tbo47/dagre-es.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "dayjs",
@@ -1210,7 +1542,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/iamkun/dayjs.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "delaunator",
@@ -1221,7 +1556,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/mapbox/delaunator.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "dompurify",
@@ -1232,7 +1570,11 @@
       "repository": {
         "type": "git",
         "url": "git://github.com/cure53/DOMPurify.git"
-      }
+      },
+      "groups": [
+        "required",
+        "optional:mermaid"
+      ]
     },
     {
       "name": "entities",
@@ -1243,7 +1585,10 @@
       "repository": {
         "type": "git",
         "url": "git://github.com/fb55/entities.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "es-toolkit",
@@ -1254,7 +1599,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/toss/es-toolkit.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "fastdom",
@@ -1265,7 +1613,10 @@
       "repository": {
         "type": "git",
         "url": "git://github.com/wilsonpage/fastdom.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "hachure-fill",
@@ -1276,7 +1627,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/pshihn/hachure-fill.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "highlight.js",
@@ -1287,7 +1641,10 @@
       "repository": {
         "type": "git",
         "url": "git://github.com/highlightjs/highlight.js.git"
-      }
+      },
+      "groups": [
+        "optional:highlight.js"
+      ]
     },
     {
       "name": "iconv-lite",
@@ -1298,7 +1655,10 @@
       "repository": {
         "type": "git",
         "url": "git://github.com/ashtuchkin/iconv-lite.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "import-meta-resolve",
@@ -1306,18 +1666,10 @@
       "license": "MIT",
       "purl": "pkg:npm/import-meta-resolve@4.2.0",
       "integrity": "sha512-Iqv2fzaTQN28s/FwZAoFq0ZSs/7hMAHJVX+w8PZl3cY19Pxk6jFFalxQoIfW2826i/fDLXv8IiEZRIT0lDuWcg==",
-      "repository": "wooorm/import-meta-resolve"
-    },
-    {
-      "name": "internmap",
-      "version": "1.0.1",
-      "license": "ISC",
-      "purl": "pkg:npm/internmap@1.0.1",
-      "integrity": "sha512-lDB5YccMydFBtasVtxnZ3MRBHuaoE8GKsppq+EchKL2U4nK/DmEpPHNH8MZe5HkMtpSiTSOZwfN0tzYjO/lJEw==",
-      "repository": {
-        "type": "git",
-        "url": "https://github.com/mbostock/internmap.git"
-      }
+      "repository": "wooorm/import-meta-resolve",
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "internmap",
@@ -1328,7 +1680,24 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/mbostock/internmap.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
+    },
+    {
+      "name": "internmap",
+      "version": "1.0.1",
+      "license": "ISC",
+      "purl": "pkg:npm/internmap@1.0.1",
+      "integrity": "sha512-lDB5YccMydFBtasVtxnZ3MRBHuaoE8GKsppq+EchKL2U4nK/DmEpPHNH8MZe5HkMtpSiTSOZwfN0tzYjO/lJEw==",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/mbostock/internmap.git"
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "katex",
@@ -1339,26 +1708,22 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/KaTeX/KaTeX.git"
-      }
+      },
+      "groups": [
+        "optional:katex",
+        "optional:mermaid"
+      ]
     },
     {
       "name": "khroma",
       "version": "2.1.0",
-      "license": "MIT",
+      "license": "SEE UPSTREAM LICENSE",
       "purl": "pkg:npm/khroma@2.1.0",
       "integrity": "sha512-Ls993zuzfayK269Svk9hzpeGUKob/sIgZzyHYdjQoAdQetRKpOLj+k/QQQ/6Qi0Yz65mlROrfd+Ev+1+7dz9Kw==",
-      "repository": "github:fabiospampinato/khroma"
-    },
-    {
-      "name": "layout-base",
-      "version": "2.0.1",
-      "license": "MIT",
-      "purl": "pkg:npm/layout-base@2.0.1",
-      "integrity": "sha512-dp3s92+uNI1hWIpPGH3jK2kxE2lMjdXdr+DH8ynZHpd6PUlH6x6cbuXnoMmiNumznqaNO31xu9e79F0uuZ0JFg==",
-      "repository": {
-        "type": "git",
-        "url": "git+https://github.com/iVis-at-Bilkent/layout-base.git"
-      }
+      "repository": "github:fabiospampinato/khroma",
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "layout-base",
@@ -1369,7 +1734,24 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/iVis-at-Bilkent/layout-base.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
+    },
+    {
+      "name": "layout-base",
+      "version": "2.0.1",
+      "license": "MIT",
+      "purl": "pkg:npm/layout-base@2.0.1",
+      "integrity": "sha512-dp3s92+uNI1hWIpPGH3jK2kxE2lMjdXdr+DH8ynZHpd6PUlH6x6cbuXnoMmiNumznqaNO31xu9e79F0uuZ0JFg==",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/iVis-at-Bilkent/layout-base.git"
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "linkify-it",
@@ -1377,7 +1759,10 @@
       "license": "MIT",
       "purl": "pkg:npm/linkify-it@5.0.2",
       "integrity": "sha512-ONTm2jCMAVZjgQa/Fy1kScXsuOoF5NPTsoFBdE1KVIZ2vAh/r9+Bqo+0jINCBYnavTPQZz38QzFTme79ENoN3Q==",
-      "repository": "markdown-it/linkify-it"
+      "repository": "markdown-it/linkify-it",
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "lodash-es",
@@ -1385,7 +1770,10 @@
       "license": "MIT",
       "purl": "pkg:npm/lodash-es@4.18.1",
       "integrity": "sha512-J8xewKD/Gk22OZbhpOVSwcs60zhd95ESDwezOFuA3/099925PdHJ7OFHNTGtajL3AlZkykD32HykiMo+BIBI8A==",
-      "repository": "lodash/lodash"
+      "repository": "lodash/lodash",
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "markdown-it",
@@ -1393,7 +1781,10 @@
       "license": "MIT",
       "purl": "pkg:npm/markdown-it@14.3.1",
       "integrity": "sha512-4Ej49aYTDFIQ+uBkfX8GBvJGccoARxxPep+7aWTs55ozbjQJpW9M26Fe53vnGgvLeVzva/amzjQQaQu9w0vMhA==",
-      "repository": "markdown-it/markdown-it"
+      "repository": "markdown-it/markdown-it",
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "markdown-it-deflist",
@@ -1401,7 +1792,10 @@
       "license": "MIT",
       "purl": "pkg:npm/markdown-it-deflist@4.0.0",
       "integrity": "sha512-06186ZWDwNLg638THD70MxBeFrDMF0+nL7IWU/qwCGHGOcUIm4MTYXbfjpv0ooWnVjkSnAjW8msKaOQmNRfY6Q==",
-      "repository": "markdown-it/markdown-it-deflist.git"
+      "repository": "markdown-it/markdown-it-deflist.git",
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "markdown-it-emoji",
@@ -1412,7 +1806,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/markdown-it/markdown-it-emoji.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "markdown-it-footnote",
@@ -1420,7 +1817,10 @@
       "license": "MIT",
       "purl": "pkg:npm/markdown-it-footnote@4.0.0",
       "integrity": "sha512-WYJ7urf+khJYl3DqofQpYfEYkZKbmXmwxQV8c8mO/hGIhgZ1wOe7R4HLFNwqx7TjILbnC98fuyeSsin19JdFcQ==",
-      "repository": "markdown-it/markdown-it-footnote"
+      "repository": "markdown-it/markdown-it-footnote",
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "markdown-it-sub",
@@ -1428,7 +1828,10 @@
       "license": "MIT",
       "purl": "pkg:npm/markdown-it-sub@2.0.0",
       "integrity": "sha512-iCBKgwCkfQBRg2vApy9vx1C1Tu6D8XYo8NvevI3OlwzBRmiMtsJ2sXupBgEA7PPxiDwNni3qIUkhZ6j5wofDUA==",
-      "repository": "markdown-it/markdown-it-sub"
+      "repository": "markdown-it/markdown-it-sub",
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "markdown-it-sup",
@@ -1436,7 +1839,10 @@
       "license": "MIT",
       "purl": "pkg:npm/markdown-it-sup@2.0.0",
       "integrity": "sha512-5VgmdKlkBd8sgXuoDoxMpiU+BiEt3I49GItBzzw7Mxq9CxvnhE/k09HFli09zgfFDRixDQDfDxi0mgBCXtaTvA==",
-      "repository": "markdown-it/markdown-it-sup"
+      "repository": "markdown-it/markdown-it-sup",
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "markdown-it-task-lists",
@@ -1447,7 +1853,10 @@
       "repository": {
         "type": "git",
         "url": "git@github.com:revin/markdown-it-task-lists.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "marked",
@@ -1458,7 +1867,10 @@
       "repository": {
         "type": "git",
         "url": "git://github.com/markedjs/marked.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "mdurl",
@@ -1469,7 +1881,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/markdown-it/mdurl.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "mermaid",
@@ -1480,7 +1895,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/mermaid-js/mermaid"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "package-manager-detector",
@@ -1491,7 +1909,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/antfu-collective/package-manager-detector.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "path-data-parser",
@@ -1502,7 +1923,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/pshihn/path-data-parser.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "points-on-curve",
@@ -1513,7 +1937,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/pshihn/bezier-points.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "points-on-path",
@@ -1524,7 +1951,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/pshihn/points-on-path.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "punycode.js",
@@ -1535,7 +1965,40 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/mathiasbynens/punycode.js.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
+    },
+    {
+      "name": "react",
+      "version": "19.3.0",
+      "license": "MIT",
+      "purl": "pkg:npm/react@19.3.0",
+      "integrity": "sha512-E8LUcbtBWt20bbl2YoHfx4ZDBdxVTfOKtCZn9cDSJ4l6/nuoApcpIBcj47t2wZoVX8g2ZHuMHbiShgCR1T5Sog==",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/react/react.git",
+        "directory": "packages/react"
+      },
+      "groups": [
+        "optional:react"
+      ]
+    },
+    {
+      "name": "react-dom",
+      "version": "19.3.0",
+      "license": "MIT",
+      "purl": "pkg:npm/react-dom@19.3.0",
+      "integrity": "sha512-JDk8dgif51OjFoDE70+OT9ICyYr+69HlmihNwp1+Nsfbna3t5sIiCa9ZJktDmQ4/1b/rn26hIAR2uYXDMr5r0Q==",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/react/react.git",
+        "directory": "packages/react-dom"
+      },
+      "groups": [
+        "optional:react-dom"
+      ]
     },
     {
       "name": "robust-predicates",
@@ -1546,7 +2009,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/mourner/robust-predicates.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "roughjs",
@@ -1557,7 +2023,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/pshihn/rough.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "rw",
@@ -1568,7 +2037,10 @@
       "repository": {
         "type": "git",
         "url": "http://github.com/mbostock/rw.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "safer-buffer",
@@ -1579,7 +2051,25 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/ChALkeR/safer-buffer.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
+    },
+    {
+      "name": "scheduler",
+      "version": "0.28.0",
+      "license": "MIT",
+      "purl": "pkg:npm/scheduler@0.28.0",
+      "integrity": "sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/react/react.git",
+        "directory": "packages/scheduler"
+      },
+      "groups": [
+        "optional:react-dom"
+      ]
     },
     {
       "name": "strictdom",
@@ -1590,7 +2080,10 @@
       "repository": {
         "type": "git",
         "url": "git://github.com/wilsonpage/strictdom.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "style-mod",
@@ -1601,7 +2094,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/marijnh/style-mod.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "stylis",
@@ -1609,7 +2105,10 @@
       "license": "MIT",
       "purl": "pkg:npm/stylis@4.4.0",
       "integrity": "sha512-5Z9ZpRzfuH6l/UAvCPAPUo3665Nk2wLaZU3x+TLHKVzIz33+sbJqbtrYoC3KD4/uVOr2Zp+L0LySezP9OHV9yA==",
-      "repository": "https://github.com/thysultan/stylis.js"
+      "repository": "https://github.com/thysultan/stylis.js",
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "tinyexec",
@@ -1620,7 +2119,24 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/tinylibs/tinyexec.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
+    },
+    {
+      "name": "topojson-client",
+      "version": "3.1.0",
+      "license": "ISC",
+      "purl": "pkg:npm/topojson-client@3.1.0",
+      "integrity": "sha512-605uxS6bcYxGXw9qi62XyrV6Q3xwbndjachmNxu8HWTtVPxZfEJN9fd/SZS1Q54Sn2y0TMyMxFj/cJINqGHrKw==",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/topojson/topojson-client.git"
+      },
+      "groups": [
+        "optional:topojson-client"
+      ]
     },
     {
       "name": "ts-dedent",
@@ -1631,7 +2147,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/tamino-martinius/node-ts-dedent.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "uc.micro",
@@ -1639,7 +2158,10 @@
       "license": "MIT",
       "purl": "pkg:npm/uc.micro@2.1.0",
       "integrity": "sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A==",
-      "repository": "markdown-it/uc.micro"
+      "repository": "markdown-it/uc.micro",
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "uuid",
@@ -1650,7 +2172,10 @@
       "repository": {
         "type": "git",
         "url": "https://github.com/uuidjs/uuid.git"
-      }
+      },
+      "groups": [
+        "optional:mermaid"
+      ]
     },
     {
       "name": "w3c-keyname",
@@ -1661,7 +2186,10 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/marijnh/w3c-keyname.git"
-      }
+      },
+      "groups": [
+        "required"
+      ]
     },
     {
       "name": "yaml",
@@ -1669,7 +2197,10 @@
       "license": "ISC",
       "purl": "pkg:npm/yaml@2.9.0",
       "integrity": "sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA==",
-      "repository": "github:eemeli/yaml"
+      "repository": "github:eemeli/yaml",
+      "groups": [
+        "required"
+      ]
     }
   ]
 }

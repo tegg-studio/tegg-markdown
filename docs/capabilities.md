@@ -21,3 +21,20 @@
 
 No realtime collaboration, proprietary block database, account system, official
 sync service, application shell or paid feature unlocks are included.
+
+## Content profiles and GitHub extensions
+
+| Profile/capability | Contract | Boundary |
+|---|---|---|
+| `gfm` | CommonMark base + GFM tables, strike, autolinks, task lists and tagfilter | Raw HTML is additionally sanitized for Host safety |
+| `github` | GFM plus footnotes, emoji shortcodes, five standard alerts, math and Mermaid fences | No GitHub account/repository issue/mention resolution |
+| `tegg` (default) | Existing metadata, wiki links, custom callouts, Graphviz and formatting extensions | Choose explicitly when consuming Tegg-specific documents |
+| GitHub math forms | Inline dollars, paired dollar/backtick inline, block math and `math` fences | KaTeX engine; unsupported macros show safe source/error, not promised MathJax parity |
+| `geojson` / `topojson` / `stl` | Optional offline read-only fence renderer | Bounded geometry projection/ASCII STL; no remote basemap or binary file viewer |
+| Heading anchors | Outline/navigation uses the selected profile | Host handles cross-document permissions and paths |
+| Raw HTML / media | Sanitized content; resource URLs opt-in | No executable script, iframe or arbitrary CSS |
+
+Normative fixtures pin CommonMark 0.31.2 and GFM 0.29. Their semantic tests do not
+claim pixel parity with github.com or exhaustive support for every GitHub service.
+See [performance budgets](performance.md) for source fallbacks and optional rendering
+limits. Source remains authoritative in every profile.

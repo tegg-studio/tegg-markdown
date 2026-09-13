@@ -1,7 +1,7 @@
 {
   "name": "@tegg/markdown",
   "private": true,
-  "version": "0.1.0-preview.2",
+  "version": "0.2.0-preview.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -10,7 +10,16 @@
     "build": "vite build && tsc -p tsconfig.build.json",
     "check": "npm run typecheck && npm test && npm run build && node scripts/check-package.mjs",
     "prepack": "npm run build",
-    "prepare": "node scripts/prepare.mjs"
+    "prepare": "node scripts/prepare.mjs",
+    "check:consumers": "node scripts/prepare-consumers.mjs",
+    "test:browser": "playwright test",
+    "test:react": "playwright test --grep React",
+    "test:contracts": "vitest run src/conformance.test.ts src/integrationContracts.test.ts src/hostExtensions.test.ts src/editor.test.ts",
+    "test:csp": "playwright test --grep CSP",
+    "test:a11y": "playwright test --grep accessible",
+    "test:cas": "node --test examples/http-cas/store.node-test.mjs",
+    "licenses:inventory": "node scripts/dependency-inventory.mjs",
+    "test:performance": "node scripts/performance.mjs"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -28,7 +37,11 @@
     "scripts/prepare.mjs",
     "vite.config.ts",
     "tsconfig.json",
-    "tsconfig.build.json"
+    "tsconfig.build.json",
+    "examples/http-cas",
+    "SUPPORT.md",
+    "SECURITY.md",
+    "CHANGELOG.md"
   ],
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -41,11 +54,8 @@
     "@codemirror/view": "^6.38.1",
     "@lezer/common": "^1.5.2",
     "@lezer/markdown": "^1.7.2",
-    "@viz-js/viz": "^3.18.0",
     "codemirror": "^6.0.2",
     "dompurify": "^3.2.6",
-    "highlight.js": "^11.11.1",
-    "katex": "^0.16.22",
     "markdown-it": "^14.1.0",
     "markdown-it-deflist": "^4.0.0",
     "markdown-it-emoji": "^3.1.0",
@@ -53,16 +63,28 @@
     "markdown-it-sub": "^2.0.0",
     "markdown-it-sup": "^2.0.0",
     "markdown-it-task-lists": "^2.1.1",
-    "mermaid": "^11.9.0",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "@types/markdown-it": "^14.1.2",
     "@types/markdown-it-footnote": "^3.0.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/topojson-client": "^3.1.5",
+    "@viz-js/viz": "^3.18.0",
+    "highlight.js": "^11.11.1",
     "jsdom": "^29.1.1",
+    "katex": "^0.16.22",
+    "mermaid": "^11.9.0",
+    "postcss": "8.5.26",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "topojson-client": "^3.1.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.3",
-    "vitest": "^3.2.4"
+    "vitest": "4.1.11"
   },
   "description": "Source-first Markdown reader and editor with required attribution.",
   "license": "SEE LICENSE IN LICENSE",
@@ -81,9 +103,75 @@
       "types": "./dist/types/core.d.ts",
       "import": "./dist/core.js"
     },
-    "./interaction.css": "./dist/interaction.css"
+    "./interaction.css": "./dist/interaction.css",
+    "./reader": {
+      "types": "./dist/types/readerEntry.d.ts",
+      "import": "./dist/reader.js"
+    },
+    "./editor": {
+      "types": "./dist/types/editorEntry.d.ts",
+      "import": "./dist/editor.js"
+    },
+    "./engines/katex": {
+      "types": "./dist/types/engines/katex.d.ts",
+      "import": "./dist/katex.js"
+    },
+    "./engines/highlight": {
+      "types": "./dist/types/engines/highlight.d.ts",
+      "import": "./dist/highlight.js"
+    },
+    "./reader.css": "./dist/reader.css",
+    "./react": {
+      "types": "./dist/types/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./engines/geometry": {
+      "types": "./dist/types/engines/geometry.d.ts",
+      "import": "./dist/geometry.js"
+    },
+    "./engines/mermaid": {
+      "types": "./dist/types/engines/mermaid.d.ts",
+      "import": "./dist/mermaid.js"
+    },
+    "./engines/graphviz": {
+      "types": "./dist/types/engines/graphviz.d.ts",
+      "import": "./dist/graphvizEngine.js"
+    },
+    "./editor.css": "./dist/editor.css"
   },
   "engines": {
     "node": ">=22.12.0"
+  },
+  "peerDependencies": {
+    "@viz-js/viz": "^3.18.0",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.22",
+    "mermaid": "^11.9.0",
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0",
+    "topojson-client": "^3.1.0"
+  },
+  "peerDependenciesMeta": {
+    "katex": {
+      "optional": true
+    },
+    "highlight.js": {
+      "optional": true
+    },
+    "mermaid": {
+      "optional": true
+    },
+    "@viz-js/viz": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "topojson-client": {
+      "optional": true
+    }
   }
 }

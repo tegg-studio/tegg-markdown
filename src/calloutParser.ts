@@ -12,6 +12,7 @@ export function calloutPlugin(md: MarkdownIt) {
       const newline = inline.content.indexOf("\n");
       const header = parseCalloutHeader(newline < 0 ? inline.content : inline.content.slice(0, newline));
       if (!header) continue;
+      if (state.env?.profile === "github" && (!/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/.test(newline < 0 ? inline.content : inline.content.slice(0, newline)) || quote.level !== 0)) continue;
       quote.attrSet("data-callout", header.type);
       quote.attrJoin("class", `callout md-render-callout callout-${header.type}`);
       // This metadata is structural only. Folding interaction is intentionally separate.

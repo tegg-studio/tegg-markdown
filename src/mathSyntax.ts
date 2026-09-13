@@ -1,6 +1,10 @@
 import type MarkdownIt from "markdown-it";
 
 export function inlineMathAt(source: string, from: number) {
+  if (source.slice(from, from + 2) === "$`" && source[from - 1] !== "\\") {
+    const end = source.indexOf("`$", from + 2);
+    if (end > from + 2 && !source.slice(from + 2, end).includes("\n")) return {from, to: end + 2, source: source.slice(from + 2, end)};
+  }
   if (source[from] !== "$" || source[from + 1] === "$" || source[from - 1] === "$" || /\s/.test(source[from + 1] ?? " ")) return null;
   if (/^\$\d+(?:[.,]\d+)?[，。；：、]/.test(source.slice(from))) return null;
   let slashes = 0;

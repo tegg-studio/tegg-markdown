@@ -18,9 +18,9 @@ describe("host-owned image resources", () => {
   it("preserves browser SDK URLs and only adopts app-file for an explicit native host", async () => {
     const root = document.createElement("div");
     const input = {source: "![image](assets/My%20Image.png)", documentPath: "/tmp/#notes/note.md"};
-    await new TechnicalMarkdownReader(root).render(input);
+    await new TechnicalMarkdownReader(root, {resourcePolicy: {allowRelative: true}}).render(input);
     expect(root.querySelector("img")?.getAttribute("src")).toBe("assets/My%20Image.png");
-    await new TechnicalMarkdownReader(root, {resolveImage: resolveLocalImageSource}).render(input);
+    await new TechnicalMarkdownReader(root, {resolveImage: resolveLocalImageSource, resourcePolicy: {allowedProtocols: ["app-file:"]}}).render(input);
     expect(root.querySelector("img")?.getAttribute("src")).toBe("app-file:///tmp/%23notes/assets/My%20Image.png");
   });
 });

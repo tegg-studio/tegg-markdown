@@ -1,3 +1,5 @@
+import {gfmAutolinks, gfmTagfilter} from "./gfmRules";
+import {resolveProfile, type MarkdownProfile} from "./syntaxProfiles";
 import MarkdownIt from "markdown-it";
 import { mathPlugin } from "./mathSyntax";
 import deflist from "markdown-it-deflist";
@@ -58,7 +60,7 @@ function highlightPlugin(md: MarkdownIt) {
   });
 }
 
-function headingIdPlugin(md: MarkdownIt) {
+function headingIdPlugin(md: MarkdownIt, allowExplicit = true) {
   const headingIdPattern = /\s*\{#([A-Za-z][A-Za-z0-9_.:-]*)\}\s*$/u;
 
   md.core.ruler.after("inline", "heading_id", (state) => {
@@ -70,6 +72,7 @@ function headingIdPlugin(md: MarkdownIt) {
 
       if (state.env?.outline && headingOpen.map) headingOpen.attrSet("data-outline-anchor", `outline-line-${headingOpen.map[0]}`);
 
+      if (!allowExplicit) continue;
       const match = inline.content.match(headingIdPattern);
       const lastChild = inline.children?.at(-1);
       if (!match || !lastChild || lastChild.type !== "text" || !headingIdPattern.test(lastChild.content)) continue;
@@ -96,26 +99,31 @@ function tableAlignmentClassPlugin(md: MarkdownIt) {
   });
 }
 
-export const markdownParser = new MarkdownIt({
-  html: true,
-  linkify: true,
-  typographer: true,
-  highlight(code, language) {
-    return highlightCode(code, language);
-  },
-});
-
-markdownParser.use(mathPlugin);
-markdownParser.use(footnote as any);
-// Repeated references retain unique IDs while displaying the same note number.
-markdownParser.renderer.rules.footnote_caption = (tokens, index) => `[${tokens[index].meta.id + 1}]`;
-markdownParser.use(taskLists as any, { enabled: true, label: true, labelAfter: true });
-markdownParser.use(deflist);
-markdownParser.use(emoji, { shortcuts: {} });
-markdownParser.use(sub);
-markdownParser.use(sup);
-markdownParser.use(wikiLinkPlugin);
-markdownParser.use(highlightPlugin);
-markdownParser.use(headingIdPlugin);
-markdownParser.use(tableAlignmentClassPlugin);
-markdownParser.use(calloutPlugin);
+export function createMarkdownParser(profile: MarkdownProfile = "tegg", extensions: readonly string[] = ["table", "strikethrough", "autolink", "tagfilter", "tasklist"]) {
+  resolveProfile(profile);
+  const parser = profile === "tegg" ? new MarkdownIt({html: true, linkify: true, typographer: true})
+    : new MarkdownIt("commonmark", {html: true}).enable(extensions.filter(name => ["table", "strikethrough"].includes(name)));
+  if (profile !== "tegg") {
+    if (extensions.includes("autolink")) parser.use(gfmAutolinks);
+    if (extensions.includes("tagfilter")) parser.use(gfmTagfilter);
+    parser.renderer.rules.s_open = () => "<del>"; parser.renderer.rules.s_close = () => "</del>";
+  }
+  if (profile === "tegg" || extensions.includes("tasklist")) parser.use(taskLists as any, {enabled: profile === "tegg", label: profile === "tegg", labelAfter: profile === "tegg"});
+  parser.use(tableAlignmentClassPlugin);
+  if (profile !== "gfm") {
+    parser.use(mathPlugin).use(footnote as any).use(emoji, {shortcuts: {}});
+    parser.renderer.rules.footnote_caption = (tokens, index) => `[${tokens[index].meta.id + 1}]`;
+    parser.use(calloutPlugin);
+  }
+  if (profile === "tegg") parser.use(deflist).use(sub).use(sup).use(wikiLinkPlugin).use(highlightPlugin);
+  parser.use(headingIdPlugin, profile === "tegg");
+  return parser;
+}
+export const markdownParser = createMarkdownParser();
+const dialectParsers = new Map<MarkdownProfile, MarkdownIt>([["tegg", markdownParser]]);
+export function parserFor(profile: MarkdownProfile = "tegg"): MarkdownIt {
+  resolveProfile(profile);
+  let parser = dialectParsers.get(profile);
+  if (!parser) {parser = createMarkdownParser(profile); dialectParsers.set(profile, parser);}
+  return parser;
+}

@@ -1,12 +1,13 @@
 /** @vitest-environment jsdom */
 import {describe, expect, it, vi} from "vitest";
+import {resolveLocalImageSource} from "./profile";
 import {markdownParser} from "./markdownParser";
 import {sanitizeRenderedHtml} from "./renderKit";
 import {enhanceRenderedLinks} from "./renderedLinks";
 
 describe("rendered link routing", () => {
   it("normalizes images before insertion, including raw HTML, without srcset bypass", () => {
-    const html = sanitizeRenderedHtml('<img src="docs/My%20Image.png" srcset="file:///private/secret.png 2x"><img src="file:///tmp/p.png">', "/tmp/#notes/a.md");
+    const html = sanitizeRenderedHtml('<img src="docs/My%20Image.png" srcset="file:///private/secret.png 2x"><img src="file:///tmp/p.png">', "/tmp/#notes/a.md", resolveLocalImageSource);
     const root = document.createElement("div"); root.innerHTML = html;
     expect(root.querySelector("img")?.getAttribute("src")).toBe("app-file:///tmp/%23notes/docs/My%20Image.png");
     expect(root.querySelectorAll("img")[1].getAttribute("src")).toBe("app-file:///tmp/p.png");

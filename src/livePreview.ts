@@ -1,3 +1,5 @@
+import {setUIText, setUILabel} from "./uiContext";
+import {bindEngines} from "./renderEngines";
 import {imageForView, resourceContext} from "./editorHost";
 import {EditableCodeWidget} from "./codeEditing";
 import {LiteralWidget, decodeEntity, literalClipboardText} from "./literalEditing";
@@ -19,7 +21,7 @@ import { Decoration, DecorationSet, EditorView, keymap, ViewPlugin, ViewUpdate, 
 import type { SyntaxNode } from "@lezer/common";
 import emojiMap from "markdown-it-emoji/lib/data/full.mjs";
 import { dispatchSourcePatches } from "./editorPatches";
-import { markdownParser } from "./markdownParser";
+import { markdownParser, parserFor } from "./markdownParser";
 import {
   findFrontmatter,
   parseInlineImage,
@@ -83,9 +85,11 @@ class BlockWidget extends WidgetType {
     wrapper.append(blockToolbar, canvas);
 
     if (this.kind === "math") {
+      bindEngines(canvas, view.state.facet(resourceContext).engines);
       renderMathInto(canvas, { kind: "math", source: this.source, display: "block" });
     } else {
       const model = {kind: "diagram" as const, engine: this.kind, source: this.source};
+      bindEngines(canvas, view.state.facet(resourceContext).engines);
       const update = () => {void renderDiagram(model, canvas, () => view.dom.contains(wrapper));};
       update();
       widgetCleanup.set(wrapper, observeSurfaceAppearance(view.dom.closest<HTMLElement>(".tegg-surface") ?? view.dom, update));
@@ -104,7 +108,8 @@ class InlineMathWidget extends WidgetType {
     const span = document.createElement("span");
     span.className = "cm-live-math-inline";
     span.tabIndex = 0;
-    span.setAttribute("aria-label", `Formula: ${this.source}`);
+    setUILabel(span, "Formula: {value}", {value: String(this.source)});
+    bindEngines(span, view.state.facet(resourceContext).engines);
     renderMathInto(span, { kind: "math", source: this.source, display: "inline" });
     span.addEventListener("click", event => {event.stopPropagation(); openObjectViewer(span, span, this.source, "Formula", () => editSource(view, this.from + 1));});
     span.addEventListener("keydown", (event) => {
@@ -152,12 +157,12 @@ class HtmlPreviewWidget extends WidgetType {
     return other.source === this.source && other.from === this.from && other.block === this.block;
   }
   toDOM(view: EditorView) {
-    const renderedSource = this.block ? this.source : markdownParser.renderInline(this.source);
+    const renderedSource = this.block ? this.source : parserFor(view.state.facet(resourceContext).profile).renderInline(this.source);
     const wrapper = createHtmlPreview({
       kind: "html",
       source: this.source,
       display: this.block ? "block" : "inline",
-    }, renderedSource);
+    }, renderedSource, view.state.facet(resourceContext));
     wrapper.classList.add(this.block ? "cm-live-html-block" : "cm-live-html-inline");
     wrapper.tabIndex = 0;
     wrapper.addEventListener("click", () => editSource(view, this.from));
@@ -181,7 +186,7 @@ class FootnoteWidget extends WidgetType {
       panel.head.append(action("Edit Source", () => {panel.close(false); editSource(view, this.definition.from);}));
     });
     button.className = `cm-live-footnote-ref ${renderClassNames.footnoteRef}`;
-    button.setAttribute("aria-label", `Footnote ${this.number}`); button.setAttribute("aria-haspopup", "dialog");
+    setUILabel(button, "Footnote {value}", {value: String(this.number)}); button.setAttribute("aria-haspopup", "dialog");
     button.addEventListener("mousedown", event => {event.preventDefault(); event.stopPropagation();});
     return button;
   }
@@ -251,7 +256,7 @@ class ImageWidget extends WidgetType {
     const fallback = document.createElement("div");
     fallback.className = "cm-live-image-fallback";
     fallback.hidden = true;
-    fallback.textContent = `Could not display image · ${this.alt || this.src}`;
+    setUIText(fallback,"Could not display image · {value}",{value:this.alt || this.src});
     image.addEventListener("error", () => {
       image.hidden = true;
       fallback.hidden = false;
@@ -341,7 +346,7 @@ class HorizontalRuleWidget extends WidgetType {
   toDOM(view: EditorView) {
     const rule = document.createElement("hr");
     rule.className = `cm-live-rule ${renderClassNames.rule}`;
-    rule.setAttribute("aria-label", "Horizontal rule");
+    setUILabel(rule, "Horizontal rule");
     rule.addEventListener("mousedown", (event) => {
       if (event.button !== 0) return;
       event.preventDefault();
@@ -374,11 +379,11 @@ class MetadataSourceToolbar extends WidgetType {
     toolbar.className = "cm-metadata-source-toolbar";
     toolbar.contentEditable = "false";
     const label = document.createElement("span");
-    label.textContent = "Metadata · YAML";
+    setUIText(label, "Metadata \u00b7 YAML");
     const done = document.createElement("button");
     done.type = "button";
     done.textContent = "Done";
-    done.setAttribute("aria-label", "Done editing YAML");
+    setUILabel(done, "Done editing YAML");
     done.addEventListener("mousedown", event => { event.preventDefault(); event.stopPropagation(); });
     done.addEventListener("click", event => {
       event.preventDefault(); event.stopPropagation();
@@ -461,7 +466,7 @@ class CalloutHeaderWidget extends WidgetType {
     if (this.showTitle) {
       const title = document.createElement("span");
       title.className = "callout-title";
-      title.innerHTML = sanitizeRenderedHtml(markdownParser.renderInline(this.title || this.type.toUpperCase()), view.state.facet(resourceContext).documentPath, view.state.facet(resourceContext).resolveImage);
+      title.innerHTML = sanitizeRenderedHtml(parserFor(view.state.facet(resourceContext).profile).renderInline(this.title || this.type.toUpperCase()), view.state.facet(resourceContext).documentPath, view.state.facet(resourceContext).resolveImage);
       title.addEventListener("click", () => editSource(view, this.from));
       header.append(title);
     }
@@ -484,7 +489,7 @@ class BlockquoteWidget extends WidgetType {
 
   toDOM(view: EditorView) {
     const shell = document.createElement("div");
-    shell.innerHTML = sanitizeRenderedHtml(markdownParser.render(this.source), view.state.facet(resourceContext).documentPath, view.state.facet(resourceContext).resolveImage);
+    shell.innerHTML = sanitizeRenderedHtml(parserFor(view.state.facet(resourceContext).profile).render(this.source, {profile: view.state.facet(resourceContext).profile}), view.state.facet(resourceContext).documentPath, view.state.facet(resourceContext).resolveImage);
     scopeIds(shell); applySemanticClasses(shell);
     enhanceCallouts(shell); enhanceMathTokens(shell); enhanceFigures(shell);
     enhanceRenderedLinks(shell, href => view.dom.dispatchEvent(new CustomEvent("tegg-open-link", {detail: href, bubbles: true})));
@@ -547,7 +552,7 @@ class TableWidget extends WidgetType {
     }]);
     const button = (title: string, action: () => void) => {
       const result = document.createElement("button");
-      result.type = "button"; result.textContent = title; result.addEventListener("click", action); return result;
+      result.type = "button"; setUIText(result,title); result.addEventListener("click", action); return result;
     };
     actions.append(
       button("Add Row", () => { model.rows.push(model.headers.map(() => "")); commit(); }),
@@ -570,12 +575,12 @@ class TableWidget extends WidgetType {
       const preview = document.createElement("button");
       preview.type = "button";
       preview.className = "cm-live-table-preview";
-      preview.innerHTML = sanitizeRenderedHtml(markdownParser.renderInline(value), view.state.facet(resourceContext).documentPath, view.state.facet(resourceContext).resolveImage);
-      preview.setAttribute("aria-label", `Edit table cell: ${value}`);
+      preview.innerHTML = sanitizeRenderedHtml(parserFor(view.state.facet(resourceContext).profile).renderInline(value), view.state.facet(resourceContext).documentPath, view.state.facet(resourceContext).resolveImage);
+      setUILabel(preview, "Edit table cell: {value}", {value: String(value)});
       const input = document.createElement("input");
       input.value = value;
       input.hidden = true;
-      input.setAttribute("aria-label", `Table cell: ${value || "Empty"}`);
+      setUILabel(input, "Table cell: {value}", {value: String(value || "Empty")});
       let editing = false;
       const finish = (save: boolean) => {
         // Committing replaces this widget and can synchronously blur its input.
@@ -807,7 +812,8 @@ function footnoteNumbers(source: string, definitions: LinkDefinition[], codeRang
 
 
 function buildDecorations(view: EditorView): DecorationSet {
-  const analysis = analyzeSource(view.state.doc);
+  const profile = view.state.facet(resourceContext).profile ?? "tegg";
+  const analysis = analyzeSource(view.state.doc, profile);
   const source = analysis.source;
   const ranges: Range<Decoration>[] = [];
   const suppressed: SourceRange[] = [];
@@ -888,7 +894,7 @@ function buildDecorations(view: EditorView): DecorationSet {
     ranges.push(Decoration.replace({inlineSyntax: true}).range(pair.contentTo, pair.to));
   }
 
-  const definitions = findLinkDefinitions(source, codeRanges);
+  const definitions = findLinkDefinitions(source, codeRanges).filter(item => profile !== "gfm" || !item.footnote);
   const numbers = footnoteNumbers(source, definitions, codeRanges);
   for (const definition of definitions) {
     suppressed.push(definition);
@@ -901,7 +907,7 @@ function buildDecorations(view: EditorView): DecorationSet {
     }
   }
 
-  for (const match of source.matchAll(/\[\^([^\]\n]+)\]/g)) {
+  for (const match of (profile === "gfm" ? [] : source.matchAll(/\[\^([^\]\n]+)\]/g))) {
     const from = match.index ?? 0;
     const range = { from, to: from + match[0].length };
     if (isInside(range, codeRanges) || isInside(range, definitions)) continue;
@@ -915,7 +921,7 @@ function buildDecorations(view: EditorView): DecorationSet {
     }
   }
 
-  const callouts = calloutRanges(view.state);
+  const callouts = profile === "gfm" ? [] : calloutRanges(view.state).filter(item => profile === "tegg" || /^[ \t]{0,3}>[ \t]*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*$/.test(view.state.doc.lineAt(item.from).text));
   const outerCallouts = callouts.filter(item => !callouts.some(parent => parent.from < item.from && parent.to >= item.to));
   for (const callout of outerCallouts) {
     if (isRangeActive(view, callout.from, callout.to) || (view.hasFocus && view.state.selection.ranges.some(selection => selection.empty && selection.from === callout.to))) {
@@ -970,7 +976,7 @@ function buildDecorations(view: EditorView): DecorationSet {
     ranges.push(Decoration.replace({inlineSyntax: true}).range(highlight.contentTo, highlight.to));
   }
 
-  for (const match of source.matchAll(/[ \t]*\{#([A-Za-z][A-Za-z0-9_.:-]*)\}[ \t]*$/gm)) {
+  for (const match of (profile === "tegg" ? source.matchAll(/[ \t]*\{#([A-Za-z][A-Za-z0-9_.:-]*)\}[ \t]*$/gm) : [])) {
     const from = match.index ?? 0;
     const range = { from, to: from + match[0].length };
     if (isInside(range, codeRanges) || isInside(range, suppressed)) continue;
@@ -981,7 +987,7 @@ function buildDecorations(view: EditorView): DecorationSet {
     }
   }
 
-  for (let from = 0; from < source.length; from++) {
+  for (let from = 0; profile !== "gfm" && from < source.length; from++) {
     const match = inlineMathAt(source, from);
     if (!match) continue;
     const range = {from, to: match.to};
@@ -993,14 +999,14 @@ function buildDecorations(view: EditorView): DecorationSet {
     }
   }
 
-  for (const match of source.matchAll(/:([+\-\w]+):/g)) {
+  for (const match of (profile === "gfm" ? [] : source.matchAll(/:([+\-\w]+):/g))) {
     const emoji = (emojiMap as Record<string, string>)[match[1]];
     if (!emoji) continue;
     const range = {from: match.index!, to: match.index! + match[0].length};
     if (isInside(range, codeRanges) || isInside(range, suppressed) || inlineExcluded.some(r => range.from < r.to && range.to > r.from)) continue;
     ranges.push(Decoration.replace({emojiSyntax: true, widget: new EmojiWidget(emoji, match[1], range.from)}).range(range.from, range.to));
   }
-  for (const pair of scriptFormatting(view.state)) {
+  for (const pair of (profile === "tegg" ? scriptFormatting(view.state) : [])) {
     if (isInside(pair, codeRanges) || isInside(pair, suppressed)) continue;
     const className = pair.tag === "sub" ? `cm-live-sub ${renderClassNames.subscript}` : `cm-live-sup ${renderClassNames.superscript}`;
     ranges.push(Decoration.mark({class: className}).range(pair.contentFrom, pair.contentTo));
@@ -1014,7 +1020,7 @@ function buildDecorations(view: EditorView): DecorationSet {
     const line = documentLines[index].replace(/\r$/, "");
     const definition = line.match(/^([ \t]*):[ \t]+(.+)$/);
     const currentRange = { from: documentOffset, to: documentOffset + line.length };
-    if (definition && !isInside(currentRange, codeRanges) && !isInside(currentRange, suppressed)) {
+    if (profile === "tegg" && definition && !isInside(currentRange, codeRanges) && !isInside(currentRange, suppressed)) {
       ranges.push(Decoration.line({ class: `cm-live-definition-description ${renderClassNames.definitionDescription}` }).range(currentRange.from));
       const previousLine = index > 0 ? documentLines[index - 1].replace(/\r$/, "") : "";
       if (previousLine.trim() && !/^\s*:/.test(previousLine)) {
@@ -1029,6 +1035,8 @@ function buildDecorations(view: EditorView): DecorationSet {
   }
 
   const quoteDepths = new Map<number, number>();
+  const literalReferences = new Set<number>();
+  let referenceEnvironment: Record<string, unknown> | undefined;
   syntaxTree(view.state).iterate({
     enter(node) {
       const nodeRange = { from: node.from, to: node.to };
@@ -1080,6 +1088,15 @@ function buildDecorations(view: EditorView): DecorationSet {
       } else if (name === "InlineCode") {
         ranges.push(Decoration.mark({ class: `cm-live-inline-code ${renderClassNames.inlineCode}` }).range(node.from, node.to));
       } else if (name === "Link") {
+        if (!node.node.getChild("URL")) {
+          const parser = parserFor(profile);
+          if (!referenceEnvironment) {referenceEnvironment = {}; parser.parse(source, referenceEnvironment);}
+          const tokens = parser.parseInline(raw, referenceEnvironment)[0]?.children ?? [];
+          if (tokens[0]?.type !== "link_open" || tokens.at(-1)?.type !== "link_close") {
+            literalReferences.add(node.from);
+            return;
+          }
+        }
         if (!/^\[![A-Za-z]+\]/.test(raw)) {
           const linkedImage = parseLinkedImage(raw);
           if (linkedImage && !active) {
@@ -1191,7 +1208,7 @@ function buildDecorations(view: EditorView): DecorationSet {
 
       if (["EmphasisMark", "StrikethroughMark", "CodeMark"].includes(name)) {
         ranges.push(Decoration.replace({inlineSyntax: true}).range(node.from, node.to));
-      } else if (["LinkMark", "URL", "LinkTitle"].includes(name) && !/^\[![A-Za-z]+\]/.test(source.slice(semantic.from, semantic.to))) {
+      } else if (["LinkMark", "URL", "LinkTitle"].includes(name) && !literalReferences.has(semantic.from) && !/^\[![A-Za-z]+\]/.test(source.slice(semantic.from, semantic.to))) {
         if (name !== "URL" || semantic.name === "Link") {
           ranges.push(Decoration.replace({}).range(node.from, node.to));
         }

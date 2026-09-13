@@ -1,6 +1,8 @@
+import {setUIText, setUILabel} from "./uiContext";
 import {ensureSyntaxTree, syntaxTree} from "@codemirror/language";
 import {EditorView, ViewPlugin} from "@codemirror/view";
-import {markdownParser} from "./markdownParser";
+import {parserFor} from "./markdownParser";
+import {resourceContext} from "./editorHost";
 import {analyzeSource} from "./sourceAnalysis";
 import {parseWikiLink} from "./profile";
 import {dispatchSourcePatches} from "./editorPatches";
@@ -8,11 +10,13 @@ import {dispatchSourcePatches} from "./editorPatches";
 type Link = {from: number; to: number; raw: string; label: string; target: string; wiki: boolean; labelSource?: string; title?: string};
 export function linkAt(view: EditorView, position: number): Link | null {
   const source = view.state.doc.toString();
+  const profile = view.state.facet(resourceContext).profile;
+  const markdownParser = parserFor(profile);
   const tree = ensureSyntaxTree(view.state, position, 50) ?? syntaxTree(view.state);
   for (let node = tree.resolveInner(position, 1); node; node = node.parent!) {
     if (["FencedCode", "CodeBlock", "InlineCode", "Image"].includes(node.name)) return null;
   }
-  const wiki = analyzeSource(view.state.doc).wikiLinks.find(item => position >= item.from && position <= item.to);
+  const wiki = analyzeSource(view.state.doc, profile).wikiLinks.find(item => position >= item.from && position <= item.to);
   if (wiki) {
     const raw = source.slice(wiki.from, wiki.to);
     const parsed = parseWikiLink(raw.slice(2, -2));
@@ -138,14 +142,14 @@ class LinkController {
     const panel = this.panel = document.createElement("div");
     panel.className = "md-link-popover" + (editing ? " md-link-editor" : "");
     panel.setAttribute("role", editing ? "dialog" : "group");
-    panel.setAttribute("aria-label", editing ? "Edit link" : "Link actions");
+    setUILabel(panel,editing ? "Edit link" : "Link actions");
     panel.addEventListener("mouseenter", () => this.cancelClose());
     panel.addEventListener("mouseleave", () => this.scheduleClose());
     panel.addEventListener("focusin", () => this.cancelClose());
     panel.addEventListener("focusout", () => this.scheduleClose());
     panel.addEventListener("keydown", event => { event.stopPropagation(); if (event.key === "Escape") { this.close(); this.view.focus(); } });
     const action = (text: string, run: () => void) => {
-      const button = document.createElement("button"); button.type = "button"; button.textContent = text;
+      const button = document.createElement("button"); button.type = "button"; setUIText(button,text);
       button.addEventListener("click", run); return button;
     };
     let readableTarget = link.target;
@@ -154,7 +158,7 @@ class LinkController {
       const target = action("", () => this.open(link));
       target.className = "md-link-destination";
       target.title = readableTarget;
-      target.setAttribute("aria-label", `Open ${readableTarget}`);
+      setUILabel(target,"Open {value}",{value:readableTarget});
       const text = document.createElement("span"); text.className = "md-link-destination-text"; text.textContent = readableTarget;
       const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       icon.setAttribute("viewBox", "0 0 16 16"); icon.setAttribute("aria-hidden", "true");
@@ -169,8 +173,8 @@ class LinkController {
     } else {
       const form = document.createElement("form");
       const input = (name: string, value: string) => {
-        const label = document.createElement("label"); label.textContent = name;
-        const field = document.createElement("input"); field.value = value; field.spellcheck = false; field.autocomplete = "off"; field.setAttribute("aria-label", name);
+        const label = document.createElement("label"); setUIText(label,name);
+        const field = document.createElement("input"); field.value = value; field.spellcheck = false; field.autocomplete = "off"; setUILabel(field,name);
         label.append(field); form.append(label); return field;
       };
       const title = input("Display text", link.label), target = input("Link destination", readableTarget);

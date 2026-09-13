@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.0-preview.1 — Git preview, not a registry release
+
+- Keep unresolved reference brackets visible in Live Edit and apply the selected
+  profile to link navigation. Avoid toolbar/outline work without Host subscribers.
+- Add explicit Tegg, GitHub and GFM syntax profiles with fixed normative fixtures.
+- Add lightweight Reader/Editor, React 18/19 adapters, instance engines and read-only
+  renderer slots with cleanup, cancellation and Context-preserving portals.
+- Make resource loading opt-in, including resolved URLs; add source selection hooks,
+  locale/messages, Host layout and isolated overlay support.
+- Add optional offline GeoJSON/TopoJSON/ASCII STL previews with input budgets.
+- Coalesce subsequent streaming snapshots, retain independent blocks/unchanged
+  renderer instances, update late references and preserve reading position.
+- Add independent packed consumers, browser/CSP/accessibility/streaming checks and
+  a local atomic revision comparison example.
+
+Read [migration](docs/migration.md) before upgrading. Final verification and publication
+identities are recorded in [validation](docs/validation.md), not inferred from this list.
+
 ## 0.1.0-preview.2
 
 - Align the default SDK and example accent with the Mac Host system blue (#007AFF), including controls, links, task checkboxes and 12% selection fills.
@@ -12,7 +30,7 @@
 - Keep the attribution license and default visible credit unchanged.
 
 
-## Unreleased
+## Historical fixes before 0.2
 
 - Fix duplicate table-cell commits when Enter is followed by blur; preserve the
   edited value and a single undo step.

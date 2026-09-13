@@ -1,8 +1,9 @@
+import {setUIText, setUILabel} from "./uiContext";
 import {copySource, action, openObjectViewer, scopeIds, enhanceFigures} from "./renderInteraction";
 import { makeHorizontalScrollRegion } from "./localScroll";
 import DOMPurify from "dompurify";
-import hljs from "highlight.js";
-import katex from "katex";
+import {enginesFor, type RenderEngines} from "./renderEngines";
+
 import { applyCalloutAppearance, calloutIcon } from "./callouts";
 import { resolveLocalImageSource } from "./profile";
 
@@ -71,11 +72,23 @@ export function escapeHtml(value: string): string {
 }
 
 export function sanitizeRenderedHtml(value: string, documentPath = "",
-  resolveImage: (src: string, path: string) => string = resolveLocalImageSource): string {
+  resolveImage: (src: string, path: string) => string = () => ""): string {
   const fragment = DOMPurify.sanitize(value, {...safeHtmlOptions, RETURN_DOM_FRAGMENT: true});
-  for (const element of fragment.querySelectorAll("[srcset]")) element.removeAttribute("srcset");
-  for (const image of fragment.querySelectorAll<HTMLImageElement>("img[src]")) {
-    image.setAttribute("src", resolveImage(image.getAttribute("src")!, documentPath));
+  for (const element of fragment.querySelectorAll("[srcset], [ping]")) {element.removeAttribute("srcset"); element.removeAttribute("ping");}
+  for (const node of fragment.querySelectorAll("[data-tegg-slot], [data-tegg-resource-src], [data-tegg-resource-poster], [data-tegg-ui-text], [data-tegg-ui-label]")) {
+    node.removeAttribute("data-tegg-slot");
+    node.removeAttribute("data-tegg-ui-text"); node.removeAttribute("data-tegg-ui-label");
+    node.removeAttribute("data-tegg-resource-src"); node.removeAttribute("data-tegg-resource-poster");
+  }
+  let resourceIndex = 0;
+  for (const element of fragment.querySelectorAll<HTMLElement>("[src], [poster]")) {
+    for (const attribute of ["src", "poster"]) {
+      const raw = element.getAttribute(attribute); if (raw == null) continue;
+      const resolved = resolveImage(raw, documentPath);
+      element.setAttribute(`data-tegg-resource-${attribute}`, String(resourceIndex++));
+      if (resolved && !/^[\u0000-\u0020]*(?:javascript|vbscript):/i.test(resolved)) element.setAttribute(attribute, resolved);
+      else {element.removeAttribute(attribute); element.dataset.resourceState = "blocked";}
+    }
   }
   const container = document.createElement("div");
   container.append(fragment);
@@ -118,12 +131,8 @@ export function enhanceCallouts(root: ParentNode): void {
   }
 }
 
-export function highlightCode(source: string, language: string): string {
-  const normalizedLanguage = language.trim().toLowerCase();
-  if (normalizedLanguage && hljs.getLanguage(normalizedLanguage)) {
-    return hljs.highlight(source, { language: normalizedLanguage, ignoreIllegals: true }).value;
-  }
-  return escapeHtml(source);
+export function highlightCode(source: string, language: string, engines: RenderEngines = enginesFor()): string {
+  return engines.highlight?.(source, language.trim().toLowerCase()) ?? escapeHtml(source);
 }
 
 export function createRenderToolbar(labelText: string, action: RenderAction): HTMLDivElement {
@@ -133,7 +142,7 @@ export function createRenderToolbar(labelText: string, action: RenderAction): HT
   label.textContent = labelText;
   const button = document.createElement("button");
   button.type = "button";
-  button.textContent = action.label;
+  setUIText(button, action.label);
   button.addEventListener("click", action.run);
   toolbar.append(label, button);
   return toolbar;
@@ -142,6 +151,7 @@ export function createRenderToolbar(labelText: string, action: RenderAction): HT
 export function createCodeBlock(
   model: Extract<RenderModel, { kind: "code" }>,
   action: RenderAction,
+  engines?: RenderEngines,
 ): HTMLElement {
   const wrapper = document.createElement("section");
   wrapper.className = `${renderClassNames.block} ${renderClassNames.code}`;
@@ -152,7 +162,7 @@ export function createCodeBlock(
   makeHorizontalScrollRegion(pre, "Code. Scroll horizontally for long lines.");
   const code = document.createElement("code");
   code.className = `language-${language}`;
-  code.innerHTML = highlightCode(model.source, language);
+  code.innerHTML = highlightCode(model.source, language, engines);
   pre.append(code);
   wrapper.append(pre);
   return wrapper;
@@ -167,14 +177,13 @@ export function renderMathInto(
   target.dataset.texSource = model.source;
   target.dataset.renderState = "ready";
   try {
-    target.innerHTML = katex.renderToString(model.source, {
-      displayMode: model.display === "block", throwOnError: true, strict: false,
-      trust: false, maxExpand: 1000, maxSize: 20, macros: {}, output: "htmlAndMathml",
-    });
+    const engine = enginesFor(target).math;
+    if (engine) target.innerHTML = engine(model.source, model.display);
+    else {target.textContent = model.source; target.dataset.renderState = "unavailable";}
   } catch (error) {
     target.dataset.renderState = "error";
     const message = document.createElement("span"); message.className = "md-math-error";
-    message.textContent = "Could not render formula"; message.title = error instanceof Error ? error.message : "Invalid TeX";
+    setUIText(message, "Could not render formula"); message.title = error instanceof Error ? error.message : "Invalid TeX";
     const source = document.createElement("code"); source.textContent = model.source;
     target.replaceChildren(message, source);
   }
@@ -188,19 +197,26 @@ export function renderMathInto(
 export function createHtmlPreview(
   model: Extract<RenderModel, { kind: "html" }>,
   renderedSource = model.source,
+  resources?: {documentPath: string; resolveImage?: (src: string, path: string) => string},
 ): HTMLElement {
   const wrapper = document.createElement(model.display === "block" ? "section" : "span");
   wrapper.className = model.display === "block" ? renderClassNames.htmlBlock : renderClassNames.htmlInline;
-  wrapper.innerHTML = sanitizeRenderedHtml(renderedSource);
+  wrapper.innerHTML = sanitizeRenderedHtml(renderedSource, resources?.documentPath, resources?.resolveImage);
   enhanceMathTokens(wrapper); enhanceFigures(wrapper);
   return wrapper;
 }
 
 
 export function enhanceMathTokens(root: ParentNode) {
+  let rendered = 0;
   for (const target of root.querySelectorAll<HTMLElement>("[data-tegg-math][data-tex]")) {
     const source = target.dataset.tex ?? "", display = target.dataset.teggMath === "block" ? "block" : "inline";
     target.removeAttribute("data-tegg-math"); target.removeAttribute("data-tex");
+    if (++rendered > 128 || source.length > 16384) {
+      target.dataset.texSource=source; target.dataset.renderState="deferred"; target.textContent=source;
+      if(source.length <= 16384 && !target.closest('[data-enhancements="false"]')) target.append(action("Preview formula",()=>renderMathInto(target,{kind:"math",source,display})));
+      continue;
+    }
     renderMathInto(target, {kind: "math", source, display});
     if (display === "inline" && !target.closest('[data-enhancements="false"]')) {
       target.tabIndex = 0;
@@ -211,33 +227,35 @@ export function enhanceMathTokens(root: ParentNode) {
   }
 }
 
-let mermaidPromise: Promise<typeof import("mermaid").default> | null = null;
-let mermaidTheme = "";
-async function diagramMermaid(target: HTMLElement) {
-  mermaidPromise ??= import("mermaid").then(module => module.default);
-  const mermaid = await mermaidPromise;
-  const surface = target.closest<HTMLElement>(".tegg-surface") ?? target;
-  const explicit = surface.dataset.theme;
-  const color = getComputedStyle(surface).getPropertyValue("--background").trim();
-  const rgb = color.startsWith("#") ? color.slice(1).match(/.{2}/g)?.map(x => parseInt(x,16)) : color.match(/[\d.]+/g)?.slice(0,3).map(Number);
-  const dark = explicit ? explicit === "dark" : rgb?.length === 3 ? rgb.reduce((a,b) => a+b, 0) < 384 : window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-  const theme = dark ? "dark" : "neutral";
-  if (mermaidTheme !== theme) mermaid.initialize({
-    startOnLoad: false, securityLevel: "strict", suppressErrorRendering: true,
-    theme, maxEdges: 500, maxTextSize: 64 * 1024,
-    fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-  });
-  mermaidTheme = theme;
-  return mermaid;
+/** Diagram SVG is untrusted output: keep local references, never remote fetches. */
+export function sanitizeDiagramSvg(svg: string): DocumentFragment {
+  const fragment = DOMPurify.sanitize(svg,{USE_PROFILES:{svg:true,svgFilters:true},ADD_TAGS:["foreignObject"],RETURN_DOM_FRAGMENT:true});
+  for(const element of fragment.querySelectorAll("*")) {
+    for(const attr of [...element.attributes]) {
+      if(attr.name.startsWith("data-tegg-ui-") || attr.name === "data-tegg-slot") element.removeAttribute(attr.name);
+      if(["href","xlink:href","src","poster"].includes(attr.name) && !attr.value.startsWith("#")) element.removeAttribute(attr.name);
+      if(attr.name === "style" && unsafeSvgStyle(attr.value)) element.removeAttribute("style");
+    }
+    if(element.tagName.toLowerCase() === "style" && unsafeSvgStyle(element.textContent ?? "")) element.remove();
+  }
+  return fragment;
+}
+function unsafeSvgStyle(value: string) {
+  const withoutLocalUrls = value.replace(/url\(\s*(["']?)#[\w:.-]+\1\s*\)/gi, "");
+  return /url\s*\(|image-set\s*\(|src\s*\(|@|\\/i.test(withoutLocalUrls);
 }
 
 let mermaidPending = 0;
 let diagramQueue: Promise<void> = Promise.resolve();
 const diagramGeneration = new WeakMap<HTMLElement, object>();
 export function renderDiagram(model: Extract<RenderModel, {kind: "diagram"}>, target: HTMLElement, isCurrent?: () => boolean): Promise<void> {
+  const engines = enginesFor(target);
+  if ((model.engine === "mermaid" && !engines.mermaid) || (model.engine !== "mermaid" && !engines.graphviz)) {
+    target.dataset.renderState = "unavailable"; target.textContent = model.source; return Promise.resolve();
+  }
   const generation = {}; diagramGeneration.set(target, generation);
   target.dataset.engine = model.engine; target.dataset.renderState = "pending";
-  target.classList.add(renderClassNames.canvas); target.classList.remove("diagram-error"); target.textContent = "Rendering…";
+  target.classList.add(renderClassNames.canvas); target.classList.remove("diagram-error"); setUIText(target, "Rendering\u2026");
   const wasConnected = target.isConnected;
   const current = () => diagramGeneration.get(target) === generation && (isCurrent ? isCurrent() : !wasConnected || target.isConnected);
   let expired = false;
@@ -246,28 +264,21 @@ export function renderDiagram(model: Extract<RenderModel, {kind: "diagram"}>, ta
   // Include queue waiting in the readiness budget. The engine may continue in the background.
   const timer = window.setTimeout(() => {
     expired = true;
-    if (current()) {target.dataset.renderState = "over-budget"; target.textContent = "Diagram preview exceeded its waiting budget. Source remains available.";}
+    if (current()) {target.dataset.renderState = "over-budget"; setUIText(target, "Diagram preview exceeded its waiting budget. Source remains available.");}
     finishBudget();
   }, 4000);
   const run = async () => {
     if (!current() || expired) {window.clearTimeout(timer); return;}
     try {
       if (new TextEncoder().encode(model.source).byteLength > 64 * 1024) {
-        target.dataset.renderState = "over-budget"; target.textContent = "Diagram is too large to preview. Its source remains available."; return;
+        target.dataset.renderState = "over-budget"; setUIText(target, "Diagram is too large to preview. Its source remains available."); return;
       }
-      let svg: string;
-      if (model.engine === "mermaid") {
-        const mermaid = await diagramMermaid(target);
-        if (!current()) return;
-        svg = (await mermaid.render(`mermaid-${crypto.randomUUID()}`, model.source)).svg;
-      } else {
-        const {graphvizRenderer} = await import("./graphviz");
-        if (!current()) return;
-        svg = await graphvizRenderer.render(model.source, () => current() && !expired);
-      }
+      const engine = model.engine === "mermaid" ? engines.mermaid! : engines.graphviz!;
+      const svg = await engine(model.source, target, () => current() && !expired);
       if (!current() || expired) return;
       if (svg.length > 2_000_000) throw new Error("Diagram output exceeds the preview budget.");
-      target.innerHTML = DOMPurify.sanitize(svg, {USE_PROFILES: {svg: true, svgFilters: true}, ADD_TAGS: ["foreignObject"]});
+      delete target.dataset.teggUiText;
+      target.replaceChildren(sanitizeDiagramSvg(svg));
       scopeIds(target); target.dataset.renderState = "ready";
       const graphic = target.querySelector("svg");
       const title = graphic?.querySelector("title"), description = graphic?.querySelector("desc");
@@ -285,6 +296,7 @@ export function renderDiagram(model: Extract<RenderModel, {kind: "diagram"}>, ta
     } catch (error) {
       if (!current() || expired) return;
       target.dataset.renderState = "error"; target.classList.add("diagram-error");
+      delete target.dataset.teggUiText;
       target.textContent = error instanceof Error ? error.message : "Could not render diagram";
     } finally {window.clearTimeout(timer);}
   };
@@ -292,7 +304,7 @@ export function renderDiagram(model: Extract<RenderModel, {kind: "diagram"}>, ta
   if (model.engine === "mermaid") {
     if (mermaidPending >= 24) {
       window.clearTimeout(timer); target.dataset.renderState = "over-budget";
-      target.textContent = "Too many diagrams. Split this document into smaller sections.";
+      setUIText(target, "Too many diagrams. Split this document into smaller sections.");
       return Promise.resolve();
     }
     mermaidPending++;

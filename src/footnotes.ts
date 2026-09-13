@@ -1,3 +1,4 @@
+import {setUIText, setUILabel} from "./uiContext";
 import {enhanceMathTokens} from "./renderKit";
 import {copySource, action, focusTarget, openPanel, scopeIds} from "./renderInteraction";
 import {enhanceRenderedLinks} from "./renderedLinks";
@@ -7,10 +8,10 @@ export function enhanceFootnotes(root: HTMLElement, openLink: (href: string) => 
     const id = reference.getAttribute("href")?.slice(1);
     const note = Array.from(root.querySelectorAll<HTMLElement>(".footnote-item")).find(item => item.id === id);
     if (!note) continue;
-    reference.setAttribute("aria-label", `Footnote ${reference.textContent?.replace(/[\[\]]/g, "")}`);
+    setUILabel(reference, "Footnote {value}", {value: String(reference.textContent?.replace(/[\[\]]/g, ""))});
     const backlinks = note.querySelectorAll<HTMLAnchorElement>(".footnote-backref");
     for (const back of backlinks) {
-      back.setAttribute("aria-label", "Return to reference");
+      setUILabel(back, "Return to reference");
     }
     if (!enhanced) continue;
     reference.setAttribute("aria-haspopup", "dialog"); reference.setAttribute("aria-expanded", "false");

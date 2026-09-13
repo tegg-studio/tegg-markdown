@@ -1,3 +1,70 @@
+# Validation status - 0.2.0-preview.1
+
+This developer preview is distributed through reviewed Git commits and tarballs.
+It is not an npm registry release or a complete browser/platform certification.
+
+## Current SDK evidence (2026-09-14)
+
+- 39 test files / 2,889 tests passed, including all 652 CommonMark 0.31.2 and
+  672 GFM 0.29 fixed examples, without skips. Normative parser comparisons are
+  distinct from sanitized browser output and additional GitHub product features.
+- Type checking, production builds, declared exports and mandatory license inventory
+  passed. The Attribution License and required visible branding are unchanged.
+- Independent vanilla, React 18, React 19 and optional-engine tarball consumers are
+  built outside the SDK checkout. Reader's module graph excludes unconfigured heavy
+  engines, React and CodeMirror; the package installation tree still contains shared
+  Editor dependencies. React SSR shells and public types have separate checks.
+- 37 browser regression checks cover Chromium, Firefox and WebKit: real CSP headers, local
+  math/diagram/geometry rendering, default control accessibility, eight instances,
+  100 lifecycle cycles, React StrictMode/Context and draft/save/undo behavior.
+  Streaming runs at 20 and 50 snapshots/second for 30 seconds, checking final source
+  and a reading anchor within 2 CSS pixels. Chromium additionally records post-GC
+  heap/DOM/listener counts; that CDP test is not claimed for other engines. Actual
+  Graphviz idle worker reclamation and recreation also pass in all three engines.
+- The HTTP CAS example verifies one success and one conflict from two writers using
+  the same base revision, preserving exact CRLF/Unicode source.
+- Fifteen production A/B performance groups pass the 15% AND 5 ms median/p95 gate
+  for DOM completion and two-frame paint opportunity. See the complete samples,
+  artifact hashes, environment and method in [performance-results.json](performance-results.json).
+  Initial 200 KiB plain text exposed a p95 regression (12.4 to 19 ms); native subtree
+  transfer replaced per-node moves. The final run measured 12.7 to 16.1 ms.
+  One MiB falls back to complete source; this is not full rich-rendering throughput.
+- The dependency advisory audit was clear after updating the test runner. Advisory
+  status is time-dependent and does not replace review of Host authorization.
+
+## Native evidence and remaining boundaries
+
+The Mac Host consumed candidate `0ff177e749c0568442e350d4a68adc1cfab8df79` on
+macOS 26.6 / Xcode 26.5: 1,545 Host tests, native build/launch, and actual
+Reader/Live Edit/Source, task/table/code editing, undo/redo, exact file save,
+relative navigation/reopen, local images and viewer Escape/focus restoration passed.
+Finder Quick Look actually displayed the same fixture; restricted sibling images
+showed a clear fallback while the application loaded them. The final link/input candidate `6dacb6142606b9548f84526ad30b8d413836f418`
+also passed the Mac dependency pin guard and native build/launch. Its final native
+visual recheck is pending because the validation machine is locked; the literal
+reference fix passes automated regression checks in all three browser engines. Synthetic composition tests are not real macOS Pinyin, Sogou, Windows
+Microsoft Pinyin or VoiceOver/NVDA testing. Playwright engines are not certification
+of the latest two Chrome/Edge/Firefox/Safari product versions. No Windows native app or
+mobile device matrix has been exercised in this record. Linux CI and local macOS
+Playwright runs are separately identified by their artifacts.
+
+The published performance run measures initial streaming rendering with diagrams
+pending. Parser-only, settled completion with fallback counts and isolated Source input
+are recorded in [layered measurements](performance-layers.json); subscribed Host
+toolbars and Live Edit input timing still require their own workload measurements; the internal 200 KiB/300 ms and input-p95/16 ms targets
+are not a public SLA. Offline geometry and KaTeX have documented compatibility limits.
+
+The final code candidate [CI run](https://github.com/tegg-studio/tegg-markdown/actions/runs/34774188719) passed on Linux. Subsequent documentation and merge identities are tracked by PR #5 and release artifacts.
+
+Run `npm run check`, `npm run test:cas`, `npm run check:consumers` and
+`npm run test:browser`. `scripts/release-evidence.mjs` records the exact clean commit,
+package integrity, lock/fixture hashes and browser summary in CI artifacts; it rejects
+uncommitted or mismatched package identities. Mac evidence stays separately scoped.
+
+---
+
+## Historical 0.1 preview evidence
+
 # Preview validation — 2026-09-13
 
 ## Completed evidence
