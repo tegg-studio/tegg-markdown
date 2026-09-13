@@ -31,9 +31,17 @@ styles and comply with the attribution license (or hold separate permission).
 
 The Mac integration uses the packaged engine for its document surface and Quick
 Look reader. Its legacy core source files remain temporarily for comparison/tests;
-they must not be used as the application runtime implementation. Native CSS is
-retained during this first integration. Shared stylesheet migration requires a
-separate measured comparison of width, insets, typography and appearance.
+they must not be used as the application runtime implementation. Native layout and typography CSS remain Host-owned. Import
+`@tegg/markdown/interaction.css` after the native stylesheet for shared formula,
+diagram and footnote controls. This independent export is built from the same
+source included in the complete SDK stylesheet; do not copy its rules into the
+Host. Supply the usual appearance tokens; body size falls back to the Host font
+scale when `--md-body` is absent. Full layout migration still requires measured
+comparison of width, insets and typography.
+
+Quick Look must cancel its diagram queue and call `reader.destroy()` before
+replacing a reader, including theme refreshes and cancellation. Guard asynchronous
+completion with a generation token, since theme refreshes reuse request IDs.
 
 ## Reproducible next gate
 
@@ -47,3 +55,22 @@ separate measured comparison of width, insets, typography and appearance.
 
 The preview.2 validation record separates tests, browser interactions and native
 smoke checks. It is not a blanket parity certificate.
+
+## Browser example file access and narrow windows
+
+The example's **Open folder** action indexes only files explicitly selected by the
+user. Relative image URLs and Markdown links resolve against the current document
+path inside that selection; nested paths, URL-encoded names and target fragments
+are supported. Object URLs are reused and released when the file set is replaced.
+A missing local image never falls through to the development server. Single-file
+import cannot grant access to sibling attachments; use folder selection for those.
+
+The document selector also returns to earlier files. Navigation retains the existing
+unsaved-change confirmation. Browser save stores one explicit snapshot in localStorage;
+other saved documents remain in the current session cache until a different file set
+is opened. It does not overwrite disk files or persist attachment access across a
+reload. Export Markdown to retain changes on disk; reopen the folder for attachments.
+
+At widths up to 760px, **Outline and settings** opens the same sidebar controls.
+Escape closes it and returns focus to its button; document navigation closes it too.
+Attribution remains visible outside document scrolling in both layouts.

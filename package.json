@@ -80,7 +80,8 @@
     "./core": {
       "types": "./dist/types/core.d.ts",
       "import": "./dist/core.js"
-    }
+    },
+    "./interaction.css": "./dist/interaction.css"
   },
   "engines": {
     "node": ">=22.12.0"
