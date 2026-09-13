@@ -3,3 +3,7 @@
 /* Match the Mac Host controlAccentColor and its 12% selection fill. */
 .workspace input{accent-color:var(--accent)}
 .primary:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 88%,#000);border-color:color-mix(in srgb,var(--accent) 88%,#000)}
+
+/* Keep the same controls reachable when the document is embedded narrowly. */
+#sidebar-toggle{display:none}#file-list[hidden]{display:none}#file-list{margin:0 8px 18px}#file-list label{display:block;font-size:12px;color:var(--subtle);margin-bottom:6px}#documents{width:100%;min-width:0} .document-bar>div:first-child{min-width:0;overflow-wrap:anywhere}
+@media(max-width:760px){#sidebar-toggle{display:block}.content{position:relative}.sidebar[data-open=true]{display:flex;position:absolute;inset:0 auto 0 0;width:min(290px,100%);box-sizing:border-box;background:var(--panel);z-index:20;box-shadow:8px 0 24px #0002}#outline{flex:none;min-height:80px;margin-bottom:16px}.reading-settings{margin-top:auto}}

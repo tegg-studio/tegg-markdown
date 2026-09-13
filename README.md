@@ -93,3 +93,8 @@ applications migrate by consuming tested package versions.
 
 See [Mac alignment](docs/mac-alignment.md) for shared-core integration and the
 remaining native/visual acceptance boundaries.
+
+The browser example supports selecting a local folder for relative images and
+Markdown navigation, with a document selector and a narrow-window outline/settings
+panel. Browser saves and exports are explicit; selected files are never overwritten.
+See the [file access boundaries](docs/mac-alignment.md#browser-example-file-access-and-narrow-windows).
