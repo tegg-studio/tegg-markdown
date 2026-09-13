@@ -2,6 +2,8 @@
 
 ## 0.1.0-preview.2
 
+- Align the default SDK and example accent with the Mac Host system blue (#007AFF), including controls, links, task checkboxes and 12% selection fills.
+
 - Add toolbar state, versioned outlines, heading/fragment navigation, instance appearance and source-visible accessibility controls.
 - Allow native Hosts to supply callout menus with stale-response protection.
 - Add the advanced `@tegg/markdown/core` entry for existing native adapters.
