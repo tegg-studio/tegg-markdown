@@ -1,7 +1,9 @@
 # Changelog
 
-## 0.2.0-preview.1 — candidate, not a registry release
+## 0.2.0-preview.1 — Git preview, not a registry release
 
+- Keep unresolved reference brackets visible in Live Edit and apply the selected
+  profile to link navigation. Avoid toolbar/outline work without Host subscribers.
 - Add explicit Tegg, GitHub and GFM syntax profiles with fixed normative fixtures.
 - Add lightweight Reader/Editor, React 18/19 adapters, instance engines and read-only
   renderer slots with cleanup, cancellation and Context-preserving portals.

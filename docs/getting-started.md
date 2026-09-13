@@ -9,6 +9,7 @@ claim an npm registry release.
 ```ts
 import {TeggMarkdownReader} from "@tegg/markdown/reader";
 import "@tegg/markdown/reader.css";
+const container = document.querySelector<HTMLElement>("#reader")!;
 const reader = new TeggMarkdownReader(container, {
   locale: "en-US", engines: {},
   openLink(href) { /* apply your application's navigation policy */ },
@@ -17,7 +18,7 @@ await reader.render({documentId: "readme", revision: "1", profile: "github", sou
 reader.destroy();
 ```
 
-`container` is a dedicated HTMLElement. Give internal scrolling a meaningful height,
+Provide `<div id="reader"></div>` in the page; `container` is a dedicated HTMLElement. Give internal scrolling a meaningful height,
 or select `layout: "host"` and a Host scroll container. Always destroy on unmount.
 For editing import `TeggMarkdownEditor` from `@tegg/markdown/editor` and
 `@tegg/markdown/editor.css`; initialize with `{documentId, revision, source}`.

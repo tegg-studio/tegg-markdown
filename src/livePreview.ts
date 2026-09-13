@@ -1035,6 +1035,8 @@ function buildDecorations(view: EditorView): DecorationSet {
   }
 
   const quoteDepths = new Map<number, number>();
+  const literalReferences = new Set<number>();
+  let referenceEnvironment: Record<string, unknown> | undefined;
   syntaxTree(view.state).iterate({
     enter(node) {
       const nodeRange = { from: node.from, to: node.to };
@@ -1086,6 +1088,15 @@ function buildDecorations(view: EditorView): DecorationSet {
       } else if (name === "InlineCode") {
         ranges.push(Decoration.mark({ class: `cm-live-inline-code ${renderClassNames.inlineCode}` }).range(node.from, node.to));
       } else if (name === "Link") {
+        if (!node.node.getChild("URL")) {
+          const parser = parserFor(profile);
+          if (!referenceEnvironment) {referenceEnvironment = {}; parser.parse(source, referenceEnvironment);}
+          const tokens = parser.parseInline(raw, referenceEnvironment)[0]?.children ?? [];
+          if (tokens[0]?.type !== "link_open" || tokens.at(-1)?.type !== "link_close") {
+            literalReferences.add(node.from);
+            return;
+          }
+        }
         if (!/^\[![A-Za-z]+\]/.test(raw)) {
           const linkedImage = parseLinkedImage(raw);
           if (linkedImage && !active) {
@@ -1197,7 +1208,7 @@ function buildDecorations(view: EditorView): DecorationSet {
 
       if (["EmphasisMark", "StrikethroughMark", "CodeMark"].includes(name)) {
         ranges.push(Decoration.replace({inlineSyntax: true}).range(node.from, node.to));
-      } else if (["LinkMark", "URL", "LinkTitle"].includes(name) && !/^\[![A-Za-z]+\]/.test(source.slice(semantic.from, semantic.to))) {
+      } else if (["LinkMark", "URL", "LinkTitle"].includes(name) && !literalReferences.has(semantic.from) && !/^\[![A-Za-z]+\]/.test(source.slice(semantic.from, semantic.to))) {
         if (name !== "URL" || semantic.name === "Link") {
           ranges.push(Decoration.replace({}).range(node.from, node.to));
         }

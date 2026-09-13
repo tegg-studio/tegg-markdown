@@ -1,7 +1,8 @@
 import {setUIText, setUILabel} from "./uiContext";
 import {ensureSyntaxTree, syntaxTree} from "@codemirror/language";
 import {EditorView, ViewPlugin} from "@codemirror/view";
-import {markdownParser} from "./markdownParser";
+import {parserFor} from "./markdownParser";
+import {resourceContext} from "./editorHost";
 import {analyzeSource} from "./sourceAnalysis";
 import {parseWikiLink} from "./profile";
 import {dispatchSourcePatches} from "./editorPatches";
@@ -9,11 +10,13 @@ import {dispatchSourcePatches} from "./editorPatches";
 type Link = {from: number; to: number; raw: string; label: string; target: string; wiki: boolean; labelSource?: string; title?: string};
 export function linkAt(view: EditorView, position: number): Link | null {
   const source = view.state.doc.toString();
+  const profile = view.state.facet(resourceContext).profile;
+  const markdownParser = parserFor(profile);
   const tree = ensureSyntaxTree(view.state, position, 50) ?? syntaxTree(view.state);
   for (let node = tree.resolveInner(position, 1); node; node = node.parent!) {
     if (["FencedCode", "CodeBlock", "InlineCode", "Image"].includes(node.name)) return null;
   }
-  const wiki = analyzeSource(view.state.doc).wikiLinks.find(item => position >= item.from && position <= item.to);
+  const wiki = analyzeSource(view.state.doc, profile).wikiLinks.find(item => position >= item.from && position <= item.to);
   if (wiki) {
     const raw = source.slice(wiki.from, wiki.to);
     const parsed = parseWikiLink(raw.slice(2, -2));

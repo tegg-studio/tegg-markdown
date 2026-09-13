@@ -1,3 +1,4 @@
+import {resourceContext} from "./editorHost";
 import {literalClipboardText} from "./literalEditing";
 /** @vitest-environment jsdom */
 
@@ -44,14 +45,14 @@ beforeAll(() => {
 const mounted: EditorView[] = [];
 const covered = new Set<string>();
 
-function mount(source: string, cursor = source.length) {
+function mount(source: string, cursor = source.length, profile: "tegg" | "github" | "gfm" = "tegg") {
   const parent = document.createElement("div");
   document.body.append(parent);
   const view = new EditorView({
     state: EditorState.create({
       doc: source,
       selection: { anchor: cursor },
-      extensions: [history(), markdown({ extensions: GFM }), livePreview],
+      extensions: [history(), markdown({ extensions: GFM }), resourceContext.of({documentPath:"",profile}), livePreview],
     }),
     parent,
   });
@@ -447,6 +448,15 @@ describe("Live Edit syntax contract", () => {
     verify(["horizontal-rule"], "Before\n\n---\n\nend", (root) => {
       expect(root.querySelector(".cm-live-rule")).not.toBeNull();
     });
+  });
+
+  it.each(["tegg", "github", "gfm"] as const)("keeps unresolved references literal in %s", profile => {
+    const source = "[missing] and [label][unknown] and [empty][] and [*formatted*]\n\n[valid][id]\n\n[id]: https://example.com\n\nend";
+    const {parent,view} = mount(source,source.length,profile);
+    expect(parent.textContent).toContain("[missing] and [label][unknown] and [empty][] and [formatted]");
+    expect(parent.querySelector(".cm-live-emphasis")?.textContent).toBe("formatted");
+    expect(parent.querySelector(".cm-live-link")?.textContent).toBe("valid");
+    expect(view.state.doc.toString()).toBe(source);
   });
 
   it("renders every link, image, escape, and safe HTML form cleanly", () => {

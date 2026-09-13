@@ -289,7 +289,8 @@ export class TeggMarkdownEditor {
       canUndo:enabled && undoDepth(this.viewValue.state) > 0, canRedo:enabled && redoDepth(this.viewValue.state) > 0};
   }
   private queueState = () => {
-    if (this.stateQueued || this.destroyed) return;
+    // Hosts without a toolbar subscriber can read state explicitly when needed.
+    if (!this.host.onStateChange || this.stateQueued || this.destroyed) return;
     this.stateQueued = true;
     queueMicrotask(() => {
       this.stateQueued = false; if (this.destroyed) return;
@@ -311,6 +312,7 @@ export class TeggMarkdownEditor {
       headings:this.headings.update(this.source, this.document.profile).map(item => ({...item}))};
   }
   private queueOutline() {
+    if (!this.host.onOutlineChange) return;
     clearTimeout(this.outlineTimer);
     this.outlineTimer = setTimeout(() => {
       if (this.destroyed) return;

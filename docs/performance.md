@@ -40,3 +40,36 @@ Source snapshots and saves are never truncated by presentation budgets.
 The continuous browser fixture runs 20 and 50 snapshots/second for thirty seconds
 and checks final content plus a retained reading anchor within 2 CSS px. Long tasks
 are recorded when supported; zero detected tasks is not a universal latency claim.
+
+## Layered measurements
+
+`node scripts/performance-layers.mjs` records parser-only and settled Reader timing
+(including explicit budget fallbacks). `--input-only` separately measures Source-mode
+input in fresh contexts and retains the earlier rendering samples with their own
+artifact identity. Both use five warmups and thirty samples per fixed fixture.
+The input Host has no toolbar/outline subscription; subscribed Hosts must budget
+state calculation separately. The SDK now avoids unsolicited state calculation.
+
+All fifteen isolated input groups pass the relative regression gate. The internal
+16 ms input p95 target is not met uniformly: final values are around one display
+frame and reach 17.9 ms. This measures insertion to the next animation callback,
+not physical display latency, real IME or a universal Live Edit/Host result.
+
+| 200 KiB fixture | Parse p95 ms | Settled completion p95 ms | Input p95 before / after ms |
+|---|---:|---:|---:|
+| text | 5.8 | 29.8 | 16.5 / 16.1 |
+| mixed | 26.6 | 383.8 | 37.2 / 17.5 |
+| heavy | 3.5 | 2759.0 | 63.0 / 17.6 |
+| table | 19.6 | 201.8 | 40.5 / 17.5 |
+| adversarial | 20.4 | 100.7 | 136.5 / 17.4 |
+
+Settled completion includes the bounded result, not a guarantee that every heavy
+object rendered: inspect `finalStates` and `sourceFallback` in the
+[layered samples](performance-layers.json). The earlier
+[diagnostic combined run](performance-layers-diagnostic.json) is retained, including
+its input regression, rather than silently replacing unsuccessful evidence.
+The primary initial-render comparison remains separately identified above.
+
+For applications subscribing to toolbar state, avoid polling the synchronous
+`state` getter on every animation frame. Further latency work should measure that
+Host and Live Edit separately, preserving formatting and composition correctness.

@@ -5,7 +5,7 @@ It is not an npm registry release or a complete browser/platform certification.
 
 ## Current SDK evidence (2026-09-14)
 
-- 39 test files / 2,884 tests passed, including all 652 CommonMark 0.31.2 and
+- 39 test files / 2,889 tests passed, including all 652 CommonMark 0.31.2 and
   672 GFM 0.29 fixed examples, without skips. Normative parser comparisons are
   distinct from sanitized browser output and additional GitHub product features.
 - Type checking, production builds, declared exports and mandatory license inventory
@@ -14,12 +14,13 @@ It is not an npm registry release or a complete browser/platform certification.
   built outside the SDK checkout. Reader's module graph excludes unconfigured heavy
   engines, React and CodeMirror; the package installation tree still contains shared
   Editor dependencies. React SSR shells and public types have separate checks.
-- Browser regression covers Chromium, Firefox and WebKit: real CSP headers, local
+- 37 browser regression checks cover Chromium, Firefox and WebKit: real CSP headers, local
   math/diagram/geometry rendering, default control accessibility, eight instances,
   100 lifecycle cycles, React StrictMode/Context and draft/save/undo behavior.
   Streaming runs at 20 and 50 snapshots/second for 30 seconds, checking final source
   and a reading anchor within 2 CSS pixels. Chromium additionally records post-GC
-  heap/DOM/listener counts; that CDP test is not claimed for other engines.
+  heap/DOM/listener counts; that CDP test is not claimed for other engines. Actual
+  Graphviz idle worker reclamation and recreation also pass in all three engines.
 - The HTTP CAS example verifies one success and one conflict from two writers using
   the same base revision, preserving exact CRLF/Unicode source.
 - Fifteen production A/B performance groups pass the 15% AND 5 ms median/p95 gate
@@ -31,19 +32,27 @@ It is not an npm registry release or a complete browser/platform certification.
 - The dependency advisory audit was clear after updating the test runner. Advisory
   status is time-dependent and does not replace review of Host authorization.
 
-## Boundaries still requiring separate evidence
+## Native evidence and remaining boundaries
 
-The native Host consumes an exact SDK commit and requires its own build and UI
-journey. Until a native record is added below, this section does not certify that
-migration. Synthetic composition tests are not real macOS Pinyin, Sogou, Windows
+The Mac Host consumed candidate `0ff177e749c0568442e350d4a68adc1cfab8df79` on
+macOS 26.6 / Xcode 26.5: 1,545 Host tests, native build/launch, and actual
+Reader/Live Edit/Source, task/table/code editing, undo/redo, exact file save,
+relative navigation/reopen, local images and viewer Escape/focus restoration passed.
+Finder Quick Look actually displayed the same fixture; restricted sibling images
+showed a clear fallback while the application loaded them. The final link/input
+fixes require the final pin verification recorded with their integration commit. Synthetic composition tests are not real macOS Pinyin, Sogou, Windows
 Microsoft Pinyin or VoiceOver/NVDA testing. Playwright engines are not certification
-of the latest two Chrome/Edge/Firefox/Safari product versions. No Windows runner or
-mobile device matrix has been exercised in this record.
+of the latest two Chrome/Edge/Firefox/Safari product versions. No Windows native app or
+mobile device matrix has been exercised in this record. Linux CI and local macOS
+Playwright runs are separately identified by their artifacts.
 
 The published performance run measures initial streaming rendering with diagrams
-pending. Parse-only, heavy-object fully-ready latency and sustained editing latency
-remain separate measurements; the internal 200 KiB/300 ms and input-p95/16 ms targets
+pending. Parser-only, settled completion with fallback counts and isolated Source input
+are recorded in [layered measurements](performance-layers.json); subscribed Host
+toolbars and Live Edit input timing still require their own workload measurements; the internal 200 KiB/300 ms and input-p95/16 ms targets
 are not a public SLA. Offline geometry and KaTeX have documented compatibility limits.
+
+The initial candidate [CI run](https://github.com/tegg-studio/tegg-markdown/actions/runs/34772631991) passed on Linux; final commit checks remain visible on PR #5.
 
 Run `npm run check`, `npm run test:cas`, `npm run check:consumers` and
 `npm run test:browser`. `scripts/release-evidence.mjs` records the exact clean commit,

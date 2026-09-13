@@ -5,11 +5,11 @@ The adapter uses the Host's React tree and portals, so a custom renderer retains
 Context. It does not create a second independent React root.
 
 ```tsx
-import {MarkdownReader} from "@tegg/markdown/react";
+import {MarkdownReader, type RendererProps} from "@tegg/markdown/react";
 import "@tegg/markdown/reader.css";
-function Code({node}) { return <pre>{node.text}</pre>; }
+function Code({node}: RendererProps) { return <pre>{node.text}</pre>; }
 const components = {code: Code};
-function Document({source, revision}) {
+function Document({source, revision}: {source: string; revision: string}) {
   return <MarkdownReader document={{documentId: "doc", revision, source, profile: "github"}}
     host={{engines: {}, locale: "en-US"}} components={components} />;
 }

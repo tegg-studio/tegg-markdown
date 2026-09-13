@@ -45,3 +45,14 @@ test("eight independent instances keep language and attribution isolated",async(
  await expect(page.locator(".tegg-sdk-frame")).toHaveCount(8);await expect(page.getByRole("button",{name:"Copy",exact:true})).toHaveCount(4);await expect(page.getByRole("button",{name:"复制",exact:true})).toHaveCount(4);
  await expect(page.getByText("Powered by Tegg Markdown")).toHaveCount(8);await page.evaluate(()=>(window as any).host.destroy());await expect(page.locator(".tegg-sdk-frame")).toHaveCount(0);
 });
+
+
+test("Live Edit preserves unresolved references while rendering valid links",async({page})=>{
+ await page.goto("http://127.0.0.1:18916/react.html");
+ await page.evaluate(()=>(window as any).host.show("editor","[missing] and [*formatted*] and [valid][id]\n\n[id]: https://example.com\n\nend"));
+ await expect(page.locator(".cm-content")).toContainText("[missing]");
+ await page.evaluate(()=>(window as any).host.instance.setMode("live"));
+ await expect(page.locator(".cm-content")).toContainText("[missing] and [formatted] and valid");
+ await expect(page.locator(".cm-live-emphasis")).toHaveText("formatted");
+ await expect(page.locator(".cm-live-link")).toHaveText("valid");
+});

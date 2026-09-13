@@ -11,7 +11,7 @@ This project is not offered under Apache-2.0 and does not claim OSI approval.
 
 ## Status
 
-Developer preview candidate `0.2.0-preview.1`. Core source, tests, types, styles,
+Developer preview `0.2.0-preview.1`. Core source, tests, types, styles,
 a Host example and license materials are included. There is no published npm
 release yet; `@tegg/markdown` is the local package name, not a claim that its
 registry scope has been reserved. `private: true` prevents accidental npm publish.
@@ -19,6 +19,17 @@ registry scope has been reserved. `private: true` prevents accidental npm publis
 The default integration requires no Tegg account, cloud, activation or telemetry.
 The Host owns document identity, persistence, resources, permissions and conflicts.
 [Capabilities and limits](docs/capabilities.md) describe the supported boundaries.
+
+## Install the Git preview
+
+```sh
+npm install 'git+https://github.com/tegg-studio/tegg-markdown.git#v0.2.0-preview.1'
+```
+
+The versioned Git tag identifies the reviewed preview. This does not publish or
+reserve an npm registry scope. For reproducible deployments, retain the resolved
+commit in your lockfile. Start with the [integration guide](docs/getting-started.md)
+and choose optional engines explicitly.
 
 ## Run the example
 

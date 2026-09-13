@@ -45,7 +45,8 @@ const host = {engines: {}, renderers: githubGeometryRenderers};
 ```
 
 GeoJSON uses a bounded offline coordinate projection with pan/zoom and polygon
-holes. TopoJSON additionally requires `topojson-client`; expanded arcs are bounded
+holes. The combined geometry entry requires `topojson-client` at build time for its
+TopoJSON adapter; expanded arcs are bounded
 before conversion. ASCII STL has pan/zoom/rotation and a 4,096-triangle limit.
 These are offline SVG previews, not GitHub's map tiles or a photorealistic 3D engine.
 No basemap requests are made. Geometry source is limited to 512 KiB, 20,000

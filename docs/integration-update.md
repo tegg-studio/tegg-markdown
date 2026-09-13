@@ -1,6 +1,6 @@
-# Integration update — 0.2 preview candidate
+# Integration update — 0.2.0-preview.1
 
-This candidate adds explicit GitHub/GFM syntax profiles, lightweight entries,
+This Git preview adds explicit GitHub/GFM syntax profiles, lightweight entries,
 React 18/19 integration, read-only renderer hooks, per-instance UI customization,
 resource opt-in and bounded offline geometry previews. Existing Tegg syntax remains
 the default. The source, save identity and undo model are preserved.
@@ -16,11 +16,19 @@ No partner-specific corpus, internal business access or partner acceptance cycle
 required. Report ordinary reproducible problems through the repository's Issues;
 use the private security route for vulnerabilities or sensitive information.
 
-This is a candidate summary, not a release-completion statement. The final commit,
-package integrity, actual platform checks and remaining gaps must be read from
+This is a developer preview, not a stable or npm registry release. The Git identity,
+package integrity, actual platform checks and remaining gaps are recorded in
 [validation](validation.md). Offline map previews do not reproduce GitHub map tiles;
 KaTeX is not a claim of complete GitHub MathJax macro parity. Native integrations
 retain their own file permissions, menus, persistence and platform validation.
+
+Validated core coverage includes 2,889 tests, fixed public syntax fixtures and
+independent React/vanilla consumers. The browser matrix covers 37 checks across
+Chromium, Firefox and WebKit, including real worker idle recovery. Native Host
+smoke validation covers editing, exact save/reopen, local resources and Finder
+Quick Look. See the validation record for commit-specific results and limits.
+No real OS IME, assistive-technology or complete browser product/version certificate
+is implied. The internal 16 ms input target is not uniformly achieved.
 
 ## 中文接入说明
 

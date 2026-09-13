@@ -3,13 +3,18 @@ import {describe, expect, it} from "vitest";
 import {EditorState} from "@codemirror/state";
 import type {EditorView} from "@codemirror/view";
 import {markdown} from "@codemirror/lang-markdown";
+import {resourceContext} from "./editorHost";
 import {GFM} from "@lezer/markdown";
 import {linkAt, linkReplacement, linkPopoverPlacement, linkActionLabel} from "./liveLinks";
 import {resolveHeadingLink} from "./linkNavigation";
-function link(source: string, position: number) {
-  return linkAt({state: EditorState.create({doc: source, extensions: [markdown({extensions: GFM})]})} as EditorView, position);
+function link(source: string, position: number, profile: "tegg" | "github" | "gfm" = "tegg") {
+  return linkAt({state: EditorState.create({doc: source, extensions: [markdown({extensions: GFM}),resourceContext.of({documentPath:"",profile})]})} as EditorView, position);
 }
 describe("Live Edit link targets", () => {
+  it.each(["github","gfm"] as const)("does not turn literal wiki syntax into navigation in %s", profile => {
+    expect(link("[[Note]]",3,profile)).toBeNull();
+    expect(link("[Text](target.md)",3,profile)?.target).toBe("target.md");
+  });
   it.each([
     ["[Text](https://example.com)", 3, "https://example.com"],
     ["[Note](folder/note.md#title)", 3, "folder/note.md#title"],
