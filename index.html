@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,"><title>Tegg Markdown — Host example</title>
+<style>body{font:16px system-ui;margin:24px;background:#f3f4f6;color:#202124}header{display:flex;gap:12px;align-items:center;flex-wrap:wrap}button,select{font:inherit;padding:6px 12px}.columns{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}.panel{height:65vh;border:1px solid #ccc;border-radius:8px;overflow:hidden;background:white}h1{font-size:24px}#status{min-height:1.5em}@media(max-width:700px){.columns{grid-template-columns:1fr}}</style>
+<h1>Tegg Markdown</h1><p>Read, edit, save in this browser and reopen. Your Markdown stays yours.</p>
+<header><label>Mode <select id="mode"><option value="live">Live Edit</option><option value="source">Source</option><option value="reader">Reader</option></select></label>
+<button id="save">Save locally</button><button id="reopen">Reopen saved</button><button id="undo">Undo</button><button id="redo">Redo</button></header>
+<p id="status" role="status">Ready · storage belongs to this example Host.</p>
+<div class="columns"><section><h2>Editor</h2><div id="editor" class="panel"></div></section><section><h2>Independent reader</h2><div id="reader" class="panel"></div></section></div>
+<script type="module" src="/examples/vanilla/main.ts"></script></html>

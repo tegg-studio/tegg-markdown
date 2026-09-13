@@ -1,0 +1,14 @@
+node_modules/
+dist/
+output/
+.playwright-cli/
+*.tgz
+.env
+.env.*
+!.env.example
+.DS_Store
+*.p8
+*.p12
+*.pem
+*.key
+coverage/

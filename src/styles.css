@@ -1,0 +1,727 @@
+:where(.tegg-app, .tegg-surface) {
+  color-scheme: light dark;
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", sans-serif;
+  --font-mono: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  --background: #fbfbfc;
+  --surface: #ffffff;
+  --text: #202124;
+  --muted: #62666d;
+  --border: rgba(24, 28, 36, 0.12);
+  --accent: #5b5bd6;
+  --accent-soft: rgba(91, 91, 214, 0.10);
+  --code: #f4f4f7;
+  --quote: #eeeff7;
+  --danger: #c9363e;
+  --syntax-comment: #59636e;
+  --syntax-keyword: #cf222e;
+  --syntax-string: #0a3069;
+  --syntax-number: #0550ae;
+  --syntax-title: #8250df;
+  --syntax-variable: #953800;
+  --reader-font-scale: 1;
+  --md-heading-before: calc(24px * var(--reader-font-scale));
+  --md-heading-after: calc(8px * var(--reader-font-scale));
+  --reader-content-width: 760px;
+  --md-line-height: 1.72;
+  --md-heading-line-height: 1.25;
+  --md-h1-size: calc(var(--md-body) * 2.25);
+  --md-h2-size: calc(var(--md-body) * 1.5);
+  --md-h3-size: calc(var(--md-body) * 1.2);
+  --md-h4-size: calc(var(--md-body) * 1.08);
+  --md-h5-size: calc(var(--md-body) * 1);
+  --md-h6-size: calc(var(--md-body) * 0.92);
+  --md-block-radius: 10px;
+  --md-highlight: color-mix(in srgb, #f6c744 46%, transparent);
+  --md-callout-accent: var(--accent);
+  --md-callout-bg: color-mix(in srgb, var(--accent-soft) 62%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :where(.tegg-app, .tegg-surface) {
+    --background: #1d1e20;
+    --surface: #242529;
+    --text: #e8e8ea;
+    --muted: #a4a5aa;
+    --border: rgba(255, 255, 255, 0.12);
+    --accent: #a7a6ff;
+    --accent-soft: rgba(167, 166, 255, 0.12);
+    --code: #282a2f;
+    --quote: #2a2c36;
+    --danger: #ff777d;
+    --syntax-comment: #8b949e;
+    --syntax-keyword: #ff7b72;
+    --syntax-string: #a5d6ff;
+    --syntax-number: #79c0ff;
+    --syntax-title: #d2a8ff;
+    --syntax-variable: #ffa657;
+    --md-highlight: color-mix(in srgb, #f6c744 32%, transparent);
+  }
+}
+
+/* Content is scoped to an instance. Page scrolling belongs to app.css. */
+.tegg-surface, .tegg-surface * { box-sizing: border-box; }
+.tegg-surface {
+  --md-body: calc(var(--host-body-size, 16px) * var(--reader-font-scale));
+  --md-gutter: 24px;
+  --md-top: calc(var(--md-body) * 2);
+  --md-bottom: calc(var(--md-body) * 4);
+  color: var(--text);
+  background: var(--background);
+  font-family: var(--font-body);
+  font-size: var(--md-body);
+  line-height: var(--md-line-height);
+  overflow-wrap: anywhere;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.tegg-surface[data-layout="compact"] {
+  --md-gutter: 16px;
+  --md-top: calc(var(--md-body) * 1.5);
+  --md-bottom: calc(var(--md-body) * 3);
+  --md-h1-size: calc(var(--md-body) * 1.75);
+  --md-h2-size: calc(var(--md-body) * 1.375);
+}
+.tegg-surface[data-layout="wide"] { --md-gutter: 32px; }
+.tegg-reader {
+  width: 100%; min-width: 0;
+  padding-block: calc(var(--md-top) + var(--toolbar-inset, 0px)) var(--md-bottom);
+  padding-inline: max(var(--md-gutter), calc((var(--md-canvas-width, 100%) - var(--reader-content-width)) / 2));
+}
+.tegg-reader > :first-child { margin-top: 0; }
+.tegg-reader > :last-child { margin-bottom: 0; }
+
+.tegg-reader > :first-child { margin-top: 0; }
+
+:where(.tegg-surface) h1, :where(.tegg-surface) h2, :where(.tegg-surface) h3, :where(.tegg-surface) h4, :where(.tegg-surface) h5, :where(.tegg-surface) h6, :where(.tegg-surface) .md-render-heading {
+  line-height: var(--md-heading-line-height);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  scroll-margin-top: 24px;
+}
+:where(.tegg-surface) h1, :where(.tegg-surface) .md-render-heading-1 { font-size: var(--md-h1-size); letter-spacing: -0.035em; }
+:where(.tegg-surface) h2, :where(.tegg-surface) .md-render-heading-2 { font-size: var(--md-h2-size); }
+:where(.tegg-surface) h3, :where(.tegg-surface) .md-render-heading-3 { font-size: var(--md-h3-size); }
+:where(.tegg-surface) h4, :where(.tegg-surface) .md-render-heading-4 { font-size: var(--md-h4-size); }
+:where(.tegg-surface) h5, :where(.tegg-surface) .md-render-heading-5 { font-size: var(--md-h5-size); }
+:where(.tegg-surface) h6, :where(.tegg-surface) .md-render-heading-6 { font-size: var(--md-h6-size); }
+:where(.tegg-surface) h1, :where(.tegg-surface) h2, :where(.tegg-surface) h3, :where(.tegg-surface) h4, :where(.tegg-surface) h5, :where(.tegg-surface) h6 { margin-block: var(--md-heading-before) var(--md-heading-after); }
+:where(.tegg-surface) p, :where(.tegg-surface) .md-render-paragraph { margin-block: 0.8em; }
+:where(.tegg-surface) a, :where(.tegg-surface) .md-render-link { color: var(--accent); text-decoration: underline; text-underline-offset: 0.14em; }
+:where(.tegg-surface) a:hover { text-decoration-thickness: 2px; }
+:where(.tegg-surface) .wikilink, :where(.tegg-surface) .md-render-wikilink { background: var(--accent-soft); border-radius: 5px; padding: 1px 4px; }
+:where(.tegg-surface) mark, :where(.tegg-surface) .md-render-highlight { background: var(--md-highlight); color: inherit; border-radius: 3px; padding: 0 2px; }
+:where(.tegg-surface) s, :where(.tegg-surface) del, :where(.tegg-surface) .md-render-strike { color: var(--muted); }
+:where(.tegg-surface) sub, :where(.tegg-surface) sup, :where(.tegg-surface) .md-render-subscript, :where(.tegg-surface) .md-render-superscript { font-size: 0.76em; line-height: 0; }
+:where(.tegg-surface) dl { margin: 1.1em 0; }
+:where(.tegg-surface) dt { margin-top: 0.9em; color: var(--text); font-weight: 680; }
+:where(.tegg-surface) dd { margin: 0.3em 0 0.8em 1.4em; color: var(--muted); }
+
+:where(.tegg-surface) blockquote, :where(.tegg-surface) .md-render-quote {
+  margin: 0.8em 0;
+  padding: 0 0 0 18px;
+  border-left: 2px solid color-mix(in srgb, var(--text) 18%, transparent);
+  color: var(--text);
+  background: transparent;
+  border-radius: 0;
+}
+:where(.tegg-surface) blockquote:not(.callout) > :first-child { margin-top: 0; }
+:where(.tegg-surface) blockquote:not(.callout) > :last-child { margin-bottom: 0; }
+
+:where(.tegg-surface) .callout, .tegg-sdk-editor .cm-live-callout-source, :where(.tegg-surface) .callout-editor-header {
+  --md-callout-accent: var(--callout-light, #245fa8);
+  --md-callout-bg: color-mix(in srgb, var(--md-callout-accent) 7%, var(--background));
+}
+@media (prefers-color-scheme: dark) {
+  :where(.tegg-surface) .callout, .tegg-sdk-editor .cm-live-callout-source, :where(.tegg-surface) .callout-editor-header { --md-callout-accent: var(--callout-dark, #86b8ff); }
+}
+:where(.tegg-surface) .callout { color: var(--text); padding: calc(var(--md-body) * .75) var(--md-body); border-radius: 8px; border: 1px solid color-mix(in srgb, var(--md-callout-accent) 28%, var(--background)); border-left: 3px solid var(--md-callout-accent); background: var(--md-callout-bg); }
+:where(.tegg-surface) .callout-title { color: var(--text); font-weight: 600; margin-bottom: calc(var(--md-body) * .375); }
+:where(.tegg-surface) .callout-icon { display: inline-flex; width: 18px; height: 18px; color: var(--md-callout-accent); vertical-align: -3px; flex: 0 0 18px; }
+:where(.tegg-surface) .callout-icon svg { width: 100%; height: 100%; }
+:where(.tegg-surface) .callout-title > .callout-icon { margin-inline-end: 8px; }
+:where(.tegg-surface) .callout-type-button { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin: -4px 4px -4px -4px; padding: 4px; border: 0; border-radius: 5px; background: transparent; vertical-align: middle; cursor: pointer; }
+:where(.tegg-surface) .callout-type-button:hover { background: color-mix(in srgb, var(--md-callout-accent) 12%, transparent); }
+:where(.tegg-surface) .callout-type-button:focus-visible { outline: 2px solid var(--md-callout-accent); outline-offset: 1px; }
+:where(.tegg-surface) .callout-editor-header { display: inline; color: var(--text); }
+:where(.tegg-surface) .callout-editor-header .callout-title { display: inline; cursor: text; }
+@media (prefers-contrast: more) {
+  :where(.tegg-surface) .callout, .tegg-sdk-editor .cm-live-callout-source { --md-callout-bg: var(--background); border-color: var(--md-callout-accent); }
+}
+
+:where(.tegg-surface) code, :where(.tegg-surface) pre, :where(.tegg-surface) .md-render-inline-code { font-family: var(--font-mono); }
+:where(.tegg-surface) code, :where(.tegg-surface) .md-render-inline-code { font-size: 0.88em; background: var(--code); padding: 0.16em 0.36em; border-radius: 5px; }
+:where(.tegg-surface) pre { overflow: auto; margin: 1.2em 0; padding: 16px 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--code); line-height: 1.55; }
+:where(.tegg-surface) pre code { padding: 0; background: transparent; border-radius: 0; }
+:where(.tegg-surface) .md-render-code { position: relative; display: block; margin: 1.2em 0; border: 1px solid var(--border); border-radius: var(--md-block-radius); overflow: hidden; background: var(--code); }
+:where(.tegg-surface) .md-render-code pre { margin: 0; padding: 0; border: 0; border-radius: 0; }
+:where(.tegg-surface) .md-render-code pre code { display: block; padding: 12px 16px; }
+:where(.tegg-surface) .md-render-toolbar, :where(.tegg-surface) .cm-preview-toolbar { height: 34px; padding: 0 10px 0 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); color: var(--muted); font: 600 11px/1 var(--font-body); text-transform: uppercase; letter-spacing: 0.06em; }
+:where(.tegg-surface) .md-render-toolbar button, :where(.tegg-surface) .cm-preview-toolbar button { appearance: none; border: 0; border-radius: 6px; padding: 5px 8px; background: transparent; color: var(--accent); font: 600 12px/1 var(--font-body); cursor: pointer; text-transform: none; letter-spacing: 0; }
+:where(.tegg-surface) .md-render-toolbar button:hover, :where(.tegg-surface) .cm-preview-toolbar button:hover { background: var(--accent-soft); }
+:where(.tegg-surface) .hljs-comment, :where(.tegg-surface) .hljs-quote { color: var(--syntax-comment); font-style: italic; }
+:where(.tegg-surface) .hljs-keyword, :where(.tegg-surface) .hljs-selector-tag, :where(.tegg-surface) .hljs-literal, :where(.tegg-surface) .hljs-type { color: var(--syntax-keyword); }
+:where(.tegg-surface) .hljs-string, :where(.tegg-surface) .hljs-regexp, :where(.tegg-surface) .hljs-addition { color: var(--syntax-string); }
+:where(.tegg-surface) .hljs-number, :where(.tegg-surface) .hljs-symbol, :where(.tegg-surface) .hljs-bullet { color: var(--syntax-number); }
+:where(.tegg-surface) .hljs-title, :where(.tegg-surface) .hljs-section, :where(.tegg-surface) .hljs-function .hljs-title { color: var(--syntax-title); font-weight: 650; }
+:where(.tegg-surface) .hljs-variable, :where(.tegg-surface) .hljs-template-variable, :where(.tegg-surface) .hljs-attribute { color: var(--syntax-variable); }
+:where(.tegg-surface) .hljs-deletion { color: var(--danger); }
+:where(.tegg-surface) .hljs-meta { color: var(--muted); }
+:where(.tegg-surface) table, :where(.tegg-surface) .md-render-table { width: 100%; border-collapse: collapse; margin: 1.3em 0; font-variant-numeric: tabular-nums; }
+:where(.tegg-surface) th, :where(.tegg-surface) td { padding: 9px 12px; border: 1px solid var(--border); text-align: left; }
+:where(.tegg-surface) th { background: var(--code); font-weight: 650; }
+:where(.tegg-surface) .align-left { text-align: left; }
+:where(.tegg-surface) .align-center { text-align: center; }
+:where(.tegg-surface) .align-right { text-align: right; }
+:where(.tegg-surface) tr:nth-child(even) td { background: color-mix(in srgb, var(--code) 54%, transparent); }
+
+
+:where(.tegg-surface) img, :where(.tegg-surface) .md-render-image { max-width: 100%; height: auto; }
+:where(.tegg-surface) hr, :where(.tegg-surface) .md-render-rule { border: 0; border-top: 1px solid var(--border); margin: 2em 0; }
+:where(.tegg-surface) .task-list-item { list-style: none; margin-left: -1.4em; }
+:where(.tegg-surface) .task-list-item input, :where(.tegg-surface) .md-render-task { width: 15px; height: 15px; margin-right: 0.5em; accent-color: var(--accent); }
+
+.tegg-reader ul, .tegg-reader ol { padding-inline-start: calc(var(--md-body) * 1.5); margin-block: calc(var(--md-body) * .75); }
+.tegg-reader p:has(> img:only-child), .tegg-reader p:has(> a:only-child > img:only-child) { margin: 18px auto; text-align: center; }
+.tegg-reader p:has(> img:only-child) img, .tegg-reader p:has(> a:only-child > img:only-child) img { display: block;  margin: 0 auto; object-fit: contain; }
+
+:where(.tegg-surface) .frontmatter { margin: 0 0 24px; color: var(--muted); }
+:where(.tegg-surface) .frontmatter summary { cursor: pointer; font-size: calc(var(--md-body) * .875); font-weight: 600; }
+:where(.tegg-surface) .frontmatter pre { margin-top: 8px; }
+
+:where(.tegg-surface) .md-render-diagram { display: block; margin: var(--md-body) 0; padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }
+:where(.tegg-surface) .diagram-source { display: none; }
+:where(.tegg-surface) .md-render-canvas { min-height: 56px; display: grid; place-items: center; overflow: auto; color: var(--muted); }
+:where(.tegg-surface) .md-render-diagram > .md-render-canvas { min-height: 100px; padding: 18px; }
+:where(.tegg-surface) .md-render-canvas svg { max-height: 680px; }
+:where(.tegg-surface) .diagram-error { place-items: start; color: var(--danger); white-space: pre-wrap; font-family: var(--font-mono); font-size: 12px; }
+:where(.tegg-surface) .diagram-pending { min-height: 92px; border: 1px dashed var(--border); border-radius: 8px; background: color-mix(in srgb, var(--code) 60%, transparent); }
+:where(.tegg-surface) .md-render-math-block { overflow-x: auto; padding: 12px; }
+
+.tegg-sdk-editor { background: var(--background); overflow: hidden; }
+.tegg-sdk-editor .cm-editor { color: var(--text); background: transparent; font-size: var(--md-body); line-height: var(--md-line-height); }
+.tegg-sdk-editor .cm-editor.cm-focused { outline: none; }
+.tegg-sdk-editor .cm-scroller, .tegg-reader { scroll-padding-top: var(--toolbar-safe-top, 12px); }
+
+/* This surface's DOM scrollers do not drive AppKit's automatic scroll edge.
+   This native-host-only strip fades content, never draws a black shadow or
+   intercepts editing. The native toolbar owns all button glass/materials. */
+:where(.tegg-surface) .toolbar-edge {
+  position: fixed;
+  inset: 0 0 auto;
+  height: calc(var(--toolbar-inset) + 24px);
+  z-index: 20;
+  pointer-events: none;
+  user-select: none;
+  background: color-mix(in srgb, var(--background) 82%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  -webkit-mask-image: linear-gradient(to bottom, black 0, black calc(var(--toolbar-inset) - 8px), transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0, black calc(var(--toolbar-inset) - 8px), transparent 100%);
+}
+:where(.tegg-surface) .toolbar-edge[data-solid="true"] {
+  height: var(--toolbar-inset);
+  background: var(--background);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.tegg-sdk-editor .cm-focused { outline: 1px solid color-mix(in srgb, var(--accent) 42%, transparent); outline-offset: -1px; }
+.tegg-sdk-editor .cm-cursor { border-left-color: var(--accent); border-left-width: 2px; }
+.tegg-sdk-editor .cm-selectionBackground, .tegg-sdk-editor .cm-content ::selection { background: var(--accent-soft) !important; }
+.tegg-sdk-editor .cm-activeLine { background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
+.tegg-sdk-editor .cm-activeLineGutter { background: transparent; color: var(--accent); }
+.macos-document-surface .tegg-sdk-editor .cm-focused { outline: none; }
+.macos-document-surface .tegg-sdk-editor .cm-activeLine { background: color-mix(in srgb, var(--text) 3.5%, transparent); }
+.tegg-sdk-editor .cm-gutters { position: absolute !important; inset-inline-start: max(0px, calc((100% - (var(--reader-content-width) + 144px)) / 2 + 16px)); top: 0; }
+/* Live Edit is a visual editing surface; Source Mode retains CodeMirror's line and fold gutters. */
+.tegg-sdk-editor[data-mode="live"] .cm-gutters { display: none; }
+.tegg-sdk-editor .cm-gutterElement { font: 11px/1 var(--font-mono); color: var(--muted); }
+.tegg-sdk-editor .cm-lineNumbers .cm-gutterElement[style*="height: 0px"] { visibility: hidden; }
+.tegg-sdk-editor .cm-line { line-height: var(--md-line-height); }
+.tegg-sdk-editor .cm-live-heading { padding-block: 0; font-weight: 700; line-height: var(--md-heading-line-height); letter-spacing: -0.015em; }
+.tegg-sdk-editor .cm-live-heading, .tegg-sdk-editor .cm-live-heading span { text-decoration: none !important; }
+/* Padding keeps CodeMirror's line measurement accurate. Only block edges carry
+   spacing; the next block subtracts the heading's existing trailing space. */
+.tegg-sdk-editor .cm-live-heading-first { padding-top: max(0px, calc(var(--md-heading-before) - var(--md-previous-heading-gap, 0px))); }
+.tegg-sdk-editor .cm-live-heading-last { padding-bottom: var(--md-heading-after); }
+.tegg-sdk-editor .cm-live-heading-document-start, .tegg-sdk-editor .cm-live-heading-after-metadata, .tegg-sdk-editor .cm-live-heading-after-spaced-block { padding-top: 0; }
+.tegg-sdk-editor .cm-live-after-heading { --md-previous-heading-gap: var(--md-heading-after); }
+.tegg-sdk-editor .cm-live-heading-1 { font-size: var(--md-h1-size); letter-spacing: -0.035em; }
+.tegg-sdk-editor .cm-live-heading-2 { font-size: var(--md-h2-size); }
+.tegg-sdk-editor .cm-live-heading-3 { font-size: var(--md-h3-size); }
+.tegg-sdk-editor .cm-live-heading-4 { font-size: var(--md-h4-size); }
+.tegg-sdk-editor .cm-live-heading-5 { font-size: var(--md-h5-size); }
+.tegg-sdk-editor .cm-live-heading-6 { font-size: var(--md-h6-size); }
+.tegg-sdk-editor .cm-live-paragraph { margin-block: 0; }
+.tegg-sdk-editor .cm-live-paragraph-first { padding-top: 0; }
+.tegg-sdk-editor .cm-live-strong { font-weight: 700; }
+.tegg-sdk-editor .cm-live-emphasis { font-style: italic; }
+.tegg-sdk-editor .cm-live-strike { text-decoration: line-through; color: var(--muted); }
+.tegg-sdk-editor .cm-live-highlight { background: var(--md-highlight); border-radius: 3px; padding: 0 2px; }
+.tegg-sdk-editor .cm-live-inline-code { font-family: var(--font-mono); font-size: 0.88em; background: var(--code); border-radius: 5px; padding: 0.16em 0.36em; }
+.tegg-sdk-editor .cm-live-link, .tegg-sdk-editor .cm-live-wikilink { color: var(--accent); text-decoration: underline; text-underline-offset: 0.14em; }
+.tegg-sdk-editor .cm-live-wikilink { background: var(--accent-soft); border-radius: 5px; padding: 1px 4px; text-decoration: none; }
+.tegg-sdk-editor .cm-live-list-item { padding-inline-start: 2em; text-indent: -2em; }
+.tegg-sdk-editor .cm-live-list-block-first { padding-top: max(0px, calc(1em - var(--md-previous-heading-gap, 0px))); }
+.tegg-sdk-editor .cm-live-list-marker { display: inline-block; min-width: 2em; color: var(--text); font-weight: 400; text-indent: 0; }
+.tegg-sdk-editor .cm-live-task { width: 15px; height: 15px; margin: 3px 0.5em 3px 4px; accent-color: var(--accent); }
+
+.tegg-sdk-editor .cm-live-code-line { background: var(--code); padding-left: 14px; padding-right: 14px; font-family: var(--font-mono); font-size: 0.9em; }
+.tegg-sdk-editor .cm-live-table-line { font-family: var(--font-mono); font-size: 0.9em; background: color-mix(in srgb, var(--code) 62%, transparent); padding: 2px 10px; }
+.tegg-sdk-editor .cm-live-frontmatter-source, .tegg-sdk-editor .cm-live-technical-source { color: var(--muted); background: color-mix(in srgb, var(--code) 66%, transparent); font-family: var(--font-mono); font-size: 0.9em; padding-left: 12px; }
+.tegg-sdk-editor .cm-live-reference-source { color: var(--muted); font-family: var(--font-mono); font-size: 0.9em; }
+.tegg-sdk-editor .cm-live-collapsed-source { height: 0; min-height: 0; padding: 0; margin: 0; overflow: hidden; opacity: 0; pointer-events: none; }
+.tegg-sdk-editor .cm-live-rendered-block-line { line-height: 0; }
+.tegg-sdk-editor .cm-live-rendered-block-line > .cm-widgetBuffer { display: none; }
+.tegg-sdk-editor .cm-live-heading-id { color: var(--muted); font: 0.72em/1 var(--font-mono); }
+
+:where(.tegg-surface) .cm-live-sub, :where(.tegg-surface) .cm-live-sup { display: inline; font-size: 0.76em; line-height: 0; }
+:where(.tegg-surface) .cm-live-sub { vertical-align: sub; }
+:where(.tegg-surface) .cm-live-sup { vertical-align: super; }
+:where(.tegg-surface) .cm-live-emoji { font-family: var(--font-body); }
+:where(.tegg-surface) .cm-live-escaped { color: var(--text) !important; -webkit-text-fill-color: var(--text) !important; }
+:where(.tegg-surface) .md-render-math-inline { display: inline-flex; align-items: baseline; padding: 0 2px; border-radius: 4px; }
+:where(.tegg-surface) .cm-live-math-inline { cursor: text; }
+:where(.tegg-surface) .cm-live-math-inline:hover, :where(.tegg-surface) .cm-live-math-inline:focus { background: var(--accent-soft); outline: none; }
+:where(.tegg-surface) .cm-live-footnote-ref { color: var(--accent); font: 400 0.76em/0 var(--font-body); vertical-align: super; }
+:where(.tegg-surface) .cm-live-reference-definition { display: inline-flex; max-width: 100%; margin: 2px 0 8px; border: 0; border-radius: 6px; padding: 4px 7px; background: var(--code); color: var(--muted); font: 500 12px/1.35 var(--font-mono); cursor: pointer; text-align: left; }
+:where(.tegg-surface) .cm-live-footnote-definition { display: block; width: 100%; max-width: 100%; margin: max(0px, calc(0.8em - var(--md-previous-heading-gap, 0px))) 0 0; border: 0; padding: 0 0 0 2em; background: transparent; color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+:where(.tegg-surface) .cm-live-reference-definition:hover, :where(.tegg-surface) .cm-live-footnote-definition:hover { background: var(--accent-soft); color: var(--text); }
+:where(.tegg-surface) .cm-live-definition-term { margin-top: 0.55em; font-weight: 680; }
+:where(.tegg-surface) .cm-live-definition-description { padding-left: 1.4em !important; color: var(--muted); }
+
+.tegg-sdk-editor .cm-live-callout-source { margin: 0; border-left: 3px solid var(--md-callout-accent); border-right: 1px solid color-mix(in srgb, var(--md-callout-accent) 28%, var(--background)); background: var(--md-callout-bg); padding-block: 0; padding-left: 16px; padding-right: 16px; color: var(--text); }
+.tegg-sdk-editor .cm-live-callout-source-first { padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--md-callout-accent) 28%, transparent); border-radius: 0 8px 0 0; }
+.tegg-sdk-editor .cm-live-callout-source-last { padding-bottom: 14px; border-bottom: 1px solid color-mix(in srgb, var(--md-callout-accent) 28%, transparent); border-radius: 0 0 8px 0; }
+.tegg-sdk-editor .cm-live-callout, .tegg-sdk-editor .cm-live-quote-widget { cursor: text; }
+.tegg-sdk-editor .cm-live-callout, .tegg-sdk-editor .cm-live-quote-widget { margin: max(0px, calc(1.2em - var(--md-previous-heading-gap, 0px))) 0 0; }
+.tegg-sdk-editor .cm-live-callout:focus, .tegg-sdk-editor .cm-live-quote-widget:focus { outline: 2px solid color-mix(in srgb, var(--accent) 28%, transparent); outline-offset: 2px; }
+.tegg-sdk-editor .cm-live-callout, .tegg-sdk-editor .cm-live-quote-widget, .tegg-sdk-editor .cm-live-properties, .tegg-sdk-editor .cm-live-table, .tegg-sdk-editor .cm-live-image, .tegg-sdk-editor .cm-live-code-block, .tegg-sdk-editor .cm-preview-widget, .tegg-sdk-editor .cm-live-html-block {
+  white-space: normal;
+  line-height: var(--md-line-height);
+}
+
+:where(.tegg-surface) .cm-live-rule { width: 100%; margin: max(0px, calc(2em - var(--md-previous-heading-gap, 0px))) 0 2em; border: 0; border-top: 1px solid var(--border); }
+:where(.tegg-surface) .cm-live-table input { width: 100%; min-width: 0; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; background: transparent; color: var(--text); font: inherit; }
+:where(.tegg-surface) .cm-live-table input { padding: 8px 11px; text-align: inherit; }
+.tegg-sdk-editor[data-mode="source"] .cm-scroller { font-family: var(--font-mono); line-height: 1.6; }
+:where(.tegg-surface) .cm-live-table input:hover, :where(.tegg-surface) .cm-live-table input:focus { border-color: color-mix(in srgb, var(--accent) 48%, var(--border)); background: var(--accent-soft); outline: none; }
+:where(.tegg-surface) .cm-live-table { position: relative; display: block; width: 100%; margin: max(0px, calc(1.3em - var(--md-previous-heading-gap, 0px))) 0 0; overflow: visible; background: transparent; }
+:where(.tegg-surface) .cm-live-table > .cm-preview-toolbar { position: absolute; z-index: 10; top: -34px; left: 0; right: 0; border: 1px solid var(--border); border-radius: 8px; background: color-mix(in srgb, var(--surface) 94%, transparent); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08); opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity 120ms ease, transform 120ms ease; }
+:where(.tegg-surface) .cm-live-table:hover > .cm-preview-toolbar, :where(.tegg-surface) .cm-live-table:focus-within > .cm-preview-toolbar { opacity: 1; transform: translateY(0); pointer-events: auto; }
+/* Preserve the reviewed 15px table text while following accessibility scale. */
+:where(.tegg-surface) .cm-live-table table { margin: 0; font-size: calc(var(--md-body) * .9375); }
+:where(.tegg-surface) .cm-live-table th, :where(.tegg-surface) .cm-live-table td { padding: 0; }
+:where(.tegg-surface) .cm-live-table .cm-preview-toolbar > div { display: flex; gap: 2px; }
+:where(.tegg-surface) .cm-live-table-cell[data-align="center"] { text-align: center; }
+:where(.tegg-surface) .cm-live-table-cell[data-align="right"] { text-align: right; }
+:where(.tegg-surface) .cm-live-table-preview { width: 100%; min-height: 0; border: 0; border-radius: 0; padding: 9px 12px; background: transparent; color: var(--text); font: inherit; text-align: inherit; cursor: text; }
+:where(.tegg-surface) .cm-live-table-preview:hover, :where(.tegg-surface) .cm-live-table-preview:focus { background: var(--accent-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, var(--border)); outline: none; }
+:where(.tegg-surface) .cm-live-table-preview code { font-family: var(--font-mono); font-size: 0.9em; background: var(--code); border-radius: 4px; padding: 1px 4px; }
+:where(.tegg-surface) .cm-live-image { display: block; max-width: min(100%, 760px); margin: max(0px, calc(18px - var(--md-previous-heading-gap, 0px))) auto 0; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: transparent; cursor: pointer; }
+:where(.tegg-surface) .cm-live-image:hover, :where(.tegg-surface) .cm-live-image:focus { border-color: color-mix(in srgb, var(--accent) 55%, transparent); outline: 2px solid color-mix(in srgb, var(--accent) 28%, transparent); outline-offset: 2px; }
+:where(.tegg-surface) .cm-live-image img { display: block; max-width: 100%; max-height: 520px; margin: 0 auto; object-fit: contain; }
+:where(.tegg-surface) .cm-live-image-fallback { padding: 18px; color: var(--danger); background: color-mix(in srgb, var(--danger) 7%, transparent); font: 500 13px/1.5 var(--font-body); }
+
+:where(.tegg-surface) .cm-preview-widget { position: relative; display: block; margin: max(0px, calc(1.5em - var(--md-previous-heading-gap, 0px))) 0 0; background: transparent; overflow: visible; }
+:where(.tegg-surface) .cm-preview-widget > .cm-preview-toolbar { position: absolute; z-index: 10; top: 6px; right: 6px; width: auto; border: 1px solid var(--border); border-radius: 8px; background: color-mix(in srgb, var(--surface) 94%, transparent); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08); opacity: 0; pointer-events: none; transition: opacity 120ms ease; }
+:where(.tegg-surface) .cm-preview-widget:hover > .cm-preview-toolbar, :where(.tegg-surface) .cm-preview-widget:focus-within > .cm-preview-toolbar { opacity: 1; pointer-events: auto; }
+:where(.tegg-surface) .cm-live-html-inline { cursor: text; }
+.tegg-sdk-editor .cm-live-rendered-block-line > .cm-live-html-inline { display: block; white-space: normal; line-height: var(--md-line-height); }
+:where(.tegg-surface) .cm-live-html-inline:focus { border-radius: 4px; outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+:where(.tegg-surface) .cm-live-html-block { display: block; margin: max(0px, calc(0.8em - var(--md-previous-heading-gap, 0px))) 0 0; padding: 0; border: 1px solid transparent; border-radius: 4px; background: transparent; cursor: text; }
+.tegg-sdk-editor .cm-live-code-block { margin: max(0px, calc(1.2em - var(--md-previous-heading-gap, 0px))) 0 0; }
+:where(.tegg-surface) .cm-live-html-block:focus { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); outline: none; }
+
+@media (max-width: 760px) {
+  .tegg-reader { padding: calc(34px + var(--toolbar-inset, 0px)) 28px 100px; }
+  .tegg-sdk-editor .cm-content { padding: calc(32px + var(--toolbar-inset, 0px)) 28px 100px !important; }
+  .tegg-sdk-editor .cm-gutters { inset-inline-start: 0; }
+}
+
+@media (prefers-contrast: more) {
+  :where(.tegg-app, .tegg-surface) { --border: currentColor !important; }
+  :where(.tegg-surface) a { text-decoration-thickness: 2px; }
+  .tegg-sdk-editor .cm-focused { outline-color: color-mix(in srgb, var(--accent) 86%, transparent); outline-width: 2px; }
+  .macos-document-surface .tegg-sdk-editor .cm-focused { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .macos-document-surface .tegg-sdk-editor .cm-activeLine { background: color-mix(in srgb, var(--text) 8%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.tegg-surface) *, :where(.tegg-surface) *::before, :where(.tegg-surface) *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+/* Available to assistive technology without overlaying the writing surface. */
+:where(.tegg-surface) .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Relative distances below resolve once against the root body size. */
+:where(.tegg-surface) :is(blockquote,.callout,li,dd) > :first-child { margin-top: 0; }
+:where(.tegg-surface) :is(blockquote,.callout,li,dd) > :last-child { margin-bottom: 0; }
+:where(.tegg-surface) li + li { margin-top: calc(var(--md-body) * .25); }
+:where(.tegg-surface) li :is(p,ul,ol) { margin-block: calc(var(--md-body) * .5); }
+:where(.tegg-surface) ol[start] { padding-inline-start: calc(var(--md-body) * 2.5); }
+:where(.tegg-surface) .task-list-item { margin-inline-start: calc(var(--md-body) * -1.5); }
+:where(.tegg-surface) :is(.task-list-item input,.md-render-task) { width: 18px; height: 18px; }
+:where(.tegg-surface) .md-table-scroll { max-width: 100%; overflow-x: auto; margin-block: var(--md-body); }
+:where(.tegg-surface) .md-table-scroll :is(th,td) { min-width: calc(var(--md-body) * 5); overflow-wrap: anywhere; }
+:where(.tegg-surface) :is(.md-table-scroll,.cm-live-table) table { min-width: 100%; width: max-content; max-width: none; }
+:where(.tegg-surface) .cm-live-table { overflow-x: auto; }
+:where(.tegg-surface) .cm-live-table :is(th,td) { min-width: calc(var(--md-body) * 5); max-width: calc(var(--md-body) * 20); }
+:where(.tegg-surface) .cm-live-table-preview { overflow-wrap: anywhere; }
+:where(.tegg-surface) .cm-live-table > .cm-preview-toolbar { position: static; opacity: 1; pointer-events: auto; transform: none; border: 0; box-shadow: none; }
+:where(.tegg-surface) :is(.md-table-scroll,pre,button,a,summary,input):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:where(.tegg-surface) .footnotes { font-size: calc(var(--md-body) * .875); line-height: 1.6; }
+:where(.tegg-surface) .md-render-canvas { color: var(--text); }
+:where(.tegg-surface) .md-render-canvas svg { max-width: 100%; height: auto; }
+:where(.tegg-surface) .md-render-math-block { margin-block: var(--md-body); }
+:where(.tegg-surface) .md-render-math-block .katex-display { margin: 0; }
+:where(.tegg-surface) .md-render-math-inline { max-width: 100%; overflow-x: auto; vertical-align: middle; }
+:where(.tegg-surface) .cm-property-grid { grid-template-columns: minmax(0, .35fr) minmax(0, 1fr); }
+:where(.tegg-surface) .cm-property-grid label { overflow-wrap: anywhere; }
+.tegg-sdk-editor .cm-live-paragraph-after-heading { padding-top: var(--md-heading-gap); }
+.tegg-sdk-editor .cm-live-document-first { padding-top: 0; }
+.tegg-sdk-editor .cm-live-list-item.cm-live-paragraph-first { padding-top: calc(var(--md-body) * .25); }
+
+/* CodeMirror syntax highlighting decorates heading spans as links; suppress only that decoration. */
+.tegg-sdk-editor .cm-live-heading, .tegg-sdk-editor .cm-live-heading span { text-decoration: none !important; }
+
+:where(.tegg-surface) .md-diagram-source { padding: calc(var(--md-body) * .5) var(--md-body); border-top: 1px solid var(--border); font-size: calc(var(--md-body) * .875); }
+:where(.tegg-surface) .md-diagram-source summary { cursor: pointer; color: var(--muted); }
+:where(.tegg-surface) .md-diagram-source .diagram-source { display: block; }
+:where(.tegg-surface) .md-render-canvas[data-engine="dot"], :where(.tegg-surface) .md-render-canvas[data-engine="graphviz"] { background: #fff; color: #202124; }
+
+/* Semantic paragraph classes must not outrank the adjacent-heading gap rule. */
+:where(.tegg-surface) .md-render-heading + :is(p,ul,ol,.md-render-heading) { margin-top: 0; }
+
+
+/* Extension objects use the same body scale in Reader, Live Edit, SDK and Quick Look. */
+.tegg-surface .md-object-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:4px; margin-top:8px; }
+.tegg-surface :is(.md-object-actions, .md-object-panel) button {
+  font:inherit; font-size:14px; min-height:44px; min-width:44px; padding:8px 12px;
+  border:1px solid var(--border); border-radius:8px; color:var(--text); background:var(--surface); cursor:pointer;
+}
+.tegg-surface :is(.md-object-actions, .md-object-panel) button:hover {background:var(--accent-soft);}
+.tegg-surface :is(button, [tabindex], a):focus-visible {outline:2px solid var(--accent); outline-offset:2px;}
+.tegg-surface .md-object-panel {
+  position:fixed; inset:auto; margin:0; padding:0; border:1px solid var(--border); border-radius:16px;
+  color:var(--text); background:var(--surface); box-shadow:0 12px 48px #0003;
+  font:400 var(--md-body)/1.6 var(--font-body); max-width:calc(100vw - 24px); max-height:calc(100dvh - 24px);
+  overflow:hidden; z-index:1000; text-align:left;
+}
+.tegg-surface .md-object-panel::backdrop {background:#0006;}
+.tegg-surface .md-object-panel > header {display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:12px 16px; border-bottom:1px solid var(--border);}
+.tegg-surface .md-object-panel > header strong {margin-right:auto;}
+.tegg-surface .md-object-body {padding:16px; overflow:auto; max-height:calc(80dvh - 80px);}
+.tegg-surface .md-note-panel {width:440px; bottom:12px; left:12px;}
+.tegg-surface .md-note-content {font-size:calc(var(--md-body) * .875); line-height:1.6; overflow-wrap:anywhere;}
+.tegg-surface .md-note-content > :first-child {margin-top:0;}
+.tegg-surface .md-object-viewer {inset:16px; margin:auto; width:1100px; height:calc(100dvh - 32px); max-width:calc(100vw - 32px);}
+.tegg-surface .md-object-viewer .md-object-body {display:flex; flex-direction:column; gap:12px; height:calc(100% - 78px); max-height:none;}
+.tegg-surface .md-object-viewer nav {display:flex; align-items:center; flex-wrap:wrap; gap:8px;}
+.tegg-surface .md-object-viewer output {min-width:3em; text-align:center; font-size:14px;}
+.tegg-surface .md-object-stage {overflow:auto; flex:1; min-height:120px; background:var(--background); border:1px solid var(--border); border-radius:10px; overscroll-behavior:contain; touch-action:none;}
+.tegg-surface .md-object-content {margin:auto; padding:20px; min-width:0;}
+.tegg-surface .md-object-content .md-render-canvas {padding:0; overflow:visible; background:transparent; min-height:0;}
+.tegg-surface .md-object-content svg {width:100% !important; max-width:none !important; height:auto !important; max-height:none !important;}
+.tegg-surface .md-object-content .md-render-math-block {overflow:visible; margin:0; padding:0;}
+.tegg-surface .md-object-viewer details {flex:none; max-height:30%; overflow:auto;}
+.tegg-surface .md-object-viewer pre {white-space:pre-wrap; overflow-wrap:anywhere; font:13px/1.6 var(--font-mono);}
+.tegg-surface .md-math-error {display:block; color:var(--danger); font:inherit;}
+.tegg-surface [data-render-state="error"] > code {white-space:pre-wrap; overflow-wrap:anywhere;}
+.tegg-surface .md-render-math-inline {vertical-align:baseline; padding-block:3px;}
+.tegg-surface .md-explicit-figure {margin:var(--md-body) 0; max-width:100%;}
+.tegg-surface .md-explicit-figure img {display:block; max-width:100%; height:auto; margin-inline:auto;}
+.tegg-surface .md-explicit-figure figcaption {margin-top:calc(var(--md-body) * .5); color:var(--muted); font-size:calc(var(--md-body) * .875); line-height:1.6; overflow-wrap:anywhere;}
+.tegg-surface .md-image-unavailable {display:block; padding:16px; background:var(--code); border-radius:8px; font-size:.875em;}
+.tegg-surface button.cm-live-footnote-ref {font:inherit; color:var(--accent); background:var(--accent-soft); border:0; border-radius:5px; padding:0 4px; cursor:pointer; vertical-align:super; font-size:.75em;}
+.tegg-surface section.cm-live-footnote-definition {display:block; white-space:normal; text-align:left; width:100%; font-size:calc(var(--md-body) * .875);}
+@media (max-width:600px), (max-height:599px) {
+  .tegg-surface .md-note-panel {inset:auto 8px 8px !important; width:calc(100vw - 16px); max-width:none; border-radius:16px;}
+  .tegg-surface .md-object-viewer {inset:0; width:100vw; max-width:100vw; height:100dvh; max-height:100dvh; border-radius:0;}
+  .tegg-surface .md-object-body {padding:12px;}
+}
+
+.tegg-surface .md-explicit-figure img[hidden] {display:none;}
+
+.tegg-surface section.cm-live-footnote-definition {line-height:1.6; cursor:auto;}
+.tegg-surface section.cm-live-footnote-definition:hover {background:transparent;}
+.tegg-surface .md-object-stage {touch-action:none;}
+.tegg-surface .md-object-panel button {font-size: max(14px, calc(var(--md-body) * .875));}
+
+.tegg-surface .md-note-panel::backdrop {background:transparent;}
+@media (pointer:coarse) {
+  .tegg-surface :is(.footnote-ref a,button.cm-live-footnote-ref) {display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;vertical-align:baseline;}
+}
+
+.tegg-surface .md-object-panel select {font:inherit; color:var(--text); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:6px; max-width:100%;}
+/* One compact Metadata projection shared by Reader and Live Edit. */
+:where(.tegg-surface) .frontmatter.md-render-properties {
+  display: block; position: relative; box-sizing: border-box;
+  margin: 0 0 var(--md-heading-before); padding: 10px 14px 12px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: color-mix(in srgb, var(--text) 4%, var(--surface));
+  color: var(--text); font-size: 0.9em; line-height: 1.5;
+}
+:where(.tegg-surface) .frontmatter .md-metadata-edit {
+  margin-left: auto; padding: 3px 5px; border: 0; border-radius: 4px;
+  color: var(--muted); background: transparent; font: inherit; font-size: 0.85em; cursor: pointer;
+}
+:where(.tegg-surface) .frontmatter .md-metadata-edit:hover { background: var(--accent-soft); color: var(--accent); }
+:where(.tegg-surface) .frontmatter button:focus-visible { outline: 1px solid var(--metadata-focus); outline-offset: 1px; }
+/* A container query follows the document column, including split-view resizing. */
+:where(.tegg-surface) .frontmatter.md-render-properties { container: tegg-metadata / inline-size; }
+:where(.tegg-surface) .frontmatter .md-metadata-grid {
+  display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  gap: 6px 20px; align-items: start; margin: 8px 0 0; padding: 0;
+}
+:where(.tegg-surface) .frontmatter .md-metadata-row { display: contents; }
+:where(.tegg-surface) .frontmatter .md-metadata-row > dt {
+  max-width: 26ch; margin: 0; padding: 0; color: var(--muted); font-family: var(--font-mono);
+  font-size: 1em; font-weight: 400; line-height: 1.5; overflow-wrap: anywhere;
+}
+:where(.tegg-surface) .frontmatter .md-metadata-row > dd { min-width: 0; margin: 0; padding: 0; color: var(--text); line-height: 1.5; }
+:where(.tegg-surface) .frontmatter .md-metadata-scalar { white-space: pre-wrap; overflow-wrap: anywhere; }
+:where(.tegg-surface) .frontmatter .md-metadata-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+:where(.tegg-surface) .frontmatter .md-metadata-chip { max-width: 100%; padding: 0 7px; border-radius: 6px; background: color-mix(in srgb, var(--text) 9%, transparent); }
+:where(.tegg-surface) .frontmatter .md-metadata-grid .md-metadata-grid { margin: 0; gap: 5px 14px; }
+:where(.tegg-surface) .frontmatter .md-metadata-grid .md-metadata-grid dt { max-width: 18ch; }
+:where(.tegg-surface) .frontmatter .md-metadata-list { margin: 0; padding-inline-start: 1.5em; }
+:where(.tegg-surface) .frontmatter .md-metadata-item { margin: 0; padding: 0; }
+:where(.tegg-surface) .frontmatter .md-metadata-item + .md-metadata-item { margin-top: 4px; }
+:where(.tegg-surface) .frontmatter .md-metadata-source { margin: 3px 0 0; padding: 0; border: 0; background: transparent; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; font: 0.95em/1.5 var(--font-mono); }
+:where(.tegg-surface) .frontmatter .md-metadata-source-label { color: var(--muted); font-size: 0.85em; }
+:where(.tegg-surface) .frontmatter .md-metadata-fallback { min-width: 0; }
+:where(.tegg-surface) .frontmatter .md-metadata-link { color: var(--text); text-decoration: none; text-underline-offset: 2px; overflow-wrap: anywhere; }
+:where(.tegg-surface) .frontmatter .md-metadata-link:focus-visible { outline: 1px solid var(--metadata-focus); outline-offset: 1px; }
+@container tegg-metadata (max-width: 480px) {
+  :where(.tegg-surface) .frontmatter .md-metadata-content > .md-metadata-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  :where(.tegg-surface) .frontmatter .md-metadata-content > .md-metadata-grid > .md-metadata-row { display: block; }
+  :where(.tegg-surface) .frontmatter .md-metadata-content > .md-metadata-grid > .md-metadata-row > dt { max-width: none; margin-bottom: 3px; }
+  :where(.tegg-surface) .frontmatter .md-metadata-content > .md-metadata-grid > .md-metadata-row > dd { padding-block: 0; }
+  :where(.tegg-surface) .frontmatter .md-metadata-content > .md-metadata-grid > .md-metadata-group > dt { padding: 0; }
+  :where(.tegg-surface) .frontmatter .md-metadata-grid .md-metadata-grid { grid-template-columns: minmax(0, max-content) minmax(0, 1fr); }
+}
+
+:where(.tegg-surface) .frontmatter .md-metadata-viewport { overflow: hidden; }
+:where(.tegg-surface) .frontmatter [hidden] { display: none !important; }
+:where(.tegg-surface) .frontmatter .md-metadata-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 8px; }
+:where(.tegg-surface) .frontmatter.md-metadata-collapsed-empty .md-metadata-actions { margin-top: 0; }
+:where(.tegg-surface) .frontmatter .md-metadata-content { display: flow-root; }
+:where(.tegg-surface) .frontmatter .md-metadata-toggle {
+  display: flex; align-items: center; gap: 9px; margin: 0; padding: 0;
+  border: 0; background: transparent; color: var(--muted); font: inherit; cursor: pointer;
+}
+:where(.tegg-surface) .frontmatter .md-metadata-toggle[hidden] { display: none; }
+:where(.tegg-surface) .frontmatter .md-metadata-toggle::after {
+  content: ""; width: 7px; height: 7px; border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg);
+}
+:where(.tegg-surface) .frontmatter .md-metadata-toggle[aria-expanded="true"]::after { transform: translateY(2px) rotate(225deg); }
+:where(.tegg-surface) .frontmatter .md-metadata-toggle:hover { color: var(--text); }
+:where(.tegg-surface) .frontmatter .md-metadata-link:hover { color: var(--text); text-decoration: underline; }
+:where(.tegg-surface) .frontmatter .md-metadata-link-icon {
+  display: inline-block; width: 0.9em; height: 0.9em; margin-left: 4px; vertical-align: -0.08em;
+  fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+  color: var(--muted);
+}
+:where(.tegg-surface) .frontmatter.md-render-properties { scroll-margin-top: 72px; }
+
+:where(.tegg-surface) .frontmatter {
+  --metadata-row-height: 1.6em;
+  --metadata-focus: color-mix(in srgb, #72879a 60%, var(--surface));
+  --metadata-control-border: color-mix(in srgb, var(--muted) 32%, transparent);
+}
+:where(.tegg-surface) .frontmatter .md-metadata-row > dt, :where(.tegg-surface) .frontmatter .md-metadata-row > dd { line-height: var(--metadata-row-height); }
+:where(.tegg-surface) .frontmatter .md-metadata-scalar, :where(.tegg-surface) .frontmatter .md-metadata-value-display { display: block; min-height: var(--metadata-row-height); }
+:where(.tegg-surface) .frontmatter .md-metadata-value-display[hidden], :where(.tegg-surface) .frontmatter .md-metadata-value-edit[hidden] { display: none; }
+:where(.tegg-surface) .frontmatter .md-metadata-value-edit {
+  display: block; max-width: 100%; min-height: var(--metadata-row-height); margin: 0; padding: 0;
+  border: 0; border-radius: 3px; background: transparent; color: inherit; font: inherit;
+  line-height: inherit; text-align: start; white-space: inherit; overflow-wrap: anywhere; cursor: text;
+}
+:where(.tegg-surface) .frontmatter .md-metadata-value-edit:hover, :where(.tegg-surface) .frontmatter .md-metadata-editable-row:hover { background: color-mix(in srgb, var(--text) 3%, transparent); }
+:where(.tegg-surface) .frontmatter .md-metadata-editable-row { cursor: text; border-radius: 4px; }
+:where(.tegg-surface) .frontmatter .md-metadata-editable-row:focus-visible { outline: 1px solid var(--metadata-focus); outline-offset: 1px; }
+:where(.tegg-surface) .frontmatter .md-metadata-value-form { display: flex; align-items: start; flex-wrap: nowrap; gap: 5px; white-space: normal; min-height: var(--metadata-row-height); }
+:where(.tegg-surface) .frontmatter .md-metadata-value-input {
+  flex: 1 1 0; width: 0; min-width: 0; height: var(--metadata-row-height); box-sizing: border-box;
+  padding: 0 5px; margin: 0; border: 1px solid var(--metadata-focus); border-radius: 4px;
+  background: var(--surface); color: var(--text); font: inherit; line-height: inherit;
+  outline: none; box-shadow: none; appearance: none;
+}
+:where(.tegg-surface) .frontmatter .md-metadata-value-input:focus, :where(.tegg-surface) .frontmatter .md-metadata-value-input:focus-visible { outline: none; box-shadow: none; border-color: var(--metadata-focus); }
+:where(.tegg-surface) .frontmatter .md-metadata-value-form:has(textarea) { flex-wrap: wrap; }
+:where(.tegg-surface) .frontmatter textarea.md-metadata-value-input { flex-basis: 100%; width: 100%; height: auto; min-height: 3.6em; resize: vertical; }
+:where(.tegg-surface) .frontmatter .md-metadata-value-form button {
+  flex: 0 0 auto; box-sizing: border-box; height: var(--metadata-row-height); padding: 0 5px;
+  border: 1px solid transparent; border-radius: 4px; background: color-mix(in srgb, var(--text) 5%, transparent);
+  color: var(--muted); font: inherit; line-height: inherit; cursor: pointer;
+}
+:where(.tegg-surface) .frontmatter .md-metadata-value-form button:hover { color: var(--text); background: color-mix(in srgb, var(--text) 9%, transparent); }
+:where(.tegg-surface) .frontmatter .md-metadata-value-form:has(.md-metadata-value-error:not(:empty)) { flex-wrap: wrap; }
+:where(.tegg-surface) .frontmatter .md-metadata-value-error { flex-basis: 100%; font-size: 0.85em; color: var(--text); }
+:where(.tegg-surface) .frontmatter .md-metadata-value-error:empty { display: none; }
+:where(.tegg-surface) .frontmatter .md-metadata-tags .md-metadata-chips { display: flex; min-height: var(--metadata-row-height); }
+:where(.tegg-surface) .frontmatter .md-metadata-tags .md-metadata-chips[hidden] { display: none; }
+:where(.tegg-surface) .frontmatter .md-metadata-tags-form { display: block; }
+:where(.tegg-surface) .frontmatter .md-metadata-tag-fields {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px; box-sizing: border-box;
+  min-height: var(--metadata-row-height); border: 1px solid var(--metadata-focus); border-radius: 4px; padding: 3px;
+}
+:where(.tegg-surface) .frontmatter .md-metadata-tag-token { display: inline-flex; align-items: center; max-width: 100%; border-radius: 4px; background: color-mix(in srgb, var(--text) 8%, transparent); }
+:where(.tegg-surface) .frontmatter .md-metadata-tag-token button { background: transparent; color: var(--text); padding: 0 4px; min-height: 1.5em; height: auto; line-height: 1.5; overflow-wrap: anywhere; }
+:where(.tegg-surface) .frontmatter .md-metadata-tag-token button:last-child { color: var(--muted); }
+:where(.tegg-surface) .frontmatter .md-metadata-tag-add, :where(.tegg-surface) .frontmatter .md-metadata-tag-input {
+  min-width: 3em; max-width: 100%; height: 1.5em; box-sizing: border-box; margin: 0; padding: 0 3px;
+  border: 1px solid transparent; border-radius: 3px; outline: none; box-shadow: none;
+  background: transparent; color: var(--text); font: inherit; line-height: 1.5;
+}
+:where(.tegg-surface) .frontmatter .md-metadata-tag-add { flex: 1 1 6em; width: 6em; }
+:where(.tegg-surface) .frontmatter .md-metadata-tag-input { background: var(--surface); border-color: var(--metadata-control-border); }
+:where(.tegg-surface) .frontmatter .md-metadata-tag-add:focus, :where(.tegg-surface) .frontmatter .md-metadata-tag-input:focus { outline: none; box-shadow: none; }
+:where(.tegg-surface) .frontmatter .md-metadata-tag-footer { display: flex; align-items: start; gap: 5px; margin-top: 4px; }
+:where(.tegg-surface) .frontmatter .md-metadata-tags-help { flex: 1; color: var(--muted); font-size: 0.82em; line-height: 1.5; padding-top: 3px; }
+:where(.tegg-surface) .cm-metadata-source-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; color: var(--muted); font: 13px/1.5 var(--font-body); }
+:where(.tegg-surface) .cm-metadata-source-toolbar button { border: 1px solid transparent; border-radius: 4px; background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text); font: inherit; padding: 3px 9px; cursor: pointer; }
+
+/* Markdown's fallback tokenizer treats the closing YAML fence as a setext heading. */
+.tegg-sdk-editor .cm-live-frontmatter-source span { color: inherit; font-weight: normal; font-style: normal; text-decoration: none; }
+
+:where(.tegg-surface) .cm-metadata-source-toolbar button:focus-visible { outline: 1px solid color-mix(in srgb, #72879a 60%, var(--surface)); outline-offset: 1px; }
+
+/* Live Edit uses the caret and text selection, without a full-row wash. */
+.tegg-sdk-editor[data-mode="live"] .cm-activeLine { background: transparent; }
+
+/* Keep the source block's own background when its active-line highlight is removed. */
+.tegg-sdk-editor[data-mode="live"] .cm-activeLine:is(.cm-live-frontmatter-source, .cm-live-technical-source) {
+  background: color-mix(in srgb, var(--code) 66%, transparent);
+}
+
+:where(.tegg-surface) .md-link-popover {
+  position: fixed; z-index: 1000; width: 300px; max-width: calc(100vw - 16px);
+  box-sizing: border-box; padding: 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text); box-shadow: 0 3px 12px #00000012;
+  font: 13px/1.5 var(--font-body);
+}
+:where(.tegg-surface) .md-link-popover.md-link-editor { width: 340px; }
+:where(.tegg-surface) .md-link-popover button {
+  box-sizing: border-box; min-height: 28px; padding: 3px 9px; border: 1px solid var(--border);
+  border-radius: 5px; font: inherit; color: var(--text); background: var(--code); cursor: pointer;
+}
+:where(.tegg-surface) .md-link-popover button:hover { background: color-mix(in srgb, var(--text) 7%, var(--surface)); }
+:where(.tegg-surface) .md-link-popover .md-link-destination {
+  display: flex; align-items: flex-start; gap: 8px; width: 100%; padding: 0; min-height: 0;
+  border: 0; background: transparent; text-align: left;
+}
+:where(.tegg-surface) .md-link-destination-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; flex: 1; }
+:where(.tegg-surface) .md-link-destination svg { width: 14px; height: 14px; flex: none; margin-top: 3px; fill: none; stroke: currentColor; stroke-width: 1.25; stroke-linecap: round; stroke-linejoin: round; color: var(--muted); }
+:where(.tegg-surface) .md-link-popover .md-link-destination:hover { background: transparent; text-decoration: underline; text-underline-offset: 3px; }
+:where(.tegg-surface) .md-link-footer { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+:where(.tegg-surface) .md-link-hint { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); }
+:where(.tegg-surface) .md-link-popover .md-link-text-action { border-color: transparent; background: transparent; padding-inline: 4px; white-space: nowrap; }
+:where(.tegg-surface) .md-link-popover label { display: block; margin-bottom: 12px; font-size: 12px; color: var(--muted); }
+:where(.tegg-surface) .md-link-popover input {
+  display: block; box-sizing: border-box; width: 100%; height: 32px; margin-top: 4px; padding: 5px 8px;
+  font: 14px/20px var(--font-body); color: var(--text); background: transparent;
+  border: 1px solid var(--border); border-radius: 5px; box-shadow: none;
+}
+:where(.tegg-surface) .md-link-popover :focus-visible { outline: 1px solid var(--muted); outline-offset: 2px; }
+:where(.tegg-surface) .md-link-popover input:focus { outline: none; border-color: color-mix(in srgb, var(--text) 35%, var(--surface)); box-shadow: none; }
+:where(.tegg-surface) .md-link-editor-actions { margin-top: 4px; }
+:where(.tegg-surface) .md-link-popover .md-link-remove { margin-right: auto; color: var(--muted); }
+:where(.tegg-surface) .md-link-popover .md-link-save { color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); border-color: transparent; }
+:where(.tegg-surface) .md-link-popover .md-link-save:hover { background: color-mix(in srgb, var(--accent) 15%, var(--surface)); }
+:where(.tegg-surface) .md-link-popover [role="alert"]:not(:empty) { color: var(--text); margin-bottom: 8px; }
+:where(.tegg-surface) .md-link-notice { position: fixed; z-index: 1001; bottom: 24px; left: 24px; right: 24px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+.tegg-sdk-editor .cm-live-link, .tegg-sdk-editor .cm-live-wikilink { cursor: pointer; }
+
+.tegg-sdk-editor .cm-live-underline { text-decoration: underline; text-underline-offset: 0.14em; }
+
+:where(.tegg-surface) .md-emoji-editor {
+  width: min(300px, calc(100vw - 48px)); padding: 20px; border: 1px solid rgba(128,128,128,.24);
+  border-radius: 12px; color: var(--text-primary, CanvasText); background: var(--bg-primary, Canvas);
+  box-shadow: 0 12px 40px #0002; font: 14px/1.4 var(--font-body);
+}
+:where(.tegg-surface) .md-emoji-editor::backdrop { background: #0002; }
+:where(.tegg-surface) .md-emoji-editor label { display: grid; gap: 8px; }
+:where(.tegg-surface) .md-emoji-editor input { width: 100%; box-sizing: border-box; padding: 7px 9px; font: inherit; color: inherit; background: transparent; border: 1px solid #8885; border-radius: 6px; }
+:where(.tegg-surface) .md-emoji-editor input:focus { outline: 1px solid #8887; outline-offset: 1px; }
+:where(.tegg-surface) .md-emoji-preview { min-height: 44px; display: flex; align-items: center; padding: 8px 0; }
+:where(.tegg-surface) .md-emoji-actions { display: flex; justify-content: flex-end; gap: 8px; }
+:where(.tegg-surface) .md-emoji-actions button { font: inherit; color: inherit; background: #8881; border: 1px solid #8883; border-radius: 6px; padding: 5px 12px; }
+:where(.tegg-surface) .md-emoji-actions button:disabled { opacity: .45; }
+
+/* Inline code wraps as part of its paragraph; source code blocks keep scrolling. */
+.tegg-reader :not(pre) > code, .tegg-sdk-editor .cm-live-inline-code {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+:where(.tegg-surface) .cm-live-literal { color: var(--text); font: inherit; }
+
+/* One set of rails per source line, independent of cursor and focus. */
+.tegg-sdk-editor[data-mode="live"] .cm-line.cm-live-quote-line {
+  margin: 0;
+  padding: 0 0 0 calc(var(--md-quote-depth) * 20px);
+  border: 0;
+  border-radius: 0;
+  color: var(--text);
+  background: repeating-linear-gradient(to right, color-mix(in srgb, var(--text) 18%, transparent) 0 2px, transparent 2px 20px) left top / calc(var(--md-quote-depth) * 20px) 100% no-repeat;
+}
+.tegg-sdk-editor[data-mode="live"] .cm-line.cm-live-quote-line.cm-live-list-item {
+  padding-left: calc(var(--md-quote-depth) * 20px + 2em);
+}
+
+:where(.tegg-surface) .md-code-editor .md-render-toolbar { text-transform: none; letter-spacing: 0; }
+:where(.tegg-surface) .md-code-actions { display: flex; align-items: center; gap: 4px; }
+:where(.tegg-surface) .md-code-editor .md-code-actions button { color: var(--muted); font-weight: 500; }
+:where(.tegg-surface) .md-code-area { position: relative; }
+:where(.tegg-surface) .md-code-area pre { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+:where(.tegg-surface) .md-code-area pre code, :where(.tegg-surface) .md-code-area textarea { font: calc(14px * var(--reader-font-scale, 1))/1.4 var(--font-mono); padding: 8px 16px 12px; box-sizing: border-box; tab-size: 4; white-space: pre; }
+:where(.tegg-surface) .md-code-area textarea { display: block; width: 100%; border: 0; border-radius: 0; outline: none; resize: none; background: transparent; color: transparent; caret-color: var(--accent); -webkit-text-fill-color: currentColor; position: relative; z-index: 1; overflow-x: auto; overflow-y: hidden; }
+:where(.tegg-surface) .md-code-area textarea::selection { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+:where(.tegg-surface) .md-code-wrap .md-code-area pre code, :where(.tegg-surface) .md-code-wrap .md-code-area textarea { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Code cards share Metadata's quiet surface and control treatment. */
+:where(.tegg-surface) .md-code-editor { background: color-mix(in srgb, var(--text) 3%, var(--surface)); border-color: color-mix(in srgb, var(--text) 12%, transparent); margin: 0.25em 0; }
+:where(.tegg-surface) .md-code-editor .md-render-toolbar { height: 36px; padding: 6px 10px; box-sizing: border-box; border-bottom: 0; }
+:where(.tegg-surface) .md-code-language { appearance: auto; width: auto; max-width: 50%; height: 28px; padding: 2px 3px; border: 1px solid transparent; border-radius: 5px; font: 500 12px/1.4 var(--font-body); color: var(--muted); background: transparent; }
+:where(.tegg-surface) .md-code-language:hover { background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text); }
+:where(.tegg-surface) .md-code-language:focus, :where(.tegg-surface) .md-code-language:focus-visible, :where(.tegg-surface) .md-code-actions button:focus-visible { outline: none; box-shadow: none; border: 1px solid color-mix(in srgb, var(--text) 25%, transparent); }
+:where(.tegg-surface) .md-code-editor .md-code-actions button { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; padding: 5px; border: 1px solid transparent; color: var(--muted); }
+:where(.tegg-surface) .md-code-editor .md-code-actions button[hidden] { display: none; }
+:where(.tegg-surface) .md-code-actions svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+:where(.tegg-surface) .md-code-editor .md-code-actions button:hover, :where(.tegg-surface) .md-code-editor .md-code-actions button[aria-pressed="true"] { color: var(--text); background: color-mix(in srgb, var(--text) 7%, transparent); }
+
+:where(.tegg-surface) .md-code-editor .md-code-area pre, :where(.tegg-surface) .md-code-editor .md-code-area code { background: transparent; }
+
+/* The native caret and highlighted glyphs must use identical text metrics. */
+:where(.tegg-surface) .md-code-area pre code, :where(.tegg-surface) .md-code-area textarea {
+  font-weight: 400; font-style: normal; font-variant-ligatures: none;
+  letter-spacing: normal; word-spacing: normal; text-indent: 0; text-align: left;
+}
+:where(.tegg-surface) .md-code-area pre code * { font: inherit; letter-spacing: inherit; }
+/* drawSelection resets descendant carets to `initial !important`.
+   Our transparent text overlay must explicitly restore its native caret. */
+.tegg-sdk-editor .md-code-area textarea:focus { caret-color: var(--accent) !important; }
+
+:where(.tegg-surface) .md-code-editor .md-code-actions button[aria-pressed="true"] {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  border-color: color-mix(in srgb, var(--text) 16%, transparent);
+}

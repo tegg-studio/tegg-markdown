@@ -1,0 +1,14 @@
+.tegg-sdk-frame {display:flex; flex-direction:column; min-width:0; min-height:0; height:100%;}
+.tegg-sdk-content {flex:1; min-height:0; overflow:auto;}
+.tegg-sdk-content[hidden] {display:none;}
+.tegg-attribution {flex:none; padding:8px 16px; font:12px/1.5 system-ui,sans-serif; color:var(--muted,#62666d); background:var(--background,#fbfbfc); text-align:right;}
+.tegg-attribution a {color:inherit; text-decoration:underline; text-underline-offset:2px;}
+.tegg-sdk-editor .cm-editor {min-height:100%;}
+.tegg-sdk-editor .cm-scroller {font-family:var(--font-body); overflow:auto;}
+.tegg-sdk-editor .cm-content {padding:24px;}
+.tegg-sdk-editor .cm-gutters {background:transparent;border:0;}
+
+.tegg-sdk-editor .cm-editor {height:100%;}
+.tegg-sdk-editor .cm-content {width:100%;min-width:0;max-width:calc(var(--reader-content-width) + var(--md-gutter) * 2);margin:0 auto;padding:var(--md-top) var(--md-gutter) var(--md-bottom);}
+.tegg-sdk-editor .cm-line {padding:0;}
+.tegg-sdk-callout-menu {position:fixed;z-index:1000;font:14px/1.5 system-ui;padding:8px;background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:8px;max-height:240px;}

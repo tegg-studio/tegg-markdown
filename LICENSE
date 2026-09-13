@@ -1,0 +1,118 @@
+Tegg Markdown Attribution License 1.0
+Version date: 2026-09-13
+
+Copyright (c) 2026 Leon (Tegg Studio, https://github.com/tegg-studio)
+and identified contributors, for their respective contributions.
+
+1. Definitions and scope
+"Software" means the original code, documentation and other materials expressly
+made available under this license, including modifications of those materials.
+"Licensor" means each copyright holder granting rights in their respective
+portions of the Software. "You" includes the individual or legal entity
+exercising these rights. "Covered Interface" means an end-user graphical
+interface that presents reading, rendering or editing functionality provided
+substantially by the Software, including through a wrapper, fork or modified
+version. "Attribution" means the exact text "Powered by Tegg Markdown".
+
+Third-party components and assets identified in THIRD_PARTY_NOTICES.md,
+licenses/, source notices or their own packages are excluded from this license
+and remain under their respective licenses. This license does not restrict
+rights independently granted by those third parties.
+
+2. Copyright permission
+Subject to compliance with this license, each Licensor grants You a worldwide,
+non-exclusive, royalty-free copyright license to use, reproduce, modify,
+display, perform and distribute their portions of the Software, in source or
+object form, for any purpose, including commercial products, paid services,
+SaaS, internal business use and private use. You may combine the Software with
+other software. You are not required by this license to disclose Your
+application source code or modifications.
+
+3. Required interface attribution
+Whenever a Covered Interface is displayed for use, You must display Attribution
+within that interface or in an immediately adjacent toolbar, status bar or
+footer visible at the same time. An attribution area shared by multiple
+simultaneously visible instances on the same screen is sufficient if it clearly
+applies to all of them.
+
+Attribution must be readable and accessible, in the normal visible interface,
+with size and contrast no less legible than comparable secondary interface
+text. You may adapt its typography and placement to Your design. You must not
+conceal, obscure, clip, make transparent or require scrolling through the
+document, hovering, opening a menu, or visiting an About page to discover it.
+A hyperlink is encouraged but not required. No logo image is required.
+
+You may replace or relocate the supplied attribution component only if the
+result still satisfies this section, or as permitted by a separate written
+license from an authorized rights holder. These obligations apply to forks,
+wrappers, modified versions, internal interfaces and hosted services as well
+as distributed products. Supplying a technical option to hide attribution
+does not itself grant permission to exercise that option.
+
+4. Non-graphical use and user content
+If use of the Software has no Covered Interface, include Attribution in the
+documentation provided to users of that software or service, or in its
+accompanying third-party notices. This does not require adding attribution to
+each API response. No requirement in this license obliges You to alter a user's
+Markdown source, saved file, printed document or exported artifact, or to add
+a watermark to those artifacts. Displaying them in a Covered Interface remains
+subject to section 3. This license grants no ownership in user content.
+
+5. Redistribution
+When distributing the Software or modifications, retain this license and
+applicable copyright and third-party notices in the distribution or accompanying
+legal materials. Clearly identify modified source files or document Your
+modifications in a changelog. Preserve recipients' rights under this license
+for the covered portions; do not represent those portions as available under an
+alternative license unless You possess the necessary rights. Your own separate
+code may use other terms. Recipients receive permission for the covered
+portions directly from their respective Licensors under this license.
+A redistributable wrapper must carry these requirements to its recipients.
+
+6. Patents and trademarks
+Each Licensor grants a worldwide, non-exclusive, royalty-free patent license
+for claims they control that are necessarily infringed by their contribution
+alone or by its combination with the Software to which it was contributed.
+That patent grant ends if You initiate patent litigation alleging that the
+Software or a contribution constitutes patent infringement.
+
+You may use the name Tegg Markdown to satisfy attribution and truthfully
+describe origin or compatibility. No permission to impersonate the project,
+claim endorsement or use other trademarks or logos is granted.
+
+7. Separate commercial permissions
+An authorized rights holder may grant additional permissions, including
+waiver of section 3, under a separate written commercial agreement. This
+license alone grants no white-label waiver. Such a waiver does not remove
+third-party obligations or apply to contributions the grantor is not entitled
+to relicense. COMMERCIAL-LICENSE.md explains the process; a request, quotation,
+payment without an applicable agreement, or configuration flag is not a grant.
+
+8. Duration, breach and restoration
+The grants are perpetual for the version received while You comply with this
+license. A later license version does not retroactively change these grants.
+For a breach, Your rights terminate if You do not cure it within 30 days after
+becoming aware of it. If You cure within that period, Your rights continue.
+After termination, reinstatement requires written permission of the relevant
+Licensor. Compliant recipients' independently granted rights survive.
+Sections concerning notices, third-party rights, disclaimers and accrued
+obligations survive termination.
+
+9. No warranty
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE SOFTWARE IS PROVIDED
+"AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT.
+NO MAINTENANCE, SECURITY RESPONSE TIME OR SUPPORT SERVICE IS INCLUDED.
+
+10. Limitation of liability
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, NO LICENSOR OR CONTRIBUTOR
+IS LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE SOFTWARE
+OR ITS USE, WHETHER IN CONTRACT, TORT OR OTHERWISE. NOTHING HERE EXCLUDES
+LIABILITY THAT APPLICABLE LAW DOES NOT ALLOW TO BE EXCLUDED.
+
+11. Interpretation
+This text is the complete public license for the covered materials. Explanatory
+documents do not add restrictions or waive conditions. If a provision is
+unenforceable, the remaining provisions continue to apply to the extent
+permitted by law. Any separate agreement applies only to its stated scope.
+The English text controls; translations are explanatory.
