@@ -11,7 +11,7 @@ This project is not offered under Apache-2.0 and does not claim OSI approval.
 
 ## Status
 
-Developer preview `0.1.0-preview.1`. Core source, tests, types, styles,
+Developer preview `0.1.0-preview.2`. Core source, tests, types, styles,
 a Host example and license materials are included. There is no published npm
 release yet; `@tegg/markdown` is the local package name, not a claim that its
 registry scope has been reserved. `private: true` prevents accidental npm publish.
@@ -30,16 +30,18 @@ npm run check
 npm run dev
 ```
 
-Open the printed localhost address. Change modes, edit, save locally and reopen.
+Open the printed localhost address. Use the formatting toolbar, outline, reading
+settings, Markdown file import/export, three modes, local save and reopen.
 The example's localStorage is demonstration persistence, not a production storage
-or multi-user concurrency implementation. Reopen intentionally replaces its draft.
+or multi-user concurrency implementation. Reopen asks before discarding an unsaved draft. Cross-tab overwrite detection is
+a convenience check, not atomic multi-writer storage.
 
 ## Install a packed build into your project
 
 In this repository run `npm pack`. In a separate project run:
 
 ```sh
-npm install /path/to/tegg-markdown-0.1.0-preview.1.tgz
+npm install /path/to/tegg-markdown-0.1.0-preview.2.tgz
 ```
 
 Use a browser bundler supporting ES modules, CSS and web workers (the example uses Vite):
@@ -88,3 +90,6 @@ See [third-party notices](THIRD_PARTY_NOTICES.md), [contribution terms](CONTRIBU
 No application shell, customer content, cloud credentials or private repository
 history is included. This repository becomes the canonical SDK source; product
 applications migrate by consuming tested package versions.
+
+See [Mac alignment](docs/mac-alignment.md) for shared-core integration and the
+remaining native/visual acceptance boundaries.
