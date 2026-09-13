@@ -39,8 +39,10 @@ macOS 26.6 / Xcode 26.5: 1,545 Host tests, native build/launch, and actual
 Reader/Live Edit/Source, task/table/code editing, undo/redo, exact file save,
 relative navigation/reopen, local images and viewer Escape/focus restoration passed.
 Finder Quick Look actually displayed the same fixture; restricted sibling images
-showed a clear fallback while the application loaded them. The final link/input
-fixes require the final pin verification recorded with their integration commit. Synthetic composition tests are not real macOS Pinyin, Sogou, Windows
+showed a clear fallback while the application loaded them. The final link/input candidate `6dacb6142606b9548f84526ad30b8d413836f418`
+also passed the Mac dependency pin guard and native build/launch. Its final native
+visual recheck is pending because the validation machine is locked; the literal
+reference fix passes automated regression checks in all three browser engines. Synthetic composition tests are not real macOS Pinyin, Sogou, Windows
 Microsoft Pinyin or VoiceOver/NVDA testing. Playwright engines are not certification
 of the latest two Chrome/Edge/Firefox/Safari product versions. No Windows native app or
 mobile device matrix has been exercised in this record. Linux CI and local macOS
@@ -52,7 +54,7 @@ are recorded in [layered measurements](performance-layers.json); subscribed Host
 toolbars and Live Edit input timing still require their own workload measurements; the internal 200 KiB/300 ms and input-p95/16 ms targets
 are not a public SLA. Offline geometry and KaTeX have documented compatibility limits.
 
-The initial candidate [CI run](https://github.com/tegg-studio/tegg-markdown/actions/runs/34772631991) passed on Linux; final commit checks remain visible on PR #5.
+The final code candidate [CI run](https://github.com/tegg-studio/tegg-markdown/actions/runs/34774188719) passed on Linux. Subsequent documentation and merge identities are tracked by PR #5 and release artifacts.
 
 Run `npm run check`, `npm run test:cas`, `npm run check:consumers` and
 `npm run test:browser`. `scripts/release-evidence.mjs` records the exact clean commit,

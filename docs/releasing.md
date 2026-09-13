@@ -11,8 +11,9 @@ not the private application history. docs/extraction-manifest.json records the
 source commit and hashes before adaptations.
 
 Applications should consume an exact tested package version or immutable artifact.
-Tegg Notes' switch to this dependency is a separate native regression task; this
-repository's publication does not imply that application migration is complete.
+Tegg Notes consumes the shared dependency with a separately recorded native regression
+scope. See [validation](validation.md); SDK publication alone is not evidence of
+complete application or platform acceptance.
 Avoid maintaining two writable canonical copies. Shared-core changes belong here
 and then flow into applications through a version update.
 
