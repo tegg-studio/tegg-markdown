@@ -576,12 +576,18 @@ class TableWidget extends WidgetType {
       input.value = value;
       input.hidden = true;
       input.setAttribute("aria-label", `Table cell: ${value || "Empty"}`);
+      let editing = false;
       const finish = (save: boolean) => {
+        // Committing replaces this widget and can synchronously blur its input.
+        // End the editing session first so Enter and blur cannot submit twice.
+        if (!editing) return;
+        editing = false;
         if (save && input.value !== value) { update(input.value); commit(); }
         input.hidden = true;
         preview.hidden = false;
       };
       preview.addEventListener("click", () => {
+        editing = true;
         preview.hidden = true;
         input.hidden = false;
         input.focus();

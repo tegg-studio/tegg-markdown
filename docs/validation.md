@@ -36,3 +36,12 @@ Use npm ci and npm run check to reproduce automated core and packaging checks.
 Follow README's packed-install example for the separate Host; exercise the
 operations above on each supported deployment target before making platform
 compatibility promises.
+
+## Follow-up startup verification — 2026-09-13
+
+A real table-cell edit followed by Enter exposed a duplicate commit on blur.
+The editing session now ends before dispatching its source patch. A regression
+test covers Enter, blur and undo. The updated full suite passed 1513 tests in
+33 files; type checking, builds and package inventory passed. Chromium repeated
+Chinese table-cell editing, all three modes, saving and destruction/reopening
+with two attribution links and no page errors.

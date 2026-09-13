@@ -334,6 +334,28 @@ describe("Live Edit syntax contract", () => {
     await vi.waitFor(() => expect(parent.querySelector('.cm-live-properties')).not.toBeNull());
   });
 
+  it("commits a table cell once when Enter is followed by blur", () => {
+    const source = "| Name |\n| --- |\n| old |\n\nend";
+    const {parent, view} = mount(source);
+    const errors: unknown[] = [];
+    const capture = (event: ErrorEvent) => {errors.push(event.error); event.preventDefault();};
+    window.addEventListener("error", capture);
+    try {
+      parent.querySelector<HTMLButtonElement>('button[aria-label="Edit table cell: old"]')!.click();
+      const input = parent.querySelector<HTMLInputElement>('.cm-live-table-cell input:not([hidden])')!;
+      input.value = "已验证";
+      input.dispatchEvent(new KeyboardEvent("keydown", {key:"Enter",bubbles:true,cancelable:true}));
+      const committed = view.state.doc.toString();
+      // Browsers blur the old input as CodeMirror replaces its table widget.
+      input.dispatchEvent(new FocusEvent("blur"));
+      expect(errors).toEqual([]);
+      expect(view.state.doc.toString()).toBe(committed);
+      expect(committed).toContain("已验证");
+      expect(undo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(source);
+    } finally {window.removeEventListener("error", capture);}
+  });
+
   it("does not treat IME candidate Enter or Escape as a table commit/cancel", () => {
     const {parent, view} = mount("| Name |\n| --- |\n| old |\n\nend");
     const button = parent.querySelector<HTMLButtonElement>('button[aria-label="Edit table cell: old"]')!;
