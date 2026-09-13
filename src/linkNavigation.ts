@@ -1,14 +1,15 @@
-import { markdownParser } from "./markdownParser";
+import { parserFor } from "./markdownParser";
+import type {MarkdownProfile} from "./syntaxProfiles";
 import { findFrontmatter } from "./profile";
 
 /** Resolve explicit heading IDs, readable heading names and conventional slugs. */
-export function resolveHeadingLink(source: string, fragment: string) {
+export function resolveHeadingLink(source: string, fragment: string, profile: MarkdownProfile = "tegg") {
   const normalized = source.replace(/\r\n?/g, "\n");
-  const {body} = findFrontmatter(normalized);
+  const {body} = profile === "tegg" ? findFrontmatter(normalized) : {body: normalized};
   const offset = normalized.length - body.length;
   const starts = [offset];
   for (let i = 0; i < body.length; i++) if (body[i] === "\n") starts.push(offset + i + 1);
-  const tokens = markdownParser.parse(body, {outline: true});
+  const tokens = parserFor(profile).parse(body, {outline: true, profile});
   const slug = (value: string) => value.toLowerCase().trim().replace(/[^\p{L}\p{N}_\s-]/gu, "").replace(/\s+/g, "-");
   const counts = new Map<string, number>();
   for (let i = 0; i < tokens.length; i++) {

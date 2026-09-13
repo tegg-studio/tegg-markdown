@@ -89,6 +89,7 @@ function showOutline(outline: OutlineSnapshot) {
 const host: EditorHost = {
   onChange: () => note(editor.dirty ? "有未保存的修改" : "与已保存版本一致"),
   onStateChange: showState, onOutlineChange: showOutline,
+  resourcePolicy: {allowBlob: true},
   resolveImage: (src, path) => localFiles.image(src, path),
   openLink: href => {
     if (/^https?:\/\//i.test(href)) window.open(href,"_blank","noopener,noreferrer");

@@ -11,7 +11,7 @@ This project is not offered under Apache-2.0 and does not claim OSI approval.
 
 ## Status
 
-Developer preview `0.1.0-preview.2`. Core source, tests, types, styles,
+Developer preview candidate `0.2.0-preview.1`. Core source, tests, types, styles,
 a Host example and license materials are included. There is no published npm
 release yet; `@tegg/markdown` is the local package name, not a claim that its
 registry scope has been reserved. `private: true` prevents accidental npm publish.
@@ -41,14 +41,14 @@ a convenience check, not atomic multi-writer storage.
 In this repository run `npm pack`. In a separate project run:
 
 ```sh
-npm install /path/to/tegg-markdown-0.1.0-preview.2.tgz
+npm install /path/to/tegg-markdown-0.2.0-preview.1.tgz
 ```
 
 Use a browser bundler supporting ES modules, CSS and web workers (the example uses Vite):
 
 ```ts
-import {TeggMarkdownEditor} from "@tegg/markdown";
-import "@tegg/markdown/style.css";
+import {TeggMarkdownEditor} from "@tegg/markdown/editor";
+import "@tegg/markdown/editor.css";
 
 const editor = new TeggMarkdownEditor(container, {
   documentId: "notes/hello.md",
@@ -98,3 +98,11 @@ The browser example supports selecting a local folder for relative images and
 Markdown navigation, with a document selector and a narrow-window outline/settings
 panel. Browser saves and exports are explicit; selected files are never overwritten.
 See the [file access boundaries](docs/mac-alignment.md#browser-example-file-access-and-narrow-windows).
+
+## Integration guides
+
+Start with [getting started](docs/getting-started.md), then [React](docs/react.md),
+[engines and renderers](docs/extensions.md), [appearance and language](docs/appearance-and-i18n.md),
+[security and CSP](docs/security-and-csp.md), [migration](docs/migration.md) and
+[support policy](SUPPORT.md). Syntax compatibility uses public standards and generic
+fixtures; partner-specific documents are not an acceptance prerequisite.

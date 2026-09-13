@@ -1,0 +1,27 @@
+name: Bug or Markdown compatibility gap
+description: Report a reproducible problem without sensitive documents.
+body:
+  - type: input
+    id: version
+    attributes:
+      label: SDK version or commit
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Profile, mode, browser and operating system
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: Include concise reproduction steps. Security issues use SECURITY.md.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Minimal sanitized example, if needed
+      description: Do not include private documents, credentials or customer information.

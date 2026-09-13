@@ -1,3 +1,4 @@
+import "./legacyEngines";
 /** Advanced Host integration. Same core as TeggMarkdownEditor; Host owns lifecycle and attribution. */
 export {editorSetup} from "./editorSetup";
 export {livePreview} from "./livePreview";
@@ -13,3 +14,9 @@ export {editCurrentLink} from "./liveLinks";
 export {calloutContext, calloutContextKey, calloutRanges, setCalloutType} from "./calloutEditing";
 export {isKnownCallout, resolveCallout} from "./callouts";
 export {technicalMarkdownProfile} from "./syntaxContract";
+
+export type {MarkdownProfile} from "./syntaxProfiles";
+export type {ResourcePolicy} from "./resources";
+export type {ReadonlyRenderers, ReadonlyRenderer, RenderNode, RenderContext} from "./renderExtensions";
+export type {RenderEngines} from "./renderEngines";
+export type {Locale, UIMessages, UIOptions} from "./uiContext";

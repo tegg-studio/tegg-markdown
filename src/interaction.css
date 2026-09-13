@@ -59,3 +59,8 @@
 }
 
 .tegg-surface .md-object-panel select {font:inherit; color:var(--text); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:6px; max-width:100%;}
+
+/* Preserve the brand accent while providing readable small control text. */
+:where(.tegg-surface) .md-render-toolbar button {color: color-mix(in srgb, var(--accent) 78%, var(--text));}
+
+.tegg-surface .tegg-source-fallback {white-space:pre;overflow:auto;max-width:100%;max-height:70vh;}

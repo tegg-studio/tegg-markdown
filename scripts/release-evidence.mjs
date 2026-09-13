@@ -1,0 +1,14 @@
+import {readFileSync,writeFileSync,readdirSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
+import os from 'node:os';
+const hash=file=>createHash('sha256').update(readFileSync(file)).digest('hex');
+const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim();
+if(git('status','--porcelain'))throw new Error('Generate release evidence from a clean committed checkout');
+const packageEvidence=JSON.parse(readFileSync('.validation/package-evidence.json','utf8'));
+if(packageEvidence.sdkCommit!==git('rev-parse','HEAD') || packageEvidence.dirty)throw new Error('Repack and validate the exact clean commit');
+const browser=JSON.parse(readFileSync('.validation/browser-results.json','utf8'));
+if(browser.stats.unexpected || browser.stats.flaky || browser.errors.length)throw new Error('Browser validation did not pass cleanly');
+const evidence={sdkCommit:git('rev-parse','HEAD'),packageVersion:JSON.parse(readFileSync('package.json','utf8')).version,packageIntegrity:packageEvidence.integrity,lockfileHash:hash('package-lock.json'),fixtureManifestHash:hash('tests/fixtures/compatibility/manifest.json'),runtimeArtifacts:Object.fromEntries(readdirSync('dist').filter(name=>/\.(js|css)$/.test(name)).sort().map(name=>[name,hash('dist/'+name)])),environment:{os:os.type(),release:os.release(),node:process.version},consumers:['vanilla','React 18','React 19','optional engines'],checks:[{name:'browser',...browser.stats}],nativeHostCommit:null,consumedSdkIdentity:null,knownLimitations:['No npm registry publication','Real OS IME and assistive technology require separate native evidence','Playwright engines are not every supported browser product/version'],publicClaims:['Fixed public compatibility fixtures','Independent production tarball consumers','Explicit optional engines and resource authorization']};
+writeFileSync('.validation/release-evidence.json',JSON.stringify(evidence,null,2)+'\n');
+console.log('Wrote exact commit, package, runtime and browser evidence');

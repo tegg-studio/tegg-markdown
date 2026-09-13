@@ -1,0 +1,27 @@
+import {execFileSync} from "node:child_process";
+import {readFileSync, writeFileSync, mkdirSync, copyFileSync, rmSync} from "node:fs";
+import {tmpdir} from "node:os";
+import {resolve} from "node:path";
+const root = process.cwd(), output = resolve(root,".validation"); mkdirSync(output,{recursive:true});
+const pkg = JSON.parse(readFileSync("package.json","utf8"));
+const [pack] = JSON.parse(execFileSync("npm",["pack","--json","--ignore-scripts","--pack-destination",output],{encoding:"utf8"}));
+const tarball=resolve(output,pack.filename);
+const consumerRoot=resolve(tmpdir(),"tegg-markdown-consumers"); mkdirSync(consumerRoot,{recursive:true});
+writeFileSync(resolve(output,"consumer-root.txt"),consumerRoot);
+writeFileSync(resolve(output,"package-evidence.json"),JSON.stringify({sdkCommit:execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(), dirty:!!execFileSync("git",["status","--porcelain"],{encoding:"utf8"}).trim(), version:pkg.version, integrity:pack.integrity, shasum:pack.shasum, filename:pack.filename},null,2));
+for (const version of ["vanilla","18","19","full"]) {
+  const dir=resolve(consumerRoot,`consumer-${version}`); rmSync(resolve(dir,"node_modules/@tegg"),{recursive:true,force:true}); rmSync(resolve(dir,"package-lock.json"),{force:true}); mkdirSync(dir,{recursive:true});
+  const dependencies={"@tegg/markdown":`file:${tarball}`};
+  if(version === "18" || version === "19") Object.assign(dependencies,{react:`^${version}.0.0`,"react-dom":`^${version}.0.0`});
+  if(version === "full") for(const name of ["katex","highlight.js","mermaid","@viz-js/viz","topojson-client"]) dependencies[name]=pkg.peerDependencies[name];
+  writeFileSync(resolve(dir,"package.json"),JSON.stringify({private:true,type:"module",dependencies,devDependencies:{vite:pkg.devDependencies.vite,typescript:pkg.devDependencies.typescript,...((version === "vanilla" || version === "full") ? {} : {"@types/react":`^${version}.0.0`,"@types/react-dom":`^${version}.0.0`})},scripts:{build:"vite build",typecheck:"tsc --noEmit --strict --module esnext --moduleResolution bundler --target es2022 --lib es2022,dom minimal.ts" + ((version === "18" || version === "19") ? " reactTypes.ts reactHost.ts" : version === "full" ? " full.ts" : "")}},null,2));
+  for(const name of version==="full"?["minimal.html","minimal.ts","full.html","full.ts"]:version==="vanilla"?["minimal.html","minimal.ts"]:["minimal.html","minimal.ts","react.html","reactHost.ts","reactTypes.ts"]) copyFileSync(resolve(root,"tests/browser",name),resolve(dir,name));
+  writeFileSync(resolve(dir,"vite.config.js"),`export default {plugins:[{name:'module-evidence',generateBundle(){this.emitFile({type:'asset',fileName:'module-graph.json',source:JSON.stringify([...this.getModuleIds()].filter(id=>id.includes('node_modules/')).map(id=>id.slice(id.lastIndexOf('/node_modules/')+1)),null,2)})}}],build:{assetsInlineLimit:0,target:'es2022',rollupOptions:{input:${JSON.stringify(version==="full"?["minimal.html","full.html"]:version==="vanilla"?["minimal.html"]:["minimal.html","react.html"])}}}};`);
+  execFileSync("npm",["install","--ignore-scripts","--no-audit","--no-fund"],{cwd:dir,stdio:"inherit"});
+  execFileSync("npm",["run","typecheck"],{cwd:dir,stdio:"inherit"});
+  execFileSync("npm",["run","build"],{cwd:dir,stdio:"inherit"});
+  execFileSync("node",["--input-type=module","-e",`await import('@tegg/markdown/reader'); ${(version === "vanilla" || version === "full") ? "" : "await import('@tegg/markdown/react');"}`],{cwd:dir,stdio:"inherit"});
+  if(version === "18" || version === "19") execFileSync("node",["--experimental-strip-types","reactTypes.ts"],{cwd:dir,stdio:"inherit"});
+  const graph=JSON.parse(readFileSync(resolve(dir,"dist/module-graph.json"),"utf8"));
+  if(version === "vanilla" && graph.some(name=>/node_modules\/(?:@codemirror|@lezer|codemirror|react|react-dom|katex|mermaid|@viz-js|highlight.js)\//.test(name))) throw new Error("Light Reader pulled in an unconfigured engine or Editor runtime");
+}

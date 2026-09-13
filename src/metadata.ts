@@ -1,3 +1,4 @@
+import {setUIText, setUILabel} from "./uiContext";
 import { isMap, isScalar, isSeq, parseDocument } from "yaml";
 import { createMetadataTags } from "./metadataTags";
 import { metadataValuePatch } from "./metadataEditing";
@@ -22,7 +23,7 @@ type MetadataEditingOptions = {
 export function createMetadataPanel(source: string, onEdit?: () => void, options: MetadataEditingOptions = {}): HTMLElement {
   const panel = document.createElement("section");
   panel.className = "frontmatter md-render-properties";
-  panel.setAttribute("aria-label", "Metadata");
+  setUILabel(panel, "Metadata");
   const actions = document.createElement("div");
   actions.className = "md-metadata-actions";
   let activeEditor: { commit: () => boolean; focus: () => void } | undefined;
@@ -30,7 +31,7 @@ export function createMetadataPanel(source: string, onEdit?: () => void, options
     const edit = document.createElement("button");
     edit.type = "button";
     edit.className = "md-metadata-edit";
-    edit.textContent = "Edit YAML";
+    setUIText(edit, "Edit YAML");
     edit.addEventListener("mousedown", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -61,7 +62,7 @@ export function createMetadataPanel(source: string, onEdit?: () => void, options
     label.textContent = reason;
     const pre = document.createElement("pre");
     pre.className = "md-metadata-source";
-    pre.setAttribute("aria-label", "YAML source");
+    setUILabel(pre, "YAML source");
     pre.textContent = text;
     wrapper.append(label, pre);
     return wrapper;
@@ -121,7 +122,7 @@ export function createMetadataPanel(source: string, onEdit?: () => void, options
         editValue.className = "md-metadata-value-edit";
         editValue.dataset.metadataPath = JSON.stringify(path);
         editValue.setAttribute("aria-description", `Current value: ${text.textContent}`);
-        editValue.setAttribute("aria-label", `Edit ${path.join(" / ") || "value"}`);
+        setUILabel(editValue, "Edit {value}", {value: String(path.join(" / ") || "value")});
         if (text.querySelector("a")) {
           display.append(...Array.from(text.childNodes));
           editValue.hidden = true;
@@ -139,7 +140,7 @@ export function createMetadataPanel(source: string, onEdit?: () => void, options
           form.className = "md-metadata-value-form";
           const input = document.createElement(typeof value === "boolean" ? "select" : typeof value === "string" && value.includes("\n") ? "textarea" : "input");
           input.className = "md-metadata-value-input";
-          input.setAttribute("aria-label", `Value for ${path.join(" / ") || "value"}`);
+          setUILabel(input, "Value for {value}", {value: String(path.join(" / ") || "value")});
           if (input instanceof HTMLSelectElement) {
             for (const choice of ["true", "false"]) input.add(new Option(choice, choice));
           } else if (input instanceof HTMLTextAreaElement) {
@@ -232,7 +233,7 @@ export function createMetadataPanel(source: string, onEdit?: () => void, options
           value.tabIndex = 0;
           value.dataset.metadataPath = rowEditor.dataset.metadataPath;
           value.classList.add("md-metadata-editable-row");
-          value.setAttribute("aria-label", `Edit ${pair.key.value}`);
+          setUILabel(value, "Edit {value}", {value: String(pair.key.value)});
           value.addEventListener("mousedown", event => { if (!(event.target as Element).closest("a, button, input, textarea, select")) event.preventDefault(); });
           value.addEventListener("click", event => {
             if ((event.target as Element).closest("a, button, input, textarea, select, .md-metadata-value-form")) return;

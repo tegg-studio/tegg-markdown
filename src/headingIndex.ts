@@ -1,5 +1,6 @@
 import type Token from "markdown-it/lib/token.mjs";
-import {markdownParser} from "./markdownParser";
+import {parserFor} from "./markdownParser";
+import type {MarkdownProfile} from "./syntaxProfiles";
 import {findFrontmatter} from "./profile";
 
 export type OutlineHeading = {id: string; level: number; title: string; from: number; anchor: string};
@@ -18,15 +19,16 @@ export class HeadingIndex {
   private source: string | null = null;
   private entries: OutlineHeading[] = [];
   private serial = 0;
+  private profile: MarkdownProfile = "tegg";
 
-  update(source: string): OutlineHeading[] {
-    if (source === this.source) return this.entries;
+  update(source: string, profile: MarkdownProfile = "tegg"): OutlineHeading[] {
+    if (source === this.source && profile === this.profile) return this.entries;
     const normalized = source.replace(/\r\n?|\n/g, "\n");
-    const {body} = findFrontmatter(normalized);
+    const {body} = profile === "tegg" ? findFrontmatter(normalized) : {body: normalized};
     const offset = normalized.length - body.length;
     const starts = [offset];
     for (let i = 0; i < body.length; i++) if (body[i] === "\n") starts.push(offset + i + 1);
-    const tokens = markdownParser.parse(body, {});
+    const tokens = parserFor(profile).parse(body, {profile});
     const remaining = [...this.entries];
     const pending: Omit<OutlineHeading, "id">[] = [];
     for (let i = 0; i < tokens.length; i++) {
@@ -51,7 +53,7 @@ export class HeadingIndex {
       }
       return {...item, id};
     });
-    this.source = source;
+    this.source = source; this.profile = profile;
     this.entries = next;
     return next;
   }

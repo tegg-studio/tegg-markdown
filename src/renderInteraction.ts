@@ -1,3 +1,4 @@
+import {setUIText, setUILabel, mountOverlay} from "./uiContext";
 let serial = 0;
 export function renderId() { return `tegg-${++serial}`; }
 
@@ -26,32 +27,33 @@ export function focusTarget(target?: HTMLElement | null) {
   target.scrollIntoView?.({block: "nearest"}); target.focus({preventScroll: true});
 }
 export function action(label: string, run: () => void) {
-  const button = document.createElement("button"); button.type = "button"; button.textContent = label;
+  const button = document.createElement("button"); button.type = "button"; setUIText(button, label);
   button.addEventListener("click", event => {event.stopPropagation(); run();});
   return button;
 }
-const panels = new Set<{owner: HTMLElement; dialog: HTMLElement; close: (restore?: boolean) => void}>();
+const panels = new Set<{owner: HTMLElement; trigger: HTMLElement; dialog: HTMLElement; close: (restore?: boolean) => void}>();
 export function disposeInteractions(root: HTMLElement) {
-  for (const panel of [...panels]) if (panel.owner === root || root.contains(panel.owner)) panel.close(false);
+  for (const panel of [...panels]) if (panel.owner === root || root.contains(panel.owner) || root === panel.trigger || root.contains(panel.trigger)) panel.close(false);
 }
 export function openPanel(trigger: HTMLElement, title: string, modal = false) {
   const owner = trigger.closest<HTMLElement>(".tegg-surface") ?? trigger.parentElement!;
   if (!trigger.closest("dialog")) disposeInteractions(owner);
   const dialog = document.createElement("dialog"); dialog.className = `md-object-panel ${modal ? "md-object-viewer" : "md-note-panel"}`;
-  dialog.setAttribute("aria-label", title);
-  const head = document.createElement("header"), heading = document.createElement("strong"); heading.textContent = title;
+  setUILabel(dialog, title);
+  const head = document.createElement("header"), heading = document.createElement("strong"); setUIText(heading, title);
   const body = document.createElement("div"); body.className = "md-object-body";
   const returnContainer = trigger.closest<HTMLElement>(".diagram-canvas");
   const controller = new AbortController();
+  let unmountOverlay = () => {};
   const close = (restore = true) => {
-    controller.abort(); dialog.remove(); panels.delete(record);
+    controller.abort(); dialog.remove(); unmountOverlay(); panels.delete(record);
     if (restore) {
       const target = trigger.isConnected ? trigger : returnContainer?.querySelector<HTMLElement>(".md-object-actions button");
       target?.focus({preventScroll: true});
     }
   };
-  const record = {owner: returnContainer ?? trigger, dialog, close}; panels.add(record);
-  head.append(heading, action("Close", () => close())); dialog.append(head, body); owner.append(dialog);
+  const record = {owner: returnContainer ?? trigger, trigger, dialog, close}; panels.add(record);
+  head.append(heading, action("Close", () => close())); dialog.append(head, body); unmountOverlay = mountOverlay(owner, dialog);
   dialog.addEventListener("cancel", event => {event.preventDefault(); close();});
   dialog.addEventListener("keydown", event => {event.stopPropagation(); if (event.key === "Escape") {event.preventDefault(); close();}});
   dialog.addEventListener("click", event => event.stopPropagation());
@@ -71,8 +73,8 @@ export function openPanel(trigger: HTMLElement, title: string, modal = false) {
 
 export function openObjectViewer(trigger: HTMLElement, visual: HTMLElement, source: string, title: string, edit?: () => void) {
   const {dialog, body, head, signal} = openPanel(trigger, title, true);
-  const controls = document.createElement("nav"); controls.setAttribute("aria-label", "View controls");
-  const stage = document.createElement("div"); stage.className = "md-object-stage"; stage.tabIndex = 0; stage.setAttribute("aria-label", "Diagram or formula. Scroll to pan; use zoom controls to enlarge.");
+  const controls = document.createElement("nav"); setUILabel(controls, "View controls");
+  const stage = document.createElement("div"); stage.className = "md-object-stage"; stage.tabIndex = 0; setUILabel(stage, "Diagram or formula. Scroll to pan; use zoom controls to enlarge.");
   const content = document.createElement("div"); content.className = "md-object-content";
   let clone = visual.cloneNode(true) as HTMLElement;
   clone.querySelectorAll("button, .md-object-actions").forEach(node => node.remove());
@@ -92,9 +94,9 @@ export function openObjectViewer(trigger: HTMLElement, visual: HTMLElement, sour
   const fit = () => {fitting = true; zoom(Math.min(1, (stage.clientWidth - 40) / naturalWidth), true); stage.scrollTo?.(0, 0);};
   controls.append(action("Fit", fit), action("100%", () => zoom(1)), action("−", () => zoom(scale / 1.25)), label, action("+", () => zoom(scale * 1.25)));
   if (title === "Diagram") {
-    const background = document.createElement("select"); background.setAttribute("aria-label", "Viewing background");
+    const background = document.createElement("select"); setUILabel(background, "Viewing background");
     for (const [value, label] of [["", "Background: Automatic"], ["#fff", "Background: Light"], ["#202124", "Background: Dark"]]) {
-      const option = document.createElement("option"); option.value = value; option.textContent = label; background.append(option);
+      const option = document.createElement("option"); option.value = value; setUIText(option, label); background.append(option);
     }
     background.addEventListener("change", () => {stage.style.backgroundColor = background.value;}); controls.append(background);
   }
@@ -168,7 +170,7 @@ export async function copySource(text: string, trigger: HTMLElement) {
   const request = new CustomEvent("tegg-copy-text", {detail:text, bubbles:true, cancelable:true});
   if (!trigger.dispatchEvent(request)) return;
   try {await navigator.clipboard.writeText(text);} catch {
-    const status=document.createElement("span");status.setAttribute("role","status");status.textContent="Copy unavailable. Select the source to copy.";
+    const status=document.createElement("span");status.setAttribute("role","status");setUIText(status, "Copy unavailable. Select the source to copy.");
     trigger.parentElement?.append(status);
   }
 }

@@ -12,3 +12,7 @@ output/
 *.pem
 *.key
 coverage/
+
+.validation/
+test-results/
+playwright-report/

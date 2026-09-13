@@ -1,5 +1,7 @@
+import {setUIText, setUILabel} from "./uiContext";
 import {WidgetType, type EditorView} from "@codemirror/view";
 import {undo, redo} from "@codemirror/commands";
+import {resourceContext} from "./editorHost";
 import {highlightCode} from "./renderKit";
 import {dispatchSourcePatches} from "./editorPatches";
 
@@ -47,7 +49,7 @@ export class EditableCodeWidget extends WidgetType {
     wrapper.className = "md-render-block md-render-code cm-live-code-block md-code-editor";
     const bar = document.createElement("div"); bar.className = "md-render-toolbar cm-preview-toolbar";
     const language = document.createElement("select"); language.className = "md-code-language";
-    language.setAttribute("aria-label", "Code language"); language.title = "Code language";
+    setUILabel(language, "Code language"); language.title = "Code language";
     const syncLanguage = () => {
       const current=readCode(raw).language;
       const choices: Record<string,string>={"":"Plain Text",...names};
@@ -63,9 +65,9 @@ export class EditableCodeWidget extends WidgetType {
     const area = document.createElement("div"); area.className="md-code-area";
     const pre = document.createElement("pre"); pre.setAttribute("aria-hidden","true");
     const code = document.createElement("code"); pre.append(code);
-    const input = document.createElement("textarea"); input.setAttribute("aria-label","Code content"); input.spellcheck=false; input.wrap="off";
+    const input = document.createElement("textarea"); setUILabel(input, "Code content"); input.spellcheck=false; input.wrap="off";
     const resize = () => { if(!wrapper.isConnected) return; const left=input.scrollLeft; input.style.height="0px"; input.style.height=Math.max(input.scrollHeight, 48)+"px"; input.scrollLeft=left; pre.scrollLeft=left; pre.scrollTop=input.scrollTop; view.requestMeasure(); };
-    const paint = () => { code.innerHTML=highlightCode(input.value + (input.value.endsWith("\n") ? "\n" : ""), readCode(raw).language); requestAnimationFrame(resize); };
+    const paint = () => { code.innerHTML=highlightCode(input.value + (input.value.endsWith("\n") ? "\n" : ""), readCode(raw).language, view.state.facet(resourceContext).engines); requestAnimationFrame(resize); };
     const commit = (next:string) => { if(next===raw) return; const focused=document.activeElement===input;
       const start=input.selectionStart,end=input.selectionEnd,direction=input.selectionDirection;
       dispatchSourcePatches(view,[{from,to,insert:next,expected:raw}]);
@@ -74,6 +76,8 @@ export class EditableCodeWidget extends WidgetType {
     const copyIcon=icon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/>');
     const copy = button("", async ()=>{
       const text = readCode(raw).body;
+      const request = new CustomEvent("tegg-copy-text", {detail:text, bubbles:true, cancelable:true});
+      if (!copy.dispatchEvent(request)) return;
       let copied = false;
       try { await navigator.clipboard.writeText(text); copied = true; } catch {
         // Local WKWebView documents may not expose the async Clipboard API.
@@ -88,7 +92,7 @@ export class EditableCodeWidget extends WidgetType {
       setTimeout(()=>{copy.innerHTML=copyIcon;copy.title="Copy code";},1500);
     });
     copy.innerHTML=copyIcon;
-    copy.setAttribute("aria-label","Copy code"); copy.title="Copy code";
+    setUILabel(copy, "Copy code"); copy.title="Copy code";
     const wrap=button("",()=>{
       const enabled=input.wrap==="off";
       input.wrap=enabled?"soft":"off";
@@ -97,7 +101,7 @@ export class EditableCodeWidget extends WidgetType {
       resize();
     });
     wrap.innerHTML=icon('<path d="M3 6h18M3 12h13a4 4 0 0 1 0 8h-4m3-3-3 3 3 3M3 18h4"/>');
-    wrap.setAttribute("aria-label","Wrap lines");wrap.title="Wrap lines";wrap.setAttribute("aria-pressed","false");
+    setUILabel(wrap, "Wrap lines");wrap.title="Wrap lines";wrap.setAttribute("aria-pressed","false");
     actions.append(wrap,copy); bar.append(language,actions); area.append(pre,input); wrapper.append(bar,area);
     input.value=readCode(raw).body;
     syncLanguage();

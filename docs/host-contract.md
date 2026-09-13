@@ -45,7 +45,7 @@ Modes preserve undo; replacing a document deliberately starts a fresh session.
 
 `resolveImage(src, documentPath)` is synchronous and belongs to each instance.
 Return a browser-loadable URL (for example an object URL, or an allowlisted URL).
-The default leaves image sources unchanged. Footnotes, tables, quotes and normal
+The default blocks resource URLs; configure `resourcePolicy` explicitly. Both synchronous `resolveImage` and asynchronous `resolveResource` results pass this policy. Footnotes, tables, quotes and normal
 images use the instance context. The Host controls remote image/network policy;
 rendering a URL can cause the browser to request it.
 
@@ -59,7 +59,7 @@ Source mode exposes a CodeMirror editor; Reader exposes semantic document conten
 Guarding composition transitions is automated; real OS IME, VoiceOver and
 platform-specific WebViews need target-platform acceptance.
 Use uniform LF or CRLF input; mixed newline styles are not a fidelity guarantee.
-This is browser-only, not an SSR API. Treat preview API changes as possible until
+Instance creation and rendering require a browser DOM; lightweight module import is safe during SSR. Treat preview API changes as possible until
 a stable release; pin a reviewed version.
 
 ## UI state, outline and native menus (preview.2)
@@ -84,3 +84,21 @@ It does not substitute for assistive-technology testing.
 A native Host may implement async `selectCalloutType({current, x, y, viewportWidth})`.
 Return the selected type or null. The editor validates the response against source,
 generation and mode before applying a source patch.
+
+## Asynchronous resources and selections
+
+`resolveResource(src, {documentId, documentPath, signal})` resolves a URL or null.
+New renders abort obsolete resource work; late results do not update a newer document.
+Failures keep alt/source available and report through `onError`. It is a Reader
+presentation hook; Live Edit uses the synchronous `resolveImage` cache. A Host can
+prefetch authorized resources, cache owned URLs and expose them through that resolver.
+
+`onSelection` receives documentId/revision/text. Editor `selection()` additionally
+returns generation/sequence and an exact UTF-16 source range for the current draft.
+Reader selections deliberately omit source ranges because display transformations
+need not map to a single contiguous source range. Never infer write offsets from
+rendered text.
+
+See the [local HTTP CAS example](../examples/http-cas/README.md) for a tested atomic
+revision comparison and exact save/reopen. SDK conflict events alone do not implement
+a storage transaction, Git write or backend lock.

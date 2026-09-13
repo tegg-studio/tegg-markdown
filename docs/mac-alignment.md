@@ -1,4 +1,4 @@
-# Mac editor alignment — preview.2
+# Mac editor alignment — 0.2 preview
 
 The target is one Markdown engine with explicit Host adapters. This preview does
 not claim complete visual or behavioral equivalence with the Mac application.
@@ -25,7 +25,11 @@ CodeMirror lifecycle, native menu protocol, save acknowledgements, toolbar inset
 and scroll indicators. This avoids rewriting those behaviors during extraction.
 
 Use one resolved copy of CodeMirror in the Host. Configure `resourceContext` for
-every document, including path changes. Supply the native image resolver. The core
+every document, including path changes. Supply the native image resolver and an explicit resource policy. For a sandboxed
+`app-file:` adapter, allow only that protocol and validate document grants, resolved
+file paths, file types and sizes in the native handler. Configure the same optional
+engine adapters for Reader and Live Edit; neither surface should load network images
+implicitly. The core
 entry does not inject CSS, a frame, storage or attribution: the Host must provide
 styles and comply with the attribution license (or hold separate permission).
 
@@ -53,7 +57,7 @@ completion with a generation token, since theme refreshes reuse request IDs.
 4. Exercise native IME, VoiceOver, file/path changes and Quick Look; only mark each
    case complete with actual native evidence. Build success alone is insufficient.
 
-The preview.2 validation record separates tests, browser interactions and native
+The current validation record separates tests, browser interactions and native
 smoke checks. It is not a blanket parity certificate.
 
 ## Browser example file access and narrow windows

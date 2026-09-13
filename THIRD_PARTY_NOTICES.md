@@ -5366,3 +5366,16 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
 OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
+
+## Optional integration components
+
+React and ReactDOM (MIT), TopoJSON Client (ISC), KaTeX (MIT), Highlight.js
+(BSD-3-Clause), and Mermaid (MIT) are explicit optional peers/engine components.
+Complete installed package notices are retained in the matching `licenses/` files.
+Their exact versions, integrity and dependency closures are in
+`docs/dependency-inventory.json`; optional peer presence does not mean every
+consumer loads or installs every engine.
+
+Normative test fixtures in the repository retain their upstream attribution and
+CC-BY-SA-4.0 provenance in `tests/fixtures/compatibility/README.md` and manifest.
+They are test data, not code relicensed under the Tegg license.
