@@ -7,8 +7,8 @@
   --text: #202124;
   --muted: #62666d;
   --border: rgba(24, 28, 36, 0.12);
-  --accent: #5b5bd6;
-  --accent-soft: rgba(91, 91, 214, 0.10);
+  --accent: #007aff;
+  --accent-soft: rgba(0, 122, 255, 0.12);
   --code: #f4f4f7;
   --quote: #eeeff7;
   --danger: #c9363e;
@@ -43,8 +43,8 @@
     --text: #e8e8ea;
     --muted: #a4a5aa;
     --border: rgba(255, 255, 255, 0.12);
-    --accent: #a7a6ff;
-    --accent-soft: rgba(167, 166, 255, 0.12);
+    --accent: #007aff;
+    --accent-soft: rgba(0, 122, 255, 0.12);
     --code: #282a2f;
     --quote: #2a2c36;
     --danger: #ff777d;
