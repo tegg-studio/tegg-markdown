@@ -1,10 +1,18 @@
 <!doctype html>
-<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="icon" href="data:,"><title>Tegg Markdown — Host example</title>
-<style>body{font:16px system-ui;margin:24px;background:#f3f4f6;color:#202124}header{display:flex;gap:12px;align-items:center;flex-wrap:wrap}button,select{font:inherit;padding:6px 12px}.columns{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}.panel{height:65vh;border:1px solid #ccc;border-radius:8px;overflow:hidden;background:white}h1{font-size:24px}#status{min-height:1.5em}@media(max-width:700px){.columns{grid-template-columns:1fr}}</style>
-<h1>Tegg Markdown</h1><p>Read, edit, save in this browser and reopen. Your Markdown stays yours.</p>
-<header><label>Mode <select id="mode"><option value="live">Live Edit</option><option value="source">Source</option><option value="reader">Reader</option></select></label>
-<button id="save">Save locally</button><button id="reopen">Reopen saved</button><button id="undo">Undo</button><button id="redo">Redo</button></header>
-<p id="status" role="status">Ready · storage belongs to this example Host.</p>
-<div class="columns"><section><h2>Editor</h2><div id="editor" class="panel"></div></section><section><h2>Independent reader</h2><div id="reader" class="panel"></div></section></div>
-<script type="module" src="/examples/vanilla/main.ts"></script></html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,"><title>Tegg Markdown · 编辑器</title></head>
+<body>
+<div class="workspace">
+<header class="app-header"><div class="brand"><span class="brand-icon">T</span><div><strong>Tegg Markdown</strong><span class="subtitle">你的文档，始终是 Markdown</span></div></div>
+<div class="file-actions"><button id="open">打开 Markdown</button><input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden><button id="download">导出 .md</button><button id="save" class="primary">保存到浏览器</button></div></header>
+<div class="document-bar"><div><strong id="filename">欢迎使用.md</strong><span id="status" role="status" aria-live="polite">已就绪</span></div>
+<div class="view-options"><label class="sr-only" for="mode">编辑模式</label><select id="mode"><option value="live">Live Edit</option><option value="reader">Reader</option><option value="source">Source</option></select><button id="reopen">恢复已保存版本</button></div></div>
+<div class="format-bar" role="toolbar" aria-label="格式工具栏">
+<button data-command="undo" title="撤销" aria-label="撤销">↶</button><button data-command="redo" title="重做" aria-label="重做">↷</button><span class="separator"></span>
+<label class="sr-only" for="heading">段落样式</label><select id="heading"><option value="">段落样式</option><option value="heading0">正文</option><option value="heading1">标题 1</option><option value="heading2">标题 2</option><option value="heading3">标题 3</option><option value="heading4">标题 4</option><option value="heading5">标题 5</option><option value="heading6">标题 6</option></select>
+<button data-command="bold" aria-label="粗体" title="粗体"><b>B</b></button><button data-command="italic" aria-label="斜体" title="斜体"><i>I</i></button><button data-command="underline" aria-label="下划线" title="下划线"><u>U</u></button><button data-command="strike" aria-label="删除线" title="删除线"><s>S</s></button><button data-command="highlight" aria-label="高亮" title="高亮">高亮</button><button data-command="code" aria-label="行内代码" title="行内代码">&lt;/&gt;</button><span class="separator"></span>
+<button data-command="task">待办</button><button data-command="list">列表</button><button data-command="quote">引用</button><button data-command="link">链接</button>
+<label class="sr-only" for="insert">插入内容</label><select id="insert"><option value="">插入…</option><option value="table">表格</option><option value="callout">Callout</option><option value="codeBlock">代码块</option><option value="mathBlock">公式</option><option value="mermaid">Mermaid 图</option><option value="graphviz">Graphviz 图</option><option value="image">图片链接</option><option value="fileLink">文件链接</option><option value="wikilink">双链</option><option value="orderedList">有序列表</option><option value="footnote">脚注</option><option value="divider">分隔线</option><option value="subscript">下标</option><option value="superscript">上标</option></select>
+</div>
+<main class="content"><aside class="sidebar"><div class="sidebar-title">文档大纲</div><nav id="outline" aria-label="文档大纲"></nav><div class="reading-settings"><label>字号 <select id="font" aria-label="字号"><option value="0.875">14</option><option value="1" selected>16</option><option value="1.125">18</option><option value="1.25">20</option></select></label><label>正文宽度 <select id="width" aria-label="正文宽度"><option value="560">窄</option><option value="672" selected>适中</option><option value="880">宽</option></select></label><label class="accessibility"><input id="accessible" type="checkbox">保留可见语法</label><p>浏览器示例 · 文件与云同步由宿主提供</p></div></aside><section id="editor" aria-label="Markdown 文档"></section></main>
+</div><script type="module" src="/examples/vanilla/main.ts"></script></body></html>

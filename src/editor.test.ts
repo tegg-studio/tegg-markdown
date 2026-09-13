@@ -99,3 +99,63 @@ describe("standalone editor Host contract", () => {
     reader.destroy();expect(root.children.length).toBe(1);expect(root.firstChild).toBe(other);
   });
 });
+
+describe("Mac Host alignment", () => {
+  it("publishes toolbar selection, history, save and Reader state", async () => {
+    const {editor}=make("hello"); const states=vi.fn();
+    const root=document.createElement("div");document.body.append(root);
+    const second=new TeggMarkdownEditor(root,{documentId:"s",revision:"1",source:"hello"},{onStateChange:states},"source");instances.push(second);
+    second.view.dispatch({selection:{anchor:0,head:5}});second.command("bold");await Promise.resolve();
+    expect(states).toHaveBeenLastCalledWith(expect.objectContaining({bold:true,dirty:true,canUndo:true}));
+    second.acknowledgeSaved(second.snapshot(),"2");await Promise.resolve();expect(states.mock.lastCall?.[0].dirty).toBe(false);
+    second.setMode("reader");await Promise.resolve();expect(states.mock.lastCall?.[0].toolbarEnabled).toBe(false);
+    expect(editor.source).toBe("hello");
+  });
+  it("rejects unknown commands and does not hijack a code widget input", () => {
+    const {editor,root}=make("hello");expect(editor.command("heading99")).toBe(false);
+    expect(editor.command("unknown")).toBe(false);expect(editor.command("callout:unknown")).toBe(false);
+    const input=document.createElement("textarea");root.querySelector(".tegg-sdk-frame")!.append(input);input.focus();
+    expect(editor.state.toolbarEnabled).toBe(false);expect(editor.command("bold")).toBe(false);expect(editor.source).toBe("hello");
+  });
+  it("navigates CRLF headings and rejects stale outline clicks", async () => {
+    const {editor}=make("# One\r\n\r\n## Two\r\n");const outline=editor.outline();
+    expect(await editor.navigateHeading(outline.headings[1].id,outline)).toBe(true);
+    expect(editor.view.state.selection.main.head).toBe(7);
+    editor.view.dispatch({changes:{from:0,insert:"intro\n"}});
+    expect(await editor.navigateHeading(outline.headings[0].id,outline)).toBe(false);
+    expect(editor.outline().headings[1].id).toBe(outline.headings[1].id);
+  });
+  it("focuses Reader headings and resolves fragments with the shared Mac parser", async () => {
+    const {editor,root}=make("# First\n\n## Second heading");editor.setMode("reader");await editor.ready();
+    expect(await editor.navigateFragment("second-heading")).toBe(true);
+    expect(document.activeElement).toBe(root.querySelector("h2"));
+    expect(await editor.navigateFragment("missing")).toBe(false);
+  });
+  it("isolates appearance and keeps it when the Reader renders again", async () => {
+    const {editor,root}=make("# A");const {root:other}=make("# B");
+    editor.setAppearance({fontScale:1.25,contentWidth:880,background:"rgb(20, 20, 20)",toolbarInset:40});
+    editor.setMode("reader");await editor.ready();
+    expect((root.querySelector(".tegg-reader") as HTMLElement).style.getPropertyValue("--reader-font-scale")).toBe("1.25");
+    expect((root.querySelector(".tegg-sdk-editor") as HTMLElement).style.getPropertyValue("--reader-content-width")).toBe("880px");
+    expect((other.querySelector(".tegg-sdk-editor") as HTMLElement).style.getPropertyValue("--reader-font-scale")).toBe("1");
+  });
+  it("retains source and undo when accessible editing is enabled", () => {
+    const {editor}=make("hello");editor.view.dispatch({changes:{from:5,insert:" world"}});editor.setMode("live");
+    expect(editor.setAccessibility(true)).toBe(true);expect(editor.mode).toBe("live");
+    editor.command("undo");expect(editor.source).toBe("hello");
+    editor.view.contentDOM.dispatchEvent(new CompositionEvent("compositionstart",{bubbles:true}));
+    expect(editor.setAccessibility(false)).toBe(false);
+  });
+  it("ignores native menu responses after the document changes", async () => {
+    let finish!:(type:string)=>void;const root=document.createElement("div");document.body.append(root);
+    const editor=new TeggMarkdownEditor(root,{documentId:"a",revision:"1",source:"> [!NOTE] title\n> body"},{selectCalloutType:() => new Promise(resolve => {finish=resolve;})});instances.push(editor);
+    editor.view.dom.dispatchEvent(new CustomEvent("tegg-callout-menu",{bubbles:true,detail:{from:0,x:0,y:0}}));await Promise.resolve();
+    editor.replaceDocument({documentId:"b",revision:"1",source:"new document"});finish("warning");await Promise.resolve();await Promise.resolve();
+    expect(editor.source).toBe("new document");
+  });
+  it("drops pending outline and state callbacks after destroy", async () => {
+    vi.useFakeTimers();const root=document.createElement("div");const onOutlineChange=vi.fn(),onStateChange=vi.fn();
+    const editor=new TeggMarkdownEditor(root,{documentId:"a",revision:"1",source:"# A"},{onOutlineChange,onStateChange});editor.destroy();
+    await Promise.resolve();vi.advanceTimersByTime(200);expect(onOutlineChange).not.toHaveBeenCalled();expect(onStateChange).not.toHaveBeenCalled();vi.useRealTimers();
+  });
+});

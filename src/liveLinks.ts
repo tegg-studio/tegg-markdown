@@ -194,7 +194,7 @@ class LinkController {
       form.addEventListener("submit", event => { event.preventDefault(); save(); });
       requestAnimationFrame(() => { title.focus(); title.select(); });
     }
-    document.body.append(panel);
+    (this.view.dom.closest(".tegg-sdk-frame") ?? document.body).append(panel);
     const coords = this.view.coordsAtPos(link.from);
     const position = linkPopoverPlacement(coords ?? {left: 16, top: 30, bottom: 50}, panel.offsetWidth, panel.offsetHeight,
       {width: window.innerWidth, height: window.innerHeight}, previous?.side);

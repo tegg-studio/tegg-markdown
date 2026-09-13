@@ -12,3 +12,5 @@
 .tegg-sdk-editor .cm-content {width:100%;min-width:0;max-width:calc(var(--reader-content-width) + var(--md-gutter) * 2);margin:0 auto;padding:var(--md-top) var(--md-gutter) var(--md-bottom);}
 .tegg-sdk-editor .cm-line {padding:0;}
 .tegg-sdk-callout-menu {position:fixed;z-index:1000;font:14px/1.5 system-ui;padding:8px;background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:8px;max-height:240px;}
+
+.tegg-sdk-editor .cm-content {padding-top:calc(var(--md-top) + var(--toolbar-inset, 0px));}

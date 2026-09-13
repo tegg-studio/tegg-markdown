@@ -2,7 +2,7 @@ import {readFileSync, existsSync} from "node:fs";
 import {execFileSync} from "node:child_process";
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 if (pkg.license !== "SEE LICENSE IN LICENSE") throw new Error("Incorrect license metadata");
-for (const file of ["LICENSE","COMMERCIAL-LICENSE.md","ATTRIBUTION.md","THIRD_PARTY_NOTICES.md","dist/index.js","dist/style.css","dist/types/sdk.d.ts"]) {
+for (const file of ["LICENSE","COMMERCIAL-LICENSE.md","ATTRIBUTION.md","THIRD_PARTY_NOTICES.md","dist/index.js","dist/core.js","dist/style.css","dist/types/sdk.d.ts","dist/types/core.d.ts"]) {
   if (!existsSync(file)) throw new Error("Missing distribution file: " + file);
 }
 const pack = JSON.parse(execFileSync("npm", ["pack","--dry-run","--json","--ignore-scripts"], {encoding:"utf8"}))[0];

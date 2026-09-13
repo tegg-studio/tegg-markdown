@@ -1,7 +1,7 @@
 {
   "name": "@tegg/markdown",
   "private": true,
-  "version": "0.1.0-preview.1",
+  "version": "0.1.0-preview.2",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "build": "vite build && tsc -p tsconfig.build.json",
     "check": "npm run typecheck && npm test && npm run build && node scripts/check-package.mjs",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "prepare": "node scripts/prepare.mjs"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -23,7 +24,11 @@
     "COMMERCIAL-LICENSE.md",
     "ATTRIBUTION.md",
     "THIRD_PARTY_NOTICES.md",
-    "docs"
+    "docs",
+    "scripts/prepare.mjs",
+    "vite.config.ts",
+    "tsconfig.json",
+    "tsconfig.build.json"
   ],
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -71,7 +76,11 @@
       "types": "./dist/types/sdk.d.ts",
       "import": "./dist/index.js"
     },
-    "./style.css": "./dist/style.css"
+    "./style.css": "./dist/style.css",
+    "./core": {
+      "types": "./dist/types/core.d.ts",
+      "import": "./dist/core.js"
+    }
   },
   "engines": {
     "node": ">=22.12.0"

@@ -61,3 +61,26 @@ platform-specific WebViews need target-platform acceptance.
 Use uniform LF or CRLF input; mixed newline styles are not a fidelity guarantee.
 This is browser-only, not an SSR API. Treat preview API changes as possible until
 a stable release; pin a reviewed version.
+
+## UI state, outline and native menus (preview.2)
+
+`editor.state` and `onStateChange` report formatting, mixed selections, mode, dirty
+state and undo/redo availability. `command()` rejects unknown commands, Reader,
+streaming, composition and focused independent widget inputs. Toolbar actions
+should preserve the editor selection; commands use CodeMirror's retained selection.
+
+`outline()` returns `{documentId, generation, sequence, headings}`. Pass that
+snapshot to `navigateHeading(id, snapshot)` to reject stale UI actions. The outline
+callback is debounced 150 ms. A Host handling a click sooner may request a fresh
+snapshot and validate the chosen heading's identity/title before navigating.
+`navigateFragment()` uses the same parser as the native Host. `ready()` waits for
+the current Reader render. Navigation checks identity again after awaiting it.
+
+`setAppearance({fontScale, contentWidth, toolbarInset, background, text, muted,
+border, accent, accentSoft})` only changes the instance. `setAccessibility(true)`
+keeps editing syntax visible and preserves undo; it rejects a composition in flight.
+It does not substitute for assistive-technology testing.
+
+A native Host may implement async `selectCalloutType({current, x, y, viewportWidth})`.
+Return the selected type or null. The editor validates the response against source,
+generation and mode before applying a source patch.

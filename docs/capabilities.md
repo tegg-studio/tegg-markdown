@@ -14,7 +14,9 @@
 | Multiple instances | Scoped state and resource context | Shared renderer runtime may serialize some work |
 | Attribution | Default visible footer | Host placement requires equivalent visible credit or written waiver |
 | Chinese text | Unicode source and composition transition guards | Real OS IME matrix still requires verification |
-| Accessibility | Semantic Reader and Source editor | Complete assistive-technology audit pending |
+| Toolbar / outline | Selection state, undo/redo state, versioned headings and fragment navigation | Host supplies toolbar/menu presentation |
+| Appearance | Per-instance font scale, content width, colors and toolbar inset | Native layout and scroll indicators remain Host-owned |
+| Accessibility | Semantic Reader and source-visible editing toggle | Complete assistive-technology audit pending |
 | Mobile / native WebView | Source is portable | No new iOS/Android/native-device certification in this release |
 
 No realtime collaboration, proprietary block database, account system, official

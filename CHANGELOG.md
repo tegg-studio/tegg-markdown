@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0-preview.2
+
+- Add toolbar state, versioned outlines, heading/fragment navigation, instance appearance and source-visible accessibility controls.
+- Allow native Hosts to supply callout menus with stale-response protection.
+- Add the advanced `@tegg/markdown/core` entry for existing native adapters.
+- Replace the minimal two-pane example with a document workspace, formatting controls, outline, file import/export and draft protection.
+- Scope link popovers to their editor instance and preserve independent widget input focus.
+- Keep the attribution license and default visible credit unchanged.
+
+
 ## Unreleased
 
 - Fix duplicate table-cell commits when Enter is followed by blur; preserve the
