@@ -11,10 +11,10 @@ This project is not offered under Apache-2.0 and does not claim OSI approval.
 
 ## Status
 
-Developer preview `0.2.0-preview.1`. Core source, tests, types, styles,
-a Host example and license materials are included. There is no published npm
-release yet; `@tegg/markdown` is the local package name, not a claim that its
-registry scope has been reserved. `private: true` prevents accidental npm publish.
+Registry release candidate `0.2.0-preview.2`, prepared for the public npm `preview`
+dist-tag. Registry publication is pending; the existing immutable Git preview
+`v0.2.0-preview.1` remains available. Source, tests, types, styles and mandatory
+license materials are included. See [release status](docs/npm-release.md).
 
 The default integration requires no Tegg account, cloud, activation or telemetry.
 The Host owns document identity, persistence, resources, permissions and conflicts.

@@ -24,9 +24,13 @@ and then flow into applications through a version update.
 3. Run unit, type, package, browser and claimed target-platform checks.
 4. Review LICENSE, attribution examples, distribution inventory and secrets scan.
 5. Generate a packed artifact and record its integrity and validation evidence.
-6. Only with registry publication authorization, remove private:true and publish
-   that reviewed version. Tag a verified release commit; do not claim the preview
-   Git push is an npm release.
+6. With registry publication authorization, publish the exact reviewed tarball with
+   `--ignore-scripts --access public --tag preview`, so publishing cannot rebuild it.
+   Verify registry integrity and independent registry consumers before reporting
+   success. Keep existing Git tags immutable; record the new release commit.
+
+The current candidate has explicit publishConfig for the official registry, public
+access and the preview dist-tag. See [npm release status](npm-release.md).
 
 License changes affect new grants only. Never claim to revoke rights already
 granted under an earlier license. Keep old releases and their original terms
