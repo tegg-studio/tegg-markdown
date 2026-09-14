@@ -542,7 +542,7 @@ class TableWidget extends WidgetType {
     const toolbar = document.createElement("div");
     toolbar.className = "cm-preview-toolbar";
     const label = document.createElement("span");
-    label.textContent = `${model.rows.length} rows × ${model.headers.length} columns`;
+    setUIText(label, `${model.rows.length === 1 ? "{rows} row" : "{rows} rows"} × ${model.headers.length === 1 ? "{columns} column" : "{columns} columns"}`, {rows:String(model.rows.length), columns:String(model.headers.length)});
     const actions = document.createElement("div");
     const commit = () => dispatchSourcePatches(view, [{
       from: this.from,

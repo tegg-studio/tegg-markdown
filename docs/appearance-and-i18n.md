@@ -22,3 +22,10 @@ required attribution. Host controls must preserve access to needed actions.
 Host's container. Theme variables and language remain scoped. Destroy releases the
 surface and its listeners. Keep the owner surface's theme variables authoritative.
 Custom renderer UI is the Host's responsibility.
+
+Table quantity labels use the message variants `{rows} row × {columns} column`,
+`{rows} row × {columns} columns`, `{rows} rows × {columns} column` and
+`{rows} rows × {columns} columns`. Rows count data rows (excluding the header).
+English selects singular/plural from each count; Chinese displays `{rows} 行 ×
+{columns} 列`. Custom messages and live locale switching use the same instance UI
+context. This is not a claim of general plural-rule support for other languages.

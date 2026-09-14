@@ -1,0 +1,11 @@
+import {execFileSync} from 'node:child_process';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+const version=process.argv[2];
+if(!/^(11|11\.\d+\.\d+)$/.test(version??''))throw new Error('Use a stable Mermaid 11 version or 11 for the latest compatible release');
+const dir=resolve(readFileSync('.validation/consumer-root.txt','utf8').trim(),'consumer-full');
+execFileSync('npm',['install','--no-save','--ignore-scripts','--no-audit','--no-fund',`mermaid@${version}`],{cwd:dir,stdio:'inherit'});
+const resolved=JSON.parse(readFileSync(resolve(dir,'node_modules/mermaid/package.json'),'utf8')).version;
+writeFileSync('.validation/mermaid-version.json',JSON.stringify({requested:version,resolved},null,2));
+execFileSync('npm',['run','build'],{cwd:dir,stdio:'inherit'});
+execFileSync('npx',['playwright','test','tests/browser/engines.spec.ts'],{stdio:'inherit'});

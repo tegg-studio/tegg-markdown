@@ -56,3 +56,30 @@ test("Live Edit preserves unresolved references while rendering valid links",asy
  await expect(page.locator(".cm-live-emphasis")).toHaveText("formatted");
  await expect(page.locator(".cm-live-link")).toHaveText("valid");
 });
+
+for(const port of [18915,18916]) test(`React ${port===18915?'18':'19'} editor preserves the constrained height chain and exposes profile-aware toolbar`,async({page})=>{
+ await page.goto(`http://127.0.0.1:${port}/react.html`);
+ await page.evaluate(()=> (window as any).host.show('editor',Array.from({length:200},(_,i)=>`Paragraph ${i}`).join('\n\n')));
+ await expect(page.getByRole('button',{name:'bold',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'wikilink',exact:true})).toHaveCount(0);
+ const viewport=page.locator('.tegg-sdk-editor');
+ await expect.poll(()=>viewport.evaluate(el=>el.clientHeight)).toBeGreaterThan(0);
+ const scroller=viewport.locator('.cm-scroller');
+ const sizes=await scroller.evaluate(el=>({height:el.clientHeight,content:el.scrollHeight}));
+ expect(sizes.height).toBeLessThan(420);expect(sizes.content).toBeGreaterThan(sizes.height);
+ await scroller.evaluate(el=>{el.scrollTop=el.scrollHeight});
+ expect(await scroller.evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
+});
+
+for(const port of [18915,18916]) test(`React ${port} Reader supports internal and natural height`,async({page})=>{
+ await page.goto(`http://127.0.0.1:${port}/react.html`);
+ await page.evaluate(()=> (window as any).host.show('reader',Array.from({length:80},(_,i)=>`Paragraph ${i}`).join('\n\n'),'internal'));
+ const reader=page.locator('.tegg-reader');await expect(reader.getByText('Paragraph 79',{exact:true})).toBeAttached();
+ expect(await reader.evaluate(el=>el.clientHeight)).toBeLessThan(420);
+ await reader.evaluate(el=>{el.scrollTop=el.scrollHeight});expect(await reader.evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
+ await page.evaluate(()=> (window as any).host.unmount());
+ await page.reload();
+ await page.evaluate(()=> (window as any).host.show('reader',Array.from({length:80},(_,i)=>`Paragraph ${i}`).join('\n\n'),'host'));
+ await expect(reader.getByText('Paragraph 79',{exact:true})).toBeAttached();
+ expect(await reader.evaluate(el=>el.clientHeight)).toBeGreaterThan(420);
+});

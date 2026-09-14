@@ -142,3 +142,17 @@ with two attribution links and no page errors.
 This is shared-core integration plus scoped interaction evidence, not complete
 Mac/browser visual parity. Native CSS/chrome remain in the Host. Real OS input
 candidate sessions and a complete VoiceOver pass are still unverified.
+
+## Integration regression follow-up (0.2.0-preview.2 candidate)
+
+The candidate adds assertions for actual Mermaid node fill/stroke, React constrained
+and natural-height layouts, legacy Node-style TypeScript subpath resolution,
+profile command discovery and table quantity localization. Mermaid compatibility CI
+installs 11.9.0, 11.10.0 and the latest compatible 11.x separately, records the resolved
+version and exercises all three engines. A generated SVG or a passing old sanitizer
+suite alone is not evidence of readable colors. The previous lockfile already used
+Mermaid 11.17.2; this was an assertion gap, not simply use of an old engine.
+
+Historical test totals and performance samples above describe their recorded
+artifacts. New totals and exact candidate identity are recorded by the candidate CI;
+this follow-up does not claim to have rerun the complete performance benchmark.

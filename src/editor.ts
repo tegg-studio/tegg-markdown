@@ -34,11 +34,29 @@ export type DraftChange = {
   generation: string; sequence: number;
 };
 export type OutlineSnapshot = {documentId: string; generation: string; sequence: number; headings: OutlineHeading[]};
-export type EditorUIState = EditorToolbarState & {mode: EditorMode; dirty: boolean; toolbarEnabled: boolean; canUndo: boolean; canRedo: boolean};
+export type EditorUIState = EditorToolbarState & {mode: EditorMode; dirty: boolean; toolbarEnabled: boolean; canUndo: boolean; canRedo: boolean; profile: MarkdownProfile; commands: readonly string[]};
 export type EditorAppearance = {fontScale?: number; contentWidth?: number; toolbarInset?: number;
   background?: string; text?: string; muted?: string; border?: string; accent?: string; accentSoft?: string};
 export type CalloutMenuRequest = {current: string; x: number; y: number; viewportWidth: number};
 const supportedCommands = new Set(["undo","redo","bold","italic","code","underline","strike","highlight","subscript","superscript","task","list","orderedList","quote","link","image","fileLink","wikilink","table","divider","codeBlock","mathBlock","mermaid","graphviz","footnote","callout", ...Array.from({length:7}, (_,i) => `heading${i}`)]);
+export type CommandStatus = {supported: boolean; enabled: boolean; reason?: "unknown-command" | "unsupported-profile" | "editing-disabled" | "selection-disabled" | "empty-history"};
+const profileCommands = Object.fromEntries((["tegg", "github", "gfm"] as const).map(profile => [profile, Object.freeze([...supportedCommands, ...calloutTypes.map(item => `callout:${item.id}`)].filter(command =>
+  !(profile !== "tegg" && ["wikilink", "highlight", "subscript", "superscript", "graphviz"].includes(command)) &&
+  !(profile === "gfm" && (["mathBlock", "mermaid", "footnote", "callout"].includes(command) || command.startsWith("callout:")))
+))])) as Record<MarkdownProfile, readonly string[]>;
+/** Stable profile support, distinct from transient selection/focus availability. */
+export function getSupportedCommands(profile: MarkdownProfile = "tegg"): readonly string[] {resolveProfile(profile); return profileCommands[profile];}
+const inlineCommands = new Set(["bold","italic","code","underline","strike","highlight","subscript","superscript"]);
+/** Evaluate an existing UI snapshot without repeatedly scanning the selection. */
+export function getCommandStatus(command: string, state: EditorUIState): CommandStatus {
+    const known = supportedCommands.has(command) || calloutTypes.some(item => command === `callout:${item.id}`);
+    if (!known) return {supported:false, enabled:false, reason:"unknown-command"};
+    if (!state.commands.includes(command)) return {supported:false, enabled:false, reason:"unsupported-profile"};
+    if (!state.toolbarEnabled) return {supported:true, enabled:false, reason:"editing-disabled"};
+    if (inlineCommands.has(command) && !state.inlineFormattingEnabled) return {supported:true, enabled:false, reason:"selection-disabled"};
+    if ((command === "undo" && !state.canUndo) || (command === "redo" && !state.canRedo)) return {supported:true, enabled:false, reason:"empty-history"};
+    return {supported:true, enabled:true};
+}
 export type UpdateResult = "applied" | "unchanged" | "conflict" | "composing";
 export type EditorHost = ReaderHost & {
   attribution?: AttributionPlacement;
@@ -269,15 +287,16 @@ export class TeggMarkdownEditor {
   }
   command(command: string): boolean {
     this.assertAlive();
-    if (!this.state.toolbarEnabled || (!supportedCommands.has(command) && !(command.startsWith("callout:") && calloutTypes.some(item => item.id === command.slice(8))))) return false;
-    const profile = this.document.profile ?? "tegg";
-    if (profile !== "tegg" && ["wikilink", "highlight", "subscript", "superscript", "graphviz"].includes(command)) return false;
-    if (profile === "gfm" && (["mathBlock", "mermaid", "footnote", "callout"].includes(command) || command.startsWith("callout:"))) return false;
+    if (!this.commandStatus(command).enabled) return false;
     this.viewValue.focus();
     if (command === "undo") return undo(this.viewValue);
     if (command === "redo") return redo(this.viewValue);
     if (command === "link" && this.modeValue === "live" && editCurrentLink(this.viewValue)) return true;
     executeEditorCommand(this.viewValue, command); return true;
+  }
+  commandStatus(command: string): CommandStatus {
+    this.assertAlive();
+    return getCommandStatus(command, this.state);
   }
   /** Current Host toolbar state; independent widget inputs keep their own editing focus. */
   get state(): EditorUIState {
@@ -285,7 +304,7 @@ export class TeggMarkdownEditor {
     const active = document.activeElement;
     const independent = this.frame.contains(active) && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement);
     const enabled = this.modeValue !== "reader" && this.document.contentState !== "streaming" && !this.composing && !this.viewValue.composing && !independent;
-    return {...editorToolbarState(this.viewValue.state), mode:this.modeValue, dirty:this.dirty, toolbarEnabled:enabled,
+    return {...editorToolbarState(this.viewValue.state), profile:this.document.profile ?? "tegg", commands:getSupportedCommands(this.document.profile), mode:this.modeValue, dirty:this.dirty, toolbarEnabled:enabled,
       canUndo:enabled && undoDepth(this.viewValue.state) > 0, canRedo:enabled && redoDepth(this.viewValue.state) > 0};
   }
   private queueState = () => {

@@ -241,8 +241,11 @@ export function sanitizeDiagramSvg(svg: string): DocumentFragment {
   return fragment;
 }
 function unsafeSvgStyle(value: string) {
-  const withoutLocalUrls = value.replace(/url\(\s*(["']?)#[\w:.-]+\1\s*\)/gi, "");
-  return /url\s*\(|image-set\s*\(|src\s*\(|@|\\/i.test(withoutLocalUrls);
+  // Strip comments before classification; escaped CSS is deliberately unsupported.
+  const normalized = value.replace(/\/\*[\s\S]*?\*\//g, "");
+  if (/\\/.test(normalized) || /@(?!(-webkit-)?keyframes\b)/i.test(normalized)) return true;
+  const withoutLocalUrls = normalized.replace(/url\(\s*(["']?)#[\w:.-]+\1\s*\)/gi, "");
+  return /url\s*\(|image-set\s*\(|src\s*\(|\\/i.test(withoutLocalUrls);
 }
 
 let mermaidPending = 0;

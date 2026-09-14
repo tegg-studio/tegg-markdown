@@ -29,6 +29,7 @@ Publishing on npm does not change the source-available licensing terms.
    consumers, and repeat their type/build/browser checks.
 6. Record the registry result and immutable Git identity; never move an existing tag.
 
-The registry preview retains the runtime of the verified Git preview. Real OS IME,
+The registry candidate includes follow-up Mermaid, React layout, type-resolution,
+command discovery and localization fixes, with its own regression evidence. Real OS IME,
 assistive technology and full browser product/version coverage remain separately
 scoped in [validation](validation.md). npm distribution adds no platform certification.

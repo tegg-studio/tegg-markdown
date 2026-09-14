@@ -102,3 +102,14 @@ rendered text.
 See the [local HTTP CAS example](../examples/http-cas/README.md) for a tested atomic
 revision comparison and exact save/reopen. SDK conflict events alone do not implement
 a storage transaction, Git write or backend lock.
+
+## Command availability
+
+Use `getSupportedCommands(profile)` or `editor.state.commands` for static profile
+support; these immutable arrays have stable identity. `editor.commandStatus(name)`
+returns `{supported, enabled, reason?}` for profile, editing focus/mode, selection
+and undo history constraints. Querying it does not edit source or save state.
+`command()` checks the same rules and retains its boolean result. Toolbar subscriptions
+receive profile/command metadata with the existing state update, not a second event
+stream. Neither the support list nor query enables network resources or installs
+an optional renderer.
