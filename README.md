@@ -100,7 +100,7 @@ watermark is the recommended Host presentation.
 The `attribution: "host"` option transfers display responsibility to your Host;
 it does not grant a white-label exemption.
 
-See [third-party notices](THIRD_PARTY_NOTICES.md), [contribution terms](CONTRIBUTING.md),
+See [third-party notices](THIRD_PARTY_NOTICES.md), [contribution terms](https://github.com/tegg-studio/tegg-markdown/blob/main/CONTRIBUTING.md),
 [security reporting](SECURITY.md), and [release process](docs/releasing.md).
 
 No application shell, customer content, cloud credentials or private repository
