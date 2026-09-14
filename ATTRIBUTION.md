@@ -21,7 +21,8 @@ no enforcement telemetry. Legal permission and UI configuration are separate.
 ## Visual integration guide
 
 Choose a placement using the [interface attribution guide](docs/attribution-guide.md):
-status bar, component footer, sidebar, corner signature or small corner watermark.
+small corner watermark (recommended), status bar, component footer, sidebar or
+corner signature.
 It includes English illustrations, suggested dimensions, responsive behavior and
 a Host integration example. These are design references, not additional license
 conditions or five built-in SDK presets.

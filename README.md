@@ -93,7 +93,8 @@ Normal reading, editing, undo and saving are complete under the free license.
 The default frame displays attribution outside document scrolling.
 You may adapt its presentation within [these rules](ATTRIBUTION.md).
 See the [interface attribution guide](docs/attribution-guide.md) for five visual
-examples, layout dimensions and Host integration guidance.
+examples, layout dimensions and Host integration guidance. The small corner
+watermark is the recommended Host presentation.
 The `attribution: "host"` option transfers display responsibility to your Host;
 it does not grant a white-label exemption.
 

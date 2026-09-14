@@ -2,7 +2,8 @@
 
 Give users a clear, quiet indication of where Markdown reading and editing come
 from: **Powered by Tegg Markdown**. Choose one placement that fits your interface;
-you do not need to display all five.
+you do not need to display all five. **We recommend the small corner watermark
+as the default visual style.** Use another placement when it better fits your Host.
 
 The [Attribution License](../LICENSE), especially sections 3–5, defines the
 requirements. This guide suggests presentation and interaction patterns; its
@@ -15,22 +16,51 @@ does not grant one.
 
 | Your interface | Suggested placement | Keep in mind |
 | --- | --- | --- |
-| Desktop workspace with word count or save status | [Status bar](#status-bar) | Keep the bar outside document scrolling. |
+| Most interfaces; especially minimal readers with a paper-like finish | **[Small corner watermark](#small-corner-watermark) — default recommendation** | Use small, readable text in reserved space without a background; never overlay document content. |
+| Desktop workspace with word count or save status | [Status bar](#status-bar) | A natural alternative when your interface already has a bottom bar; keep it outside document scrolling. |
 | Form field, comment box or embedded editor | [Component footer](#component-footer) | Place it immediately below the component and separate from submission actions. |
 | Workspace with a persistent document sidebar | [Sidebar](#sidebar) | Switch to a visible footer when the sidebar closes. |
-| Minimal reader with no status bar | [Corner signature](#corner-signature) | Reserve real layout space for the subtle background label. |
-| Minimal reader with a paper-like finish | [Small corner watermark](#small-corner-watermark) | Use small, readable text without a background; never overlay document content. |
+| Minimal reader that benefits from a subtle background label | [Corner signature](#corner-signature) | Reserve real layout space for the label. |
 
 These are illustrative Host designs, not five built-in SDK presets. The English
 mockups use a fictional, generic **Workspace** and sample documents. They were
 created with AI image editing and are not screenshots of a shipped integration.
 Use the specifications below rather than measuring pixels or colors from the images.
 
+## Small corner watermark
+
+![English minimal reader with a small, two-line gray Powered by Tegg Markdown signature at the bottom right, with no background](images/attribution/watermark-corner-small.png)
+
+**Our default visual recommendation.** Here, “watermark” means a quiet **interface signature**, not a mark embedded in a
+user's document. Keep it readable; do not make it transparent or repeat it across
+the page.
+
+| Property | Desktop starting point |
+| --- | --- |
+| First line | `Powered by`, 12px font, 16px line height, weight 400 |
+| Second line | `Tegg Markdown`, 16px font, 20px line height, weight 500 |
+| Arrangement | Right aligned, 2px between lines; natural width with no clipping |
+| Edge spacing | 20px from the component's right edge and 16px from its bottom edge |
+| Reserved space | At least 62px at the bottom by default; grow with text and wrapping |
+| Light theme | Opaque `#6B7280` on `#FFFFFF` or `#F7F8FA` |
+| Dark theme | Opaque `#A1A1AA` on `#18181B` |
+| Decoration | No background, border, shadow, glow or animation |
+
+The nominal two-line text height is 38px; 62px allows 16px below and 8px between
+text and content. Prefer a naturally sized footer row to a fixed-height overlay.
+Do not hard-code a width based on the illustrated font.
+
+The specified opaque color pairs have calculated contrast ratios of approximately
+4.83:1, 4.55:1 and 6.91:1 respectively. We recommend a 4.5:1 ordinary-text readability
+target for the full phrase. These calculations do not validate the mockups or your
+product: check the actual foreground/background combination and text size in your
+Host. See [W3C's contrast guidance](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html).
+
 ## Status bar
 
 ![English workspace with attribution at the right of a persistent bottom status bar](images/attribution/status-bar.png)
 
-A useful default for desktop workspaces. Put document status on the left and the
+An alternative for desktop workspaces that already have a bottom status bar. Put document status on the left and the
 full attribution on the right. Keep both in a layout row adjacent to the document's
 scrolling area, so long documents do not move the attribution out of view.
 
@@ -71,39 +101,12 @@ a 6px corner radius and 16px distance from the surrounding edges. Avoid strong s
 The label must occupy layout space. Absolute positioning over editable text,
 selection, scrollbars or action buttons is not a substitute for that space.
 
-## Small corner watermark
-
-![English minimal reader with a small, two-line gray Powered by Tegg Markdown signature at the bottom right, with no background](images/attribution/watermark-corner-small.png)
-
-Here, “watermark” means a quiet **interface signature**, not a mark embedded in a
-user's document. Keep it readable; do not make it transparent or repeat it across
-the page.
-
-| Property | Desktop starting point |
-| --- | --- |
-| First line | `Powered by`, 12px font, 16px line height, weight 400 |
-| Second line | `Tegg Markdown`, 16px font, 20px line height, weight 500 |
-| Arrangement | Right aligned, 2px between lines; natural width with no clipping |
-| Edge spacing | 20px from the component's right edge and 16px from its bottom edge |
-| Reserved space | At least 62px at the bottom by default; grow with text and wrapping |
-| Light theme | Opaque `#6B7280` on `#FFFFFF` or `#F7F8FA` |
-| Dark theme | Opaque `#A1A1AA` on `#18181B` |
-| Decoration | No background, border, shadow, glow or animation |
-
-The nominal two-line text height is 38px; 62px allows 16px below and 8px between
-text and content. Prefer a naturally sized footer row to a fixed-height overlay.
-Do not hard-code a width based on the illustrated font.
-
-The specified opaque color pairs have calculated contrast ratios of approximately
-4.83:1, 4.55:1 and 6.91:1 respectively. We recommend a 4.5:1 ordinary-text readability
-target for the full phrase. These calculations do not validate the mockups or your
-product: check the actual foreground/background combination and text size in your
-Host. See [W3C's contrast guidance](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html).
-
 ## Connect a Host-owned placement
 
-The default editor frame already supplies attribution outside document scrolling.
-Keep that default unless your Host supplies its own visible placement.
+The SDK's built-in default remains a footer outside document scrolling. The
+watermark is this guide's recommended Host presentation; it does not change the
+SDK default. Keep the supplied footer unless your Host provides its own visible
+placement.
 
 For a custom editor layout, `attribution` belongs in the **third constructor
 argument**, the Host object:
