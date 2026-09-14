@@ -29,7 +29,7 @@ Use the specifications below rather than measuring pixels or colors from the ima
 
 ## Small corner watermark
 
-![English minimal reader with a small, two-line gray Powered by Tegg Markdown signature at the bottom right, with no background](images/attribution/watermark-corner-small.png)
+![English minimal reader with a small, two-line gray Powered by Tegg Markdown signature at the bottom right, with no background](https://raw.githubusercontent.com/tegg-studio/tegg-markdown/main/docs/images/attribution/watermark-corner-small.png)
 
 **Our default visual recommendation.** Here, “watermark” means a quiet **interface signature**, not a mark embedded in a
 user's document. Keep it readable; do not make it transparent or repeat it across
@@ -58,7 +58,7 @@ Host. See [W3C's contrast guidance](https://www.w3.org/WAI/WCAG22/Understanding/
 
 ## Status bar
 
-![English workspace with attribution at the right of a persistent bottom status bar](images/attribution/status-bar.png)
+![English workspace with attribution at the right of a persistent bottom status bar](https://raw.githubusercontent.com/tegg-studio/tegg-markdown/main/docs/images/attribution/status-bar.png)
 
 An alternative for desktop workspaces that already have a bottom status bar. Put document status on the left and the
 full attribution on the right. Keep both in a layout row adjacent to the document's
@@ -69,7 +69,7 @@ padding. Match your own status bar background and allow the row to grow or wrap.
 
 ## Component footer
 
-![English document form with attribution immediately below the editor, separate from create and cancel buttons](images/attribution/component-footer.png)
+![English document form with attribution immediately below the editor, separate from create and cancel buttons](https://raw.githubusercontent.com/tegg-studio/tegg-markdown/main/docs/images/attribution/component-footer.png)
 
 Use for an editor embedded in a larger form. Place the attribution 8–12px below
 the editor, aligned to its edge. Use 14px text with 20px line height and leave at
@@ -80,7 +80,7 @@ attribution.
 
 ## Sidebar
 
-![English workspace with two-line attribution at the bottom of the document sidebar](images/attribution/sidebar.png)
+![English workspace with two-line attribution at the bottom of the document sidebar](https://raw.githubusercontent.com/tegg-studio/tegg-markdown/main/docs/images/attribution/sidebar.png)
 
 Use a sidebar only while it is visible alongside the relevant reader or editor.
 Start with `Powered by` at 12px/16px and `Tegg Markdown` at 14px/20px, separated by
@@ -92,7 +92,7 @@ or component footer before the sidebar attribution disappears.
 
 ## Corner signature
 
-![English minimal reader with a subtle rounded attribution label in reserved bottom-right space](images/attribution/corner-signature.png)
+![English minimal reader with a subtle rounded attribution label in reserved bottom-right space](https://raw.githubusercontent.com/tegg-studio/tegg-markdown/main/docs/images/attribution/corner-signature.png)
 
 Use a light background label in reserved space at the visible corner of the reader.
 Start with 14px/20px text, a minimum 32px label height, 10–12px horizontal padding,

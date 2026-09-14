@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Limit npm archives to runtime files, declarations, legal materials and selected guides/examples. Keep source, tests and large illustrations in Git.
+- Enforce package inventory and public repository boundaries, and document the contributor Git workflow.
+- No SDK API/runtime change or new npm publication is included in this cleanup.
+
 ## 0.2.0-preview.2 — npm preview (2026-09-14)
 
 - Prepare public registry distribution under the `preview` dist-tag.
