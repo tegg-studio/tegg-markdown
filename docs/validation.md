@@ -39,10 +39,18 @@ macOS 26.6 / Xcode 26.5: 1,545 Host tests, native build/launch, and actual
 Reader/Live Edit/Source, task/table/code editing, undo/redo, exact file save,
 relative navigation/reopen, local images and viewer Escape/focus restoration passed.
 Finder Quick Look actually displayed the same fixture; restricted sibling images
-showed a clear fallback while the application loaded them. The final link/input candidate `6dacb6142606b9548f84526ad30b8d413836f418`
-also passed the Mac dependency pin guard and native build/launch. Its final native
-visual recheck is pending because the validation machine is locked; the literal
-reference fix passes automated regression checks in all three browser engines. Synthetic composition tests are not real macOS Pinyin, Sogou, Windows
+showed a clear fallback while the application loaded them.
+
+Final native follow-up on the released Git tag `v0.2.0-preview.1`
+(`cdfe69e9ec708f88d6459afb07ffe2a337060ced`) also passed: Live Edit visibly retains
+unresolved reference brackets; an actual code edit followed by undo and save
+restored the exact file bytes; Reader, local-link navigation and return/reopen
+preserved the saved content. Finder Quick Look displayed the same final document,
+including literal brackets, table, code and formula. The earlier locked-machine
+blocker is resolved. This is a validation-record update; the immutable preview
+artifact and its runtime are unchanged.
+
+Synthetic composition tests are not real macOS Pinyin, Sogou, Windows
 Microsoft Pinyin or VoiceOver/NVDA testing. Playwright engines are not certification
 of the latest two Chrome/Edge/Firefox/Safari product versions. No Windows native app or
 mobile device matrix has been exercised in this record. Linux CI and local macOS

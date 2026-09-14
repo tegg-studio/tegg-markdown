@@ -26,7 +26,9 @@ Validated core coverage includes 2,889 tests, fixed public syntax fixtures and
 independent React/vanilla consumers. The browser matrix covers 37 checks across
 Chromium, Firefox and WebKit, including real worker idle recovery. Native Host
 smoke validation covers editing, exact save/reopen, local resources and Finder
-Quick Look. See the validation record for commit-specific results and limits.
+Quick Look. Final native follow-up on the released tag also verified literal
+reference brackets and exact edit/undo/save/reopen behavior. See the validation
+record for commit-specific results and limits.
 No real OS IME, assistive-technology or complete browser product/version certificate
 is implied. The internal 16 ms input target is not uniformly achieved.
 
