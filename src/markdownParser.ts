@@ -84,6 +84,22 @@ function headingIdPlugin(md: MarkdownIt, allowExplicit = true) {
   });
 }
 
+function imageAltTextPlugin(md: MarkdownIt) {
+  md.core.ruler.after("text_join", "image_alt_text", state => {
+    // markdown-it joins escaped/entity text only in top-level inline children.
+    // Image labels have their own inline tokens; keep their literal characters for alt rendering.
+    const pending = [...state.tokens];
+    while (pending.length) {
+      const token = pending.pop()!;
+      if (!token.children) continue;
+      if (token.type === "image") {
+        for (const child of token.children) if (child.type === "text_special") child.type = "text";
+      }
+      for (const child of token.children) pending.push(child);
+    }
+  });
+}
+
 function tableAlignmentClassPlugin(md: MarkdownIt) {
   md.core.ruler.after("block", "table_alignment_classes", (state) => {
     for (const token of state.tokens) {
@@ -109,7 +125,7 @@ export function createMarkdownParser(profile: MarkdownProfile = "tegg", extensio
     parser.renderer.rules.s_open = () => "<del>"; parser.renderer.rules.s_close = () => "</del>";
   }
   if (profile === "tegg" || extensions.includes("tasklist")) parser.use(taskLists as any, {enabled: profile === "tegg", label: profile === "tegg", labelAfter: profile === "tegg"});
-  parser.use(tableAlignmentClassPlugin);
+  parser.use(tableAlignmentClassPlugin).use(imageAltTextPlugin);
   if (profile !== "gfm") {
     parser.use(mathPlugin).use(footnote as any).use(emoji, {shortcuts: {}});
     parser.renderer.rules.footnote_caption = (tokens, index) => `[${tokens[index].meta.id + 1}]`;

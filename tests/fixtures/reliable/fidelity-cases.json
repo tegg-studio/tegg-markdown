@@ -1,0 +1,122 @@
+[
+  {
+    "name": "heading",
+    "source": "# Heading {#custom-id}"
+  },
+  {
+    "name": "emphasis",
+    "source": "**bold** and *italic* and ~~strike~~"
+  },
+  {
+    "name": "inline-code",
+    "source": "`` ` code ` ``"
+  },
+  {
+    "name": "link",
+    "source": "[text](<folder/a%20b.md> \"title\")"
+  },
+  {
+    "name": "reference",
+    "source": "[text][id]\n\n[id]: ./note.md \"title\""
+  },
+  {
+    "name": "image",
+    "source": "![🐈 alt](assets/cat.png \"photo\")"
+  },
+  {
+    "name": "linked-image",
+    "source": "[![alt](cat.png)](note.md)"
+  },
+  {
+    "name": "unordered",
+    "source": "* one\n  * nested\n* two"
+  },
+  {
+    "name": "ordered",
+    "source": "3. one\n4. two"
+  },
+  {
+    "name": "tasks",
+    "source": "- [ ] todo\n- [x] done"
+  },
+  {
+    "name": "quote",
+    "source": "> quote\n>\n> next"
+  },
+  {
+    "name": "callout",
+    "source": "> [!NOTE]+ Title\n> body\n>> nested"
+  },
+  {
+    "name": "table",
+    "source": "| Left | Right |\n| :--- | ---: |\n| a\\|b | `x|y` |"
+  },
+  {
+    "name": "fence",
+    "source": "~~~~js extra-info\nconst x = `~~~`;\n~~~~"
+  },
+  {
+    "name": "indented-code",
+    "source": "    x < y\n    preserve  spaces"
+  },
+  {
+    "name": "inline-math",
+    "source": "$x^2$ and $`a+b`$"
+  },
+  {
+    "name": "block-math",
+    "source": "$$\n\\frac{a}{b}\n$$"
+  },
+  {
+    "name": "mermaid",
+    "source": "```mermaid\nflowchart LR\n  A --> B\n```"
+  },
+  {
+    "name": "graphviz",
+    "source": "```dot\ndigraph G { a -> b }\n```"
+  },
+  {
+    "name": "footnote",
+    "source": "Reference[^note].\n\n[^note]: First line\n    continuation"
+  },
+  {
+    "name": "metadata",
+    "source": "---\n# keep this comment\ntitle: \"hello\"\ntags: [a, b]\ncustom:\n  x: 1\n---\n\nBody"
+  },
+  {
+    "name": "html",
+    "source": "<details><summary>Title</summary>\n\n<u>underlined</u>\n\n</details>"
+  },
+  {
+    "name": "comment",
+    "source": "<!-- retain this comment -->\ntext"
+  },
+  {
+    "name": "breaks",
+    "source": "hard break  \nnext\\\nlast<br>line"
+  },
+  {
+    "name": "unicode",
+    "source": "中文 👨‍👩‍👧‍👦 é 🐈\t tabs"
+  },
+  {
+    "name": "wiki",
+    "source": "[[note#Heading|display]] ![[photo.png]]"
+  },
+  {
+    "name": "scripts",
+    "source": "H~2~O x^2^ ==highlight=="
+  },
+  {
+    "name": "unknown",
+    "source": "```custom-engine\nunknown syntax stays unchanged\n```\n::: custom\nbody\n:::"
+  },
+  {
+    "name": "definition",
+    "source": "Term\n: description"
+  },
+  {
+    "name": "references-unresolved",
+    "source": "[unknown][missing] and [^missing]"
+  }
+]

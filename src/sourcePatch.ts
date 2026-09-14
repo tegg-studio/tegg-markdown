@@ -28,9 +28,13 @@ export function validateSourcePatches(source: string, patches: readonly SourcePa
     if (!Number.isInteger(patch.from) || !Number.isInteger(patch.to)) {
       throw new SourcePatchError("Patch ranges must use integer offsets");
     }
+    if(typeof patch.insert!=="string")throw new SourcePatchError("Patch insert must be text");
     if (patch.from < 0 || patch.to < patch.from || patch.to > source.length) {
       throw new SourcePatchError(`Patch range ${patch.from}...${patch.to} is outside the source`);
     }
+    const splitsSurrogate=(position:number)=>position>0&&position<source.length&&/[\uD800-\uDBFF]/.test(source[position-1])&&/[\uDC00-\uDFFF]/.test(source[position]);
+    if(splitsSurrogate(patch.from)||splitsSurrogate(patch.to))throw new SourcePatchError("Patch boundary must not split a Unicode code point");
+    if(/([\uD800-\uDBFF](?![\uDC00-\uDFFF]))|((?<![\uD800-\uDBFF])[\uDC00-\uDFFF])/.test(patch.insert))throw new SourcePatchError("Patch insert must contain valid Unicode code points");
     if (index > 0 && patch.from < previousTo) {
       throw new SourcePatchError("Source patches must not overlap");
     }

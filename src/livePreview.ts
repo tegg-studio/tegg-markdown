@@ -1,3 +1,4 @@
+import {editingPerformancePolicy} from "./editingBudget";
 import {setUIText, setUILabel} from "./uiContext";
 import {bindEngines} from "./renderEngines";
 import {imageForView, resourceContext} from "./editorHost";
@@ -39,7 +40,7 @@ import {
   enhanceMathTokens,
   sanitizeRenderedHtml,
 } from "./renderKit";
-import { parseMarkdownTable, serializeMarkdownTable, type MarkdownTable } from "./table";
+import {EditableTableWidget} from "./tableWidget";
 import type { SourceRange } from "./sourcePatch";
 import { calloutRanges } from "./calloutEditing";
 import { resolveCallout, applyCalloutAppearance } from "./callouts";
@@ -54,6 +55,11 @@ type PreviewKind = TechnicalBlock["kind"];
 function editSource(view: EditorView, from: number) {
   view.dispatch({ selection: { anchor: from }, scrollIntoView: true });
   view.focus();
+}
+
+function editObject(view:EditorView,from:number,kind?:string){
+  const request=new CustomEvent("tegg-edit-object",{bubbles:true,cancelable:true,detail:{from,kind}});
+  if(view.dom.dispatchEvent(request))editSource(view,from);
 }
 
 function toolbar(labelText: string, edit: () => void) {
@@ -80,6 +86,7 @@ class BlockWidget extends WidgetType {
       view.focus();
     });
 
+    blockToolbar.append(action("Edit object",()=>editObject(view,this.from,this.kind==="dot"?"graphviz":this.kind)));
     const canvas = document.createElement("div");
     canvas.className = `diagram-canvas ${renderClassNames.canvas}`;
     wrapper.append(blockToolbar, canvas);
@@ -111,6 +118,7 @@ class InlineMathWidget extends WidgetType {
     setUILabel(span, "Formula: {value}", {value: String(this.source)});
     bindEngines(span, view.state.facet(resourceContext).engines);
     renderMathInto(span, { kind: "math", source: this.source, display: "inline" });
+    span.addEventListener("dblclick",event=>{event.stopPropagation();editObject(view,this.from,"math");});
     span.addEventListener("click", event => {event.stopPropagation(); openObjectViewer(span, span, this.source, "Formula", () => editSource(view, this.from + 1));});
     span.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {event.preventDefault(); event.stopPropagation(); openObjectViewer(span, span, this.source, "Formula", () => editSource(view, this.from + 1));}
@@ -273,7 +281,8 @@ class ImageWidget extends WidgetType {
         edit();
       }
     });
-    figure.append(image, fallback);
+    const editButton=action("Edit image",()=>editObject(view,this.from,"image"));editButton.addEventListener("click",event=>event.stopPropagation());
+    figure.append(image, fallback,editButton);
     return figure;
   }
 
@@ -526,110 +535,7 @@ class BlockquoteWidget extends WidgetType {
   ignoreEvent() { return true; }
 }
 
-class TableWidget extends WidgetType {
-  constructor(readonly source: string, readonly from: number, readonly to: number) { super(); }
-  eq(other: WidgetType) { return other instanceof TableWidget && other.source === this.source && other.from === this.from && other.to === this.to; }
-  toDOM(view: EditorView) {
-    const model = parseMarkdownTable(this.source);
-    if (!model) {
-      const fallback = document.createElement("pre");
-      fallback.textContent = this.source;
-      return fallback;
-    }
-    const panel = document.createElement("section");
-    panel.className = `cm-live-table ${renderClassNames.table}`;
-    makeHorizontalScrollRegion(panel, "Editable table. Scroll horizontally for more columns.");
-    const toolbar = document.createElement("div");
-    toolbar.className = "cm-preview-toolbar";
-    const label = document.createElement("span");
-    setUIText(label, `${model.rows.length === 1 ? "{rows} row" : "{rows} rows"} × ${model.headers.length === 1 ? "{columns} column" : "{columns} columns"}`, {rows:String(model.rows.length), columns:String(model.headers.length)});
-    const actions = document.createElement("div");
-    const commit = () => dispatchSourcePatches(view, [{
-      from: this.from,
-      to: this.to,
-      insert: serializeMarkdownTable(model),
-      expected: this.source,
-    }]);
-    const button = (title: string, action: () => void) => {
-      const result = document.createElement("button");
-      result.type = "button"; setUIText(result,title); result.addEventListener("click", action); return result;
-    };
-    actions.append(
-      button("Add Row", () => { model.rows.push(model.headers.map(() => "")); commit(); }),
-      button("Add Column", () => {
-        model.headers.push(`Column ${model.headers.length + 1}`);
-        model.alignments.push(null);
-        model.rows.forEach((row) => row.push(""));
-        commit();
-      }),
-      button("Edit Source", () => { view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true }); view.focus(); }),
-    );
-    toolbar.append(label, actions);
-    const table = document.createElement("table");
-    const head = document.createElement("thead");
-    const body = document.createElement("tbody");
-    const makeCell = (value: string, update: (value: string) => void, alignment: MarkdownTable["alignments"][number]) => {
-      const shell = document.createElement("div");
-      shell.className = "cm-live-table-cell";
-      if (alignment) shell.dataset.align = alignment;
-      const preview = document.createElement("button");
-      preview.type = "button";
-      preview.className = "cm-live-table-preview";
-      preview.innerHTML = sanitizeRenderedHtml(parserFor(view.state.facet(resourceContext).profile).renderInline(value), view.state.facet(resourceContext).documentPath, view.state.facet(resourceContext).resolveImage);
-      setUILabel(preview, "Edit table cell: {value}", {value: String(value)});
-      const input = document.createElement("input");
-      input.value = value;
-      input.hidden = true;
-      setUILabel(input, "Table cell: {value}", {value: String(value || "Empty")});
-      let editing = false;
-      const finish = (save: boolean) => {
-        // Committing replaces this widget and can synchronously blur its input.
-        // End the editing session first so Enter and blur cannot submit twice.
-        if (!editing) return;
-        editing = false;
-        if (save && input.value !== value) { update(input.value); commit(); }
-        input.hidden = true;
-        preview.hidden = false;
-      };
-      preview.addEventListener("click", () => {
-        editing = true;
-        preview.hidden = true;
-        input.hidden = false;
-        input.focus();
-        input.select();
-      });
-      input.addEventListener("blur", () => finish(true));
-      input.addEventListener("keydown", (event) => {
-        // Enter/Escape belong to the candidate window until composition ends.
-        // WebKit can report the final candidate key as 229 without isComposing.
-        if (event.isComposing || event.keyCode === 229) return;
-        if (event.key === "Enter") { event.preventDefault(); finish(true); }
-        if (event.key === "Escape") { event.preventDefault(); input.value = value; finish(false); }
-      });
-      shell.append(preview, input);
-      return shell;
-    };
-    const headerRow = document.createElement("tr");
-    model.headers.forEach((value, column) => {
-      const cell = document.createElement("th");
-      cell.append(makeCell(value, (next) => { model.headers[column] = next; }, model.alignments[column]));
-      headerRow.append(cell);
-    });
-    head.append(headerRow);
-    model.rows.forEach((row, rowIndex) => {
-      const tableRow = document.createElement("tr");
-      model.headers.forEach((_, column) => {
-        const cell = document.createElement("td");
-        cell.append(makeCell(row[column] ?? "", (next) => { model.rows[rowIndex][column] = next; }, model.alignments[column]));
-        tableRow.append(cell);
-      });
-      body.append(tableRow);
-    });
-    table.append(head, body); panel.append(toolbar, table); return panel;
-  }
-  destroy(dom: HTMLElement) { widgetCleanup.get(dom)?.(); disposeInteractions(dom); }
-  ignoreEvent() { return true; }
-}
+class TableWidget extends EditableTableWidget {}
 
 function isRangeActive(view: EditorView, from: number, to: number) {
   if (!view.hasFocus) return false;
@@ -640,12 +546,26 @@ function isRangeActive(view: EditorView, from: number, to: number) {
   });
 }
 
-function isInside(range: SourceRange, containers: SourceRange[]) {
-  return containers.some((container) => range.from >= container.from && range.to <= container.to);
+// Range lists in a decoration build are append-only. Prefix maxima answer
+// containment in O(log n), avoiding quadratic scans of dense technical notes.
+const containmentIndexes=new WeakMap<SourceRange[],{length:number;starts:number[];ends:number[]}>();
+function containingEnd(position:number,containers:SourceRange[]){
+  let index=containmentIndexes.get(containers);
+  if(!index||index.length!==containers.length){
+    const sorted=[...containers].sort((a,b)=>a.from-b.from);let end=-1;
+    index={length:containers.length,starts:[],ends:[]};
+    for(const item of sorted){index.starts.push(item.from);index.ends.push(end=Math.max(end,item.to));}
+    containmentIndexes.set(containers,index);
+  }
+  let low=0,high=index.starts.length;
+  while(low<high){const middle=(low+high)>>>1;if(index.starts[middle]<=position)low=middle+1;else high=middle;}
+  return low?index.ends[low-1]:-1;
 }
-
-function isPositionInside(position: number, containers: SourceRange[]) {
-  return containers.some((container) => position >= container.from && position < container.to);
+function isInside(range:SourceRange,containers:SourceRange[]){
+  return containers.length<32?containers.some(c=>range.from>=c.from&&range.to<=c.to):containingEnd(range.from,containers)>=range.to;
+}
+function isPositionInside(position:number,containers:SourceRange[]){
+  return containers.length<32?containers.some(c=>position>=c.from&&position<c.to):containingEnd(position,containers)>position;
 }
 
 const semanticNodes = new Set([
@@ -812,6 +732,7 @@ function footnoteNumbers(source: string, definitions: LinkDefinition[], codeRang
 
 
 function buildDecorations(view: EditorView): DecorationSet {
+  if(editingPerformancePolicy(view.state.doc.length).sourcePreview)return Decoration.none;
   const profile = view.state.facet(resourceContext).profile ?? "tegg";
   const analysis = analyzeSource(view.state.doc, profile);
   const source = analysis.source;
@@ -1257,6 +1178,35 @@ function buildDecorations(view: EditorView): DecorationSet {
   return Decoration.set(ranges, true);
 }
 
+/** Plain unadorned paragraph edits cannot alter distant Markdown objects.
+ * Preserve their decoration identities instead of rescanning the whole document.
+ * Any punctuation that can form syntax, multiline edit, decorated line or selection
+ * across lines takes the full path, including code and metadata source lines. */
+function canMapPlainEdit(update:ViewUpdate,decorations:DecorationSet){
+  if(!update.docChanged||update.focusChanged||update.transactions.some(t=>t.effects.length)||update.startState.selection.ranges.length!==1)return false;
+  const oldLine=update.startState.doc.lineAt(update.startState.selection.main.head);
+  const newLine=update.state.doc.lineAt(update.state.selection.main.head);
+  if(!/^[\p{L}\p{N} ,.!?:;']*$/u.test(oldLine.text)||! /^[\p{L}\p{N} ,.!?:;']*$/u.test(newLine.text))return false;
+  if(oldLine.text.trimStart().startsWith(":")||/:[^:\s]+:/.test(oldLine.text)||/:[^:\s]+:/.test(newLine.text))return false;
+  // Dots can create or break a bare-domain autolink even by deleting a space.
+  if(oldLine.text.includes(".")||newLine.text.includes("."))return false;
+  if([oldLine.text,newLine.text].some(text=>/^ {4}|^ *\d+[.)]\s| {2,}$/.test(text)))return false;
+  if(!oldLine.text.trim()||!newLine.text.trim()||update.changes.mapPos(oldLine.from)!==newLine.from)return false;
+  let safe=true;
+  decorations.between(oldLine.from,oldLine.to,(from,to,value)=>{
+    const classes=String(value.spec.class??"").split(/\s+/);
+    const paragraphLine=from===to&&classes.length>0&&classes.every(name=>/^cm-live-paragraph(?:-first|-last)?$|^md-render-paragraph$|^cm-live-after-heading$/.test(name));
+    if(!paragraphLine)safe=false;
+  });
+  update.changes.iterChanges((from,to,_a,_b,insert)=>{if(from<oldLine.from||to>oldLine.to||insert.lines!==1||! /^[\p{L}\p{N} ,.!?;']*$/u.test(insert.toString()))safe=false;});
+  if(safe){
+    let first=update.startState.doc.length,shifts=false;
+    update.changes.iterChanges((from,to,fromB,toB)=>{if(to-from!==toB-fromB){shifts=true;first=Math.min(first,from);}});
+    if(shifts)decorations.between(first,update.startState.doc.length,(_from,_to,value)=>{if(value.spec.widget)safe=false;});
+  }
+  return safe;
+}
+
 const livePreviewDecorations = ViewPlugin.fromClass(class {
   decorations: DecorationSet;
 
@@ -1271,6 +1221,7 @@ const livePreviewDecorations = ViewPlugin.fromClass(class {
       this.decorations = this.decorations.map(update.changes);
       return;
     }
+    if(canMapPlainEdit(update,this.decorations)){this.decorations=this.decorations.map(update.changes);return;}
     if (update.docChanged || update.selectionSet || update.focusChanged
       || update.transactions.some((transaction) => transaction.effects.length > 0)) {
       this.decorations = buildDecorations(update.view);

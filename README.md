@@ -124,3 +124,11 @@ Start with [getting started](docs/getting-started.md), then [React](docs/react.m
 fixtures; partner-specific documents are not an acceptance prerequisite.
 
 Contributor workflow and repository boundaries are documented in [the Git and release process](docs/releasing.md).
+
+### Reliable editing development line
+
+The current development branch adds a shared editing controller, optional `/ui`,
+clipboard review, persistent attachment tasks, table operations, recovery journals and
+three-version conflict review. See [the integration guide](docs/reliable-editing.md),
+[recovery contract](docs/recovery.md) and [vanilla/React examples](examples/reliable-editor).
+These changes are not a new npm publication until the release process explicitly runs.

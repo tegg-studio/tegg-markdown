@@ -1,3 +1,9 @@
+import {detectNewlinePolicy} from "./newlinePolicy";
+import {editingPerformancePolicy} from "./editingBudget";
+import {createDocumentConflict,planDocumentReconciliation,type DocumentConflict,type ConflictDecision,type DocumentVersion,type ReconciliationPlan} from "./documentDiff";
+import type {RecoveryJournal,RecoveryReason} from "./recoveryJournal";
+import {EditingController} from "./editingController";
+import {getSupportedCommands,getCommandStatus,type CommandStatus} from "./commandRegistry";
 import {disposeInteractions} from "./renderInteraction";
 import {bindEngines} from "./renderEngines";
 import {bindUI, type UIOptions, setUIText, setUILabel} from "./uiContext";
@@ -38,25 +44,9 @@ export type EditorUIState = EditorToolbarState & {mode: EditorMode; dirty: boole
 export type EditorAppearance = {fontScale?: number; contentWidth?: number; toolbarInset?: number;
   background?: string; text?: string; muted?: string; border?: string; accent?: string; accentSoft?: string};
 export type CalloutMenuRequest = {current: string; x: number; y: number; viewportWidth: number};
-const supportedCommands = new Set(["undo","redo","bold","italic","code","underline","strike","highlight","subscript","superscript","task","list","orderedList","quote","link","image","fileLink","wikilink","table","divider","codeBlock","mathBlock","mermaid","graphviz","footnote","callout", ...Array.from({length:7}, (_,i) => `heading${i}`)]);
-export type CommandStatus = {supported: boolean; enabled: boolean; reason?: "unknown-command" | "unsupported-profile" | "editing-disabled" | "selection-disabled" | "empty-history"};
-const profileCommands = Object.fromEntries((["tegg", "github", "gfm"] as const).map(profile => [profile, Object.freeze([...supportedCommands, ...calloutTypes.map(item => `callout:${item.id}`)].filter(command =>
-  !(profile !== "tegg" && ["wikilink", "highlight", "subscript", "superscript", "graphviz"].includes(command)) &&
-  !(profile === "gfm" && (["mathBlock", "mermaid", "footnote", "callout"].includes(command) || command.startsWith("callout:")))
-))])) as Record<MarkdownProfile, readonly string[]>;
-/** Stable profile support, distinct from transient selection/focus availability. */
-export function getSupportedCommands(profile: MarkdownProfile = "tegg"): readonly string[] {resolveProfile(profile); return profileCommands[profile];}
-const inlineCommands = new Set(["bold","italic","code","underline","strike","highlight","subscript","superscript"]);
-/** Evaluate an existing UI snapshot without repeatedly scanning the selection. */
-export function getCommandStatus(command: string, state: EditorUIState): CommandStatus {
-    const known = supportedCommands.has(command) || calloutTypes.some(item => command === `callout:${item.id}`);
-    if (!known) return {supported:false, enabled:false, reason:"unknown-command"};
-    if (!state.commands.includes(command)) return {supported:false, enabled:false, reason:"unsupported-profile"};
-    if (!state.toolbarEnabled) return {supported:true, enabled:false, reason:"editing-disabled"};
-    if (inlineCommands.has(command) && !state.inlineFormattingEnabled) return {supported:true, enabled:false, reason:"selection-disabled"};
-    if ((command === "undo" && !state.canUndo) || (command === "redo" && !state.canRedo)) return {supported:true, enabled:false, reason:"empty-history"};
-    return {supported:true, enabled:true};
-}
+export {getSupportedCommands,getCommandStatus} from "./commandRegistry";
+export type {CommandStatus} from "./commandRegistry";
+export type SaveState = "saved"|"dirty"|"saving"|"error"|"conflict";
 export type UpdateResult = "applied" | "unchanged" | "conflict" | "composing";
 export type EditorHost = ReaderHost & {
   attribution?: AttributionPlacement;
@@ -65,6 +55,8 @@ export type EditorHost = ReaderHost & {
   /** Native Hosts may supply a menu. A stale response cannot change a newer draft. */
   selectCalloutType?(request: CalloutMenuRequest): Promise<string | null>;
   onChange?(change: DraftChange): void;
+  recoveryJournal?: RecoveryJournal;
+  onSaveStateChange?(state:SaveState):void;
   onConflict?(incoming: EditorDocument, local: DraftChange): void;
   onError?(error: unknown): void;
   copyText?(text: string): void | Promise<void>;
@@ -74,10 +66,13 @@ export class TeggMarkdownEditor {
   private readonly frame = document.createElement("div");
   private readonly editorRoot = document.createElement("div");
   private readonly readerRoot = document.createElement("div");
+  private readonly budgetNotice = document.createElement("p");
   private readonly preview = new Compartment();
   private readonly editable = new Compartment();
   private readonly reader: TechnicalMarkdownReader;
   private readonly stopTypography: () => void;
+  readonly editing: EditingController;
+  private issuedSnapshots = new Map<number,{baseRevision:string;source:string}>();
   private viewValue: EditorView;
   private document: EditorDocument;
   private modeValue: EditorMode;
@@ -85,6 +80,8 @@ export class TeggMarkdownEditor {
   private sequence = 0;
   private acknowledgedSequence = 0;
   private savedSource: string;
+  private saveStateValue:SaveState="saved";
+  private conflictValue:DocumentConflict|null=null;
   private stopEngines: () => void;
   private ui: ReturnType<typeof bindUI>;
   private destroyed = false;
@@ -108,7 +105,8 @@ export class TeggMarkdownEditor {
     this.frame.dataset.layout = host.layout ?? "internal"; this.frame.dataset.chrome = host.chrome ?? "default";
     this.editorRoot.className = "tegg-sdk-content tegg-sdk-editor tegg-surface";
     this.readerRoot.className = "tegg-sdk-content";
-    this.frame.append(this.readerRoot, this.editorRoot);
+    this.budgetNotice.className="tegg-editor-budget";this.budgetNotice.hidden=true;this.budgetNotice.setAttribute("role","status");setUIText(this.budgetNotice,"Large document: source preview is shown to keep the interface responsive.");
+    this.frame.append(this.budgetNotice,this.readerRoot, this.editorRoot);
     const attribution = createAttribution(host.attribution); if (attribution) this.frame.append(attribution);
     root.append(this.frame);
     this.ui = bindUI(this.frame, host);
@@ -118,6 +116,7 @@ export class TeggMarkdownEditor {
     setUILabel(this.readerRoot, "Markdown Reader");
     this.reader = new TechnicalMarkdownReader(this.readerRoot, new Proxy(host,{get: (target,key) => key === "openLink" ? (href: string) => this.handleLink(href) : Reflect.get(target,key)}));
     this.viewValue = new EditorView({parent: this.editorRoot, state: this.createState(input)});
+    this.editing=new EditingController(this.viewValue,{identity:()=>({documentId:this.document.documentId,generation:this.generation,sequence:this.sequence,profile:this.document.profile,mode:this.modeValue,readOnly:this.document.contentState==="streaming"})});
     this.frame.addEventListener("tegg-open-link", this.openLink);
     this.frame.addEventListener("tegg-copy-text", this.copyText);
     this.frame.addEventListener("tegg-callout-menu", this.openCalloutMenu);
@@ -186,6 +185,7 @@ export class TeggMarkdownEditor {
     menu.addEventListener("keydown", event => {if(event.key==="Escape"){event.preventDefault();menu.remove();this.viewValue.focus();}});
     this.frame.append(menu); menu.focus();
   };
+  private mixedNewlines(source:string){return detectNewlinePolicy(source).readOnly;}
   private createState(input: EditorDocument): EditorState {
     return EditorState.create({doc: input.source, extensions: [
       editorSetup, markdown({extensions: GFM}), EditorView.lineWrapping,
@@ -193,8 +193,8 @@ export class TeggMarkdownEditor {
       keymap.of([indentWithTab]),
       resourceContext.of({documentPath: input.documentPath ?? "", profile: input.profile, engines: this.host.engines, resolveImage: (src, path) => allowedImageURL(this.host.resolveImage?.(src, path) ?? src, this.host.resourcePolicy) ?? ""}),
       EditorView.contentAttributes.of({"aria-label":"Markdown Editor"}),
-      this.preview.of(this.modeValue === "live" && !this.accessible ? livePreview : []),
-      this.editable.of([EditorView.editable.of(input.contentState !== "streaming"), EditorState.readOnly.of(input.contentState === "streaming")]),
+      this.preview.of(this.modeValue === "live" && !this.accessible && !editingPerformancePolicy(input.source).sourcePreview ? livePreview : []),
+      this.editable.of([EditorView.editable.of(input.contentState !== "streaming" && !this.mixedNewlines(input.source)), EditorState.readOnly.of(input.contentState === "streaming" || this.mixedNewlines(input.source))]),
       EditorView.domEventHandlers({
         compositionstart: () => { this.composing = true; this.queueState(); },
         compositionend: () => {
@@ -206,8 +206,12 @@ export class TeggMarkdownEditor {
         if (update.docChanged || update.selectionSet || update.focusChanged) this.queueState();
         if (update.selectionSet) {try {this.host.onSelection?.(this.selection());} catch(error) {this.report(error);}}
         if (!update.docChanged) return;
+        const beforeBudget=editingPerformancePolicy(this.document.source).sourcePreview;
         this.document.source = update.state.sliceDoc();
+        if(beforeBudget!==(editingPerformancePolicy(this.document.source).sourcePreview))queueMicrotask(()=>{if(!this.destroyed)this.applyMode();});
         this.sequence++; this.queueOutline();
+        this.setSaveState(this.conflictValue?"conflict":this.dirty?"dirty":"saved");
+        if(this.dirty)this.checkpointRecovery(this.conflictValue?"conflict":"dirty");
         const change = this.snapshot();
         queueMicrotask(() => {
           if (this.destroyed || change.generation !== this.generation) return;
@@ -223,6 +227,8 @@ export class TeggMarkdownEditor {
   get mode(): EditorMode { return this.modeValue; }
   snapshot(): DraftChange {
     this.assertAlive();
+    this.issuedSnapshots.set(this.sequence,{baseRevision:this.document.revision,source:this.source});
+    if(this.issuedSnapshots.size>32)this.issuedSnapshots.delete(this.issuedSnapshots.keys().next().value!);
     return {documentId:this.document.documentId, baseRevision:this.document.revision,
       source:this.source, generation:this.generation, sequence:this.sequence};
   }
@@ -232,6 +238,7 @@ export class TeggMarkdownEditor {
     if (this.composing || this.viewValue.composing) return "composing";
     if ((["documentId", "revision", "source", "documentPath", "contentState", "profile"] as const).every(key => input[key] === this.document[key])) return "unchanged";
     if (this.dirty) {
+      if(input.documentId===this.document.documentId){this.conflictValue=createDocumentConflict({base:{documentId:this.document.documentId,revision:this.document.revision,source:this.savedSource},local:this.snapshot(),incoming:input});this.setSaveState("conflict");this.checkpointRecovery("conflict");}
       this.host.onConflict?.({...input}, this.snapshot()); return "conflict";
     }
     return this.replaceDocument(input);
@@ -240,23 +247,55 @@ export class TeggMarkdownEditor {
   replaceDocument(input: EditorDocument): UpdateResult {
     this.assertAlive(); this.validate(input);
     if (this.composing || this.viewValue.composing) return "composing";
-    this.document = {...input}; this.savedSource = input.source;
+    this.document = {...input}; this.savedSource = input.source;this.conflictValue=null;this.setSaveState("saved");
     this.headings = new HeadingIndex();
     this.generation = crypto.randomUUID(); this.sequence = 0; this.acknowledgedSequence = 0;
     if (input.contentState === "streaming") this.modeValue = "reader";
+    this.issuedSnapshots.clear();
     this.viewValue.setState(this.createState(input));
+    this.editing.reset();
     this.applyMode(); this.queueState(); this.queueOutline(); return "applied";
   }
   /** Acknowledge the exact saved snapshot. A later local edit remains dirty. */
   acknowledgeSaved(saved: DraftChange, newRevision: string): boolean {
     this.assertAlive();
     if (typeof newRevision !== "string") throw new TypeError("newRevision must be a string");
+    if(this.conflictValue)return false;
+    const issued=this.issuedSnapshots.get(saved.sequence);
+    if(!issued||issued.source!==saved.source||issued.baseRevision!==saved.baseRevision)return false;
     if (saved.documentId !== this.document.documentId || saved.generation !== this.generation ||
         saved.baseRevision !== this.document.revision || saved.sequence < this.acknowledgedSequence ||
         saved.sequence > this.sequence) return false;
     this.savedSource = saved.source; this.document.revision = newRevision;
-    this.acknowledgedSequence = saved.sequence; this.queueState();
+    this.acknowledgedSequence = saved.sequence; this.issuedSnapshots.clear(); this.setSaveState(this.dirty?"dirty":"saved");this.queueState();
+    if(this.dirty)this.checkpointRecovery("dirty");
     return true;
+  }
+  get saveState():SaveState{return this.saveStateValue;}
+  get conflict():DocumentConflict|null{return this.conflictValue;}
+  private setSaveState(state:SaveState){if(this.saveStateValue===state)return;this.saveStateValue=state;queueMicrotask(()=>{if(!this.destroyed){try{this.host.onSaveStateChange?.(state);}catch(error){this.report(error);}}});}
+  /** Begin a Host save attempt. Disk I/O and CAS remain the Host's responsibility. */
+  beginSave():DraftChange {this.assertAlive();if(this.conflictValue)throw new Error("Resolve the incoming revision before saving over the original.");this.setSaveState("saving");return this.snapshot();}
+  markSaveFailed(error?:unknown){this.assertAlive();this.setSaveState(this.conflictValue?"conflict":"error");this.checkpointRecovery(this.conflictValue?"conflict":"save-failed");if(error)this.report(error);}
+  checkpointRecovery(reason:RecoveryReason="dirty"){
+    if(!this.host.recoveryJournal||this.destroyed)return;
+    const source=this.source,crlf=source.includes("\r\n"),bare=/([^\r]|^)\n/.test(source);
+    try{this.host.recoveryJournal.schedule({documentId:this.document.documentId,documentPath:this.document.documentPath,generation:this.generation,sequence:this.sequence,baseRevision:this.document.revision,baseSource:this.savedSource,draftSource:source,encoding:"utf-8",bom:source.startsWith("\ufeff"),newline:crlf?(bare?"mixed":"crlf"):"lf",reason});}catch(error){this.report(error);}
+  }
+  /** Host must re-read its persisted revision immediately before invoking this operation. */
+  reconcile(conflict:DocumentConflict,decisions:Readonly<Record<string,ConflictDecision>>,incoming:DocumentVersion):ReconciliationPlan {
+    this.assertAlive();
+    if(this.composing||this.viewValue.composing||this.viewValue.state.readOnly)return {status:"rejected",reason:"editing-disabled",patches:[],nextBaseline:null};
+    const plan=planDocumentReconciliation(conflict,decisions,{local:this.snapshot(),incoming});
+    if(plan.status==="rejected")return plan;
+    if(plan.source.replace(/\r\n/g,"\n").replace(/\n/g,this.viewValue.state.lineBreak)!==plan.source)return {status:"rejected",reason:"incompatible-newlines",patches:[],nextBaseline:null};
+    const old=this.source,toCM=(offset:number)=>old.slice(0,offset).replace(/\r\n/g,"\n").length;
+    if(plan.patches.length)dispatchSourcePatches(this.viewValue,plan.patches.map(patch=>({from:toCM(patch.from),to:toCM(patch.to),expected:old.slice(patch.from,patch.to).replace(/\r\n/g,"\n"),insert:patch.insert.replace(/\r\n/g,"\n")})),{isolateHistory:true});
+    if(this.source!==plan.source)throw new Error("Reconciliation could not preserve the source newline contract");
+    if(plan.status==="ready"){
+      this.savedSource=incoming.source;this.document.revision=incoming.revision;this.conflictValue=null;this.issuedSnapshots.clear();this.editing.reset();this.setSaveState(this.dirty?"dirty":"saved");
+    }else{this.conflictValue=createDocumentConflict({base:conflict.base,local:this.snapshot(),incoming});this.setSaveState("conflict");}
+    this.checkpointRecovery(plan.status==="ready"?"dirty":"conflict");this.queueState();return plan;
   }
   setMode(mode: EditorMode): boolean {
     this.assertAlive();
@@ -276,10 +315,11 @@ export class TeggMarkdownEditor {
   private applyMode() {
     disposeInteractions(this.frame);
     this.modeEpoch++;
+    this.budgetNotice.hidden=this.modeValue!=="live"||!editingPerformancePolicy(this.source).sourcePreview;
     this.calloutMenu?.remove(); this.calloutMenu=undefined;
     this.editorRoot.dataset.mode = this.modeValue;
     this.readerRoot.hidden = this.modeValue !== "reader"; this.editorRoot.hidden = this.modeValue === "reader";
-    this.viewValue.dispatch({effects:this.preview.reconfigure(this.modeValue === "live" && !this.accessible ? livePreview : [])});
+    this.viewValue.dispatch({effects:this.preview.reconfigure(this.modeValue === "live" && !this.accessible && !editingPerformancePolicy(this.source).sourcePreview ? livePreview : [])});
     if (this.modeValue === "reader") this.renderReady = this.reader.render({
       ...this.document, fontScale:this.appearance.fontScale, contentWidth:this.appearance.contentWidth,
       profileVersion:technicalMarkdownProfile.version
@@ -303,7 +343,7 @@ export class TeggMarkdownEditor {
     this.assertAlive();
     const active = document.activeElement;
     const independent = this.frame.contains(active) && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement);
-    const enabled = this.modeValue !== "reader" && this.document.contentState !== "streaming" && !this.composing && !this.viewValue.composing && !independent;
+    const enabled = !this.viewValue.state.readOnly && this.modeValue !== "reader" && this.document.contentState !== "streaming" && !this.composing && !this.viewValue.composing && !independent;
     return {...editorToolbarState(this.viewValue.state), profile:this.document.profile ?? "tegg", commands:getSupportedCommands(this.document.profile), mode:this.modeValue, dirty:this.dirty, toolbarEnabled:enabled,
       canUndo:enabled && undoDepth(this.viewValue.state) > 0, canRedo:enabled && redoDepth(this.viewValue.state) > 0};
   }
@@ -356,7 +396,8 @@ export class TeggMarkdownEditor {
     const identity = this.generation, sequence = this.sequence, modeEpoch = this.modeEpoch;
     await this.ready();
     if (this.destroyed || identity !== this.generation || sequence !== this.sequence || modeEpoch !== this.modeEpoch || this.composing || this.viewValue.composing) return false;
-    this.modeEpoch++; // Explicit navigation wins over deferred mode-scroll restoration.
+    this.modeEpoch++;
+    this.budgetNotice.hidden=this.modeValue!=="live"||!editingPerformancePolicy(this.source).sourcePreview; // Explicit navigation wins over deferred mode-scroll restoration.
     const inset = this.appearance.toolbarInset ?? 0;
     if (this.modeValue === "reader") {
       const element = Array.from(this.readerRoot.querySelectorAll<HTMLElement>("[data-outline-anchor]")).find(item => item.dataset.outlineAnchor === target.anchor);
@@ -390,7 +431,7 @@ export class TeggMarkdownEditor {
   setAccessibility(enabled: boolean): boolean {
     this.assertAlive(); if (this.composing || this.viewValue.composing) return false;
     this.accessible = enabled; this.frame.dataset.screenReader = String(enabled);
-    this.viewValue.dispatch({effects:this.preview.reconfigure(this.modeValue === "live" && !enabled ? livePreview : [])});
+    this.viewValue.dispatch({effects:this.preview.reconfigure(this.modeValue === "live" && !enabled && !editingPerformancePolicy(this.source).sourcePreview ? livePreview : [])});
     return true;
   }
   destroy(): void {
@@ -400,6 +441,6 @@ export class TeggMarkdownEditor {
     this.frame.removeEventListener("tegg-open-link", this.openLink);
     this.frame.removeEventListener("tegg-copy-text", this.copyText);
     this.frame.removeEventListener("tegg-callout-menu", this.openCalloutMenu);
-    this.ui.destroy(); this.stopEngines(); this.viewValue.destroy(); this.reader.destroy(); this.stopTypography(); this.frame.remove();
+    this.ui.destroy(); this.stopEngines(); this.editing.destroy(); this.issuedSnapshots.clear(); this.viewValue.destroy(); this.reader.destroy(); this.stopTypography(); this.frame.remove();
   }
 }

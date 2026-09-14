@@ -17,6 +17,7 @@ for (const name of names)
 const allowedRoot = new Set(["package.json", "README.md", "LICENSE", "COMMERCIAL-LICENSE.md", "ATTRIBUTION.md", "THIRD_PARTY_NOTICES.md", "SUPPORT.md", "SECURITY.md", "CHANGELOG.md"]);
 for (const name of names) {
   const allowed = allowedRoot.has(name) || /^(dist|licenses)\//.test(name)
+    || /^examples\/reliable-editor\/(?:README\.md|[A-Za-z]+\.tsx?)$/.test(name)
     || /^docs\/[^/]+\.(md|json)$/.test(name)
     || ["scripts/prepare.mjs", "examples/http-cas/README.md", "examples/http-cas/server.mjs", "examples/react-toolbar/Toolbar.ts"].includes(name);
   if (!allowed || /\.(?:test|spec|node-test)\.[cm]?[jt]sx?$/.test(name))

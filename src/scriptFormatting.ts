@@ -2,8 +2,12 @@ import {syntaxTree} from "@codemirror/language";
 import type {EditorState} from "@codemirror/state";
 import {markdownParser} from "./markdownParser";
 
-export function scriptFormatting(state: EditorState) {
+type ScriptPair={from:number;contentFrom:number;contentTo:number;to:number;tag:"sub"|"sup"};
+const cache=new WeakMap<EditorState,{tree:ReturnType<typeof syntaxTree>;value:ScriptPair[]}>();
+export function scriptFormatting(state:EditorState){const tree=syntaxTree(state),old=cache.get(state);if(old?.tree===tree)return old.value;const value=scanScripts(state);cache.set(state,{tree,value});return value;}
+function scanScripts(state: EditorState):ScriptPair[] {
   const source = state.doc.toString();
+  if(!/[~^]/.test(source))return [];
   const excluded: {from: number; to: number}[] = [];
   syntaxTree(state).iterate({enter(node) {
     if (["InlineCode", "FencedCode", "CodeBlock", "HTMLBlock", "HTMLTag", "URL", "LinkTitle", "Escape"].includes(node.name)) {

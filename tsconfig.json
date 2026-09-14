@@ -21,6 +21,12 @@
     "paths": {
       "@tegg/markdown/editor": [
         "./src/editorEntry.ts"
+      ],
+      "@tegg/markdown/ui": [
+        "./src/uiEntry.ts"
+      ],
+      "@tegg/markdown/react": [
+        "./src/react.ts"
       ]
     }
   },

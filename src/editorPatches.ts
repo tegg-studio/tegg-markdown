@@ -14,7 +14,7 @@ export function dispatchSourcePatches(
   patches: readonly SourcePatch[],
   options: PatchDispatchOptions = {},
 ) {
-  if (view.composing) return;
+  if (view.composing || view.state.readOnly) return;
   const source = view.state.doc.toString();
   const ordered = validateSourcePatches(source, patches);
   view.dispatch({

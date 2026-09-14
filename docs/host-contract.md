@@ -113,3 +113,12 @@ and undo history constraints. Querying it does not edit source or save state.
 receive profile/command metadata with the existing state update, not a second event
 stream. Neither the support list nor query enables network resources or installs
 an optional renderer.
+
+## Reliable editing additions
+
+See [reliable editing](reliable-editing.md) for the shared controller, optional `/ui`,
+attachment storage and newline policy. `beginSave`/`saveState` are useful Host signals;
+they never perform I/O. Exact issued snapshot verification rejects forged source and
+unresolved incoming conflicts. The latest 32 issued snapshots are retained; a delayed
+older completion may need Host reconciliation. Recovery journals and three-version
+decisions are described in [recovery](recovery.md).
