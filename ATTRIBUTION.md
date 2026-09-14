@@ -17,3 +17,11 @@ The advanced `attribution: "host"` option transfers placement to the Host;
 it is not an exemption. The Host must provide a compliant visible attribution
 or possess a separate written white-label grant. There is no secret key and
 no enforcement telemetry. Legal permission and UI configuration are separate.
+
+## Visual integration guide
+
+Choose a placement using the [interface attribution guide](docs/attribution-guide.md):
+status bar, component footer, sidebar, corner signature or small corner watermark.
+It includes English illustrations, suggested dimensions, responsive behavior and
+a Host integration example. These are design references, not additional license
+conditions or five built-in SDK presets.
