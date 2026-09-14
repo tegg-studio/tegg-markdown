@@ -4,17 +4,17 @@
 |---|---|---|
 | Reader / Live Edit / Source | All included | Browser-only preview API |
 | Basic Markdown / GFM | Headings, formatting, lists, tasks, tables, links, code | Unknown syntax remains editable source |
-| Table editing | Basic cells and structural operations | No spreadsheet formulas, arbitrary merged cells or Office parity |
+| Table editing | Cells, row/column operations, alignment, rectangular clipboard and narrow-screen controls | No spreadsheet formulas, arbitrary merged cells or Office parity |
 | Code blocks | Top-level code content/language editing | Nested blocks may require Source |
-| Metadata and callouts | Rendering and supported source patches | Native application menus are not part of this SDK |
-| Math / Mermaid / Graphviz | Render plus source editing | No arbitrary visual object editor |
+| Metadata and callouts | Rendering, local object drafts and validated source patches | Native application menus are not part of this SDK |
+| Math / Mermaid / Graphviz | Local source drafts with bounded preview and one-step apply/undo | No arbitrary visual object editor |
 | HTML | Sanitized preview and source editing | No trusted script execution |
 | Undo and redo | Shared across modes | Resets on document replacement |
 | Saving / reopening | Host snapshot and acknowledgement APIs | Host provides storage and atomic revision comparison |
 | Multiple instances | Scoped state and resource context | Shared renderer runtime may serialize some work |
 | Attribution | Default visible footer | Host placement requires equivalent visible credit or written waiver |
 | Chinese text | Unicode source and composition transition guards | Real OS IME matrix still requires verification |
-| Toolbar / outline | Selection state, undo/redo state, versioned headings and fragment navigation | Host supplies toolbar/menu presentation |
+| Toolbar / outline | Selection state, optional `/ui` toolbar and object/search controls, versioned headings and fragment navigation | Host may supply native toolbar/menu presentation |
 | Appearance | Per-instance font scale, content width, colors and toolbar inset | Native layout and scroll indicators remain Host-owned |
 | Accessibility | Semantic Reader and source-visible editing toggle | Complete assistive-technology audit pending |
 | Mobile / native WebView | Source is portable | No new iOS/Android/native-device certification in this release |
@@ -38,3 +38,21 @@ Normative fixtures pin CommonMark 0.31.2 and GFM 0.29. Their semantic tests do n
 claim pixel parity with github.com or exhaustive support for every GitHub service.
 See [performance budgets](performance.md) for source fallbacks and optional rendering
 limits. Source remains authoritative in every profile.
+
+## Reliable editing candidate
+
+The `0.3.0-preview.1` development candidate adds shared local editing sessions,
+offline HTML/text/Markdown/TSV/CSV review, durable attachment tasks, optional UI,
+checksummed recovery and three-version conflict review. It is not a registry release.
+
+| Capability | Available behavior | Boundary |
+|---|---|---|
+| Object sessions | Mapped local ranges, review, cancel, stale rejection and isolated undo | Edits overlapping an active target invalidate it |
+| Attachments | Host storage, progress, cancel/retry, reviewed replacement and durable references | Host owns file permissions/storage; no embedded temporary blob URL is saved |
+| Recovery | Bounded checkpoints, integrity checks and corrupt-record quarantine | Only persisted checkpoints survive process loss; Host owns native persistence |
+| Conflict review | Base/local/incoming hunks and explicit finite application | Re-read storage before adoption; unresolved conflicts reject old save acknowledgements |
+| Controlled extensions | Namespaced/versioned local draft preparers with cancellation and review | Trusted Host callbacks; no arbitrary parser injection or JavaScript sandbox claim |
+
+See [reliable editing](reliable-editing.md), [recovery](recovery.md),
+[controlled extensions](controlled-extensions.md) and [validation](validation.md)
+for contracts, exact commands and platform evidence limits.

@@ -26,7 +26,7 @@ try{for(const size of (process.env.TEGG_PERF_SIZES?process.env.TEGG_PERF_SIZES.s
  for(const version of ['before','after']){const start=performance.now();await page.evaluate(({source,version,subscribed})=>window.create(source,version,subscribed),{source,version,subscribed});cold[version]=performance.now()-start;for(let i=0;i<35;i++){const sample=await page.evaluate(()=>window.sample());if(i>=5)samples[version].push(sample);}await page.evaluate(()=>window.finish());}
  const summary=Object.fromEntries(['before','after'].map(v=>[v,Object.fromEntries(['dispatch','notified','painted'].flatMap(key=>[[key+'Median',percentile(samples[v],key,.5)],[key+'P95',percentile(samples[v],key,.95)]]))]));
  const regression=['dispatchMedian','dispatchP95','notifiedMedian','notifiedP95','paintedMedian','paintedP95'].some(key=>summary.after[key]>summary.before[key]*1.15&&summary.after[key]-summary.before[key]>5);
- const target=size>=1048576||group==='heavy'?100:50,absolutePass=summary.after.notifiedP95<=target;
+ const target=size>=1048576||group==='heavy'?100:50,absolutePass=summary.after.paintedP95<=target;
  results.push({size,group,subscribed,cold,summary,regression,target,absolutePass,samples});console.log(JSON.stringify({size,group,subscribed,summary,regression,absolutePass}));persist();
 }}finally{await browser.close();server.close();}
 if(results.some(r=>r.regression||!r.absolutePass))process.exitCode=1;

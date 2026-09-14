@@ -61,3 +61,38 @@ describe("lifecycle and semantic regressions",()=>{
  it("preserves the absence of an existing image title when a picker supplies metadata",async()=>{const {root,controller,editor}=make("![cat](old)");const ui=attachEditingUI(controller,root,{chooseResource:async()=>({reference:"assets/new.png",title:"metadata"})});cleanup.push(()=>ui.destroy());ui.openObject("image",{from:0,to:editor.source.length});await ui.chooseResource(controller.session!);expect(readLinkDraft(root.querySelector("textarea")!.value)).toEqual({label:"cat",url:"assets/new.png"});expect(editor.source).toBe("![cat](old)");});
 
 });
+
+
+describe("structured object field preservation",()=>{
+ const field=(root:HTMLElement,name:string)=>[...root.querySelectorAll("label")].find(label=>label.querySelector("span")?.textContent===name)!.querySelector<HTMLInputElement>("input")!;
+ const edit=(root:HTMLElement,name:string,value:string)=>{const input=field(root,name);input.value=value;input.dispatchEvent(new Event("input"));};
+ const apply=(root:HTMLElement)=>[...root.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="Apply")!.click();
+ it.each(["link","image"] as const)("preserves untouched title entities and multiline label when editing a %s target",kind=>{
+  const original=(kind==="image"?"!":"")+'[**first**\nsecond](old "line&#10;next&#9;tab &amp;copy;")';
+  const {root,controller,editor}=make(original);const ui=attachEditingUI(controller,root);cleanup.push(()=>ui.destroy());ui.openObject(kind,{from:0,to:editor.source.length});
+  edit(root,"Target","assets/new.md");const raw=root.querySelector("textarea")!.value;
+  expect(raw).toContain("[**first**\nsecond]");expect(readLinkDraft(raw)).toEqual({label:"first\nsecond",url:"assets/new.md",title:"line\nnext\ttab &copy;"});expect(editor.source).toBe(original);
+  apply(root);expect(editor.source).toBe(raw);controller.command("undo");expect(editor.source).toBe(original);
+ });
+ it.each(["link","image"] as const)("preserves the current raw title when editing a %s label",kind=>{
+  const original=(kind==="image"?"!":"")+'[first](old "initial")';
+  const {root,controller,editor}=make(original);const ui=attachEditingUI(controller,root);cleanup.push(()=>ui.destroy());ui.openObject(kind,{from:0,to:editor.source.length});
+  const raw=root.querySelector("textarea")!;raw.value=(kind==="image"?"!":"")+'[first](old "line&#10;next&#9;tab &amp;copy;")';raw.dispatchEvent(new Event("input"));
+  edit(root,kind==="image"?"Alternative text":"Text","replacement");expect(readLinkDraft(raw.value)).toEqual({label:"replacement",url:"old",title:"line\nnext\ttab &copy;"});expect(editor.source).toBe(original);
+  apply(root);expect(readLinkDraft(editor.source)).toEqual({label:"replacement",url:"old",title:"line\nnext\ttab &copy;"});controller.command("undo");expect(editor.source).toBe(original);
+ });
+ it.each(["Target","Alternative text"])("retains existing image attributes after replacement and editing %s",async name=>{
+  const original='![**first**\nsecond](old "line&#10;next&#9;tab &amp;copy;")';const {root,controller,editor}=make(original);
+  const ui=attachEditingUI(controller,root,{chooseResource:async()=>({reference:"assets/replaced.png",alt:"metadata",title:"metadata"})});cleanup.push(()=>ui.destroy());ui.openObject("image",{from:0,to:editor.source.length});await ui.chooseResource(controller.session!);
+  edit(root,name,name==="Target"?"assets/edited.png":"edited alt");const raw=root.querySelector("textarea")!.value;
+  expect(readLinkDraft(raw)).toEqual({label:name==="Target"?"first\nsecond":"edited alt",url:name==="Target"?"assets/edited.png":"assets/replaced.png",title:"line\nnext\ttab &copy;"});expect(editor.source).toBe(original);
+  apply(root);expect(editor.source).toBe(raw);controller.command("undo");expect(editor.source).toBe(original);
+ });
+ it("edits only the title and retains raw multiline label formatting",()=>{
+  const original='[**first**\nsecond](old "previous")';const {root,controller,editor}=make(original);const ui=attachEditingUI(controller,root);cleanup.push(()=>ui.destroy());ui.openObject("link",{from:0,to:editor.source.length});
+  edit(root,"Title","");const raw=root.querySelector("textarea")!.value;expect(raw).toBe('[**first**\nsecond](<old> "")');expect(readLinkDraft(raw)).toEqual({label:"first\nsecond",url:"old"});apply(root);controller.command("undo");expect(editor.source).toBe(original);
+ });
+ it("keeps an absent title absent when another field changes",()=>{
+  const {root,controller,editor}=make("[first](old)");const ui=attachEditingUI(controller,root);cleanup.push(()=>ui.destroy());ui.openObject("link",{from:0,to:editor.source.length});edit(root,"Target","new");expect(root.querySelector("textarea")!.value).toBe("[first](<new>)");
+ });
+});

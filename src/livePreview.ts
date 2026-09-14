@@ -1183,13 +1183,18 @@ function buildDecorations(view: EditorView): DecorationSet {
  * Any punctuation that can form syntax, multiline edit, decorated line or selection
  * across lines takes the full path, including code and metadata source lines. */
 function canMapPlainEdit(update:ViewUpdate,decorations:DecorationSet){
-  if(!update.docChanged||update.focusChanged||update.transactions.some(t=>t.effects.length)||update.startState.selection.ranges.length!==1)return false;
+  if(!update.docChanged||update.focusChanged||update.transactions.some(t=>t.effects.length)||update.startState.selection.ranges.length!==1||update.state.selection.ranges.length!==1)return false;
   const oldLine=update.startState.doc.lineAt(update.startState.selection.main.head);
   const newLine=update.state.doc.lineAt(update.state.selection.main.head);
+  if(update.startState.doc.lineAt(update.startState.selection.main.anchor).number!==oldLine.number||update.state.doc.lineAt(update.state.selection.main.anchor).number!==newLine.number)return false;
   if(!/^[\p{L}\p{N} ,.!?:;']*$/u.test(oldLine.text)||! /^[\p{L}\p{N} ,.!?:;']*$/u.test(newLine.text))return false;
   if(oldLine.text.trimStart().startsWith(":")||/:[^:\s]+:/.test(oldLine.text)||/:[^:\s]+:/.test(newLine.text))return false;
-  // Dots can create or break a bare-domain autolink even by deleting a space.
-  if(oldLine.text.includes(".")||newLine.text.includes("."))return false;
+  // Reparse only the affected line to distinguish punctuation from bare-domain
+  // links. A space deletion can create a link, so both revisions must be plain.
+  if(oldLine.text.includes(".")||newLine.text.includes(".")){
+    const parser=parserFor(update.state.facet(resourceContext).profile??"tegg");
+    if([oldLine.text,newLine.text].some(text=>parser.parseInline(text,{})[0]?.children?.some(token=>token.type!=="text")))return false;
+  }
   if([oldLine.text,newLine.text].some(text=>/^ {4}|^ *\d+[.)]\s| {2,}$/.test(text)))return false;
   if(!oldLine.text.trim()||!newLine.text.trim()||update.changes.mapPos(oldLine.from)!==newLine.from)return false;
   let safe=true;

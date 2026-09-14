@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import {afterEach,beforeAll,describe,expect,it,vi} from 'vitest';
-import {EditorState} from '@codemirror/state';
+import {EditorState,EditorSelection} from '@codemirror/state';
 import {EditorView} from '@codemirror/view';
 import {history,undo,redo} from '@codemirror/commands';
 import {markdown} from '@codemirror/lang-markdown';
@@ -14,14 +14,20 @@ beforeAll(()=>{
   if(!Range.prototype.getBoundingClientRect)Range.prototype.getBoundingClientRect=()=>new DOMRect();
 });
 const mounted:EditorView[]=[];
-function mount(source:string,head:number){const parent=document.createElement('div');document.body.append(parent);const view=new EditorView({parent,state:EditorState.create({doc:source,selection:{anchor:head},extensions:[history(),markdown({extensions:GFM}),resourceContext.of({profile:'tegg',documentPath:'',resolveImage:src=>src}),livePreview]})});mounted.push(view);return view;}
+function mount(source:string,selection:number|EditorSelection){const parent=document.createElement('div');document.body.append(parent);const view=new EditorView({parent,state:EditorState.create({doc:source,selection:typeof selection==='number'?{anchor:selection}:selection,extensions:[EditorState.allowMultipleSelections.of(true),history(),markdown({extensions:GFM}),resourceContext.of({profile:'tegg',documentPath:'',resolveImage:src=>src}),livePreview]})});mounted.push(view);return view;}
 afterEach(()=>{mounted.splice(0).forEach(view=>view.destroy());document.body.replaceChildren();});
 function snapshot(view:EditorView){return view.contentDOM.innerHTML;}
-function fresh(view:EditorView){return mount(view.state.doc.toString(),view.state.selection.main.head);}
+function fresh(view:EditorView){const focused=view.hasFocus,next=mount(view.state.doc.toString(),view.state.selection);if(focused){next.focus();next.dispatch({selection:next.state.selection});}return next;}
 function change(view:EditorView,from:number,to:number,insert:string){view.dispatch({changes:{from,to,insert},selection:{anchor:from+insert.length},userEvent:'input.type'});}
 describe('incremental Live Preview matches a fresh editor',()=>{
   it.each([
     {name:'ordinary insertion',source:'Plain paragraph\n\n# Heading',from:5,to:5,insert:'new '},
+    {name:'sentence punctuation append',source:'Input sentence. a',from:17,to:17,insert:'b'},
+    {name:'punctuation paragraph before a heading',source:'Plain sentence. More text\n\n# Heading',from:22,to:22,insert:'new '},
+    {name:'create a domain by deleting a space',source:'example. com\n\nend',from:8,to:9,insert:''},
+    {name:'create a domain by replacing punctuation',source:'example,com\n\nend',from:7,to:8,insert:'.'},
+    {name:'append a domain suffix',source:'example.c\n\nend',from:9,to:9,insert:'om'},
+    {name:'create numbered list from punctuation',source:'1. paragraph\n\nend',from:3,to:3,insert:'new '},
     {name:'ordinary deletion',source:'Plain paragraph\n\n# Heading',from:5,to:10,insert:''},
     {name:'delete entire line text',source:'Plain paragraph\n\n# Heading',from:0,to:15,insert:''},
     {name:'cross-line deletion',source:'Plain\nnext\n\n# Heading',from:3,to:8,insert:''},
@@ -35,6 +41,15 @@ describe('incremental Live Preview matches a fresh editor',()=>{
   ])('$name, undo and redo',({source,from,to,insert})=>{
     const view=mount(source,from);change(view,from,to,insert);expect(snapshot(view)).toBe(snapshot(fresh(view)));
     undo(view);expect(snapshot(view)).toBe(snapshot(fresh(view)));redo(view);expect(snapshot(view)).toBe(snapshot(fresh(view)));
+  });
+  it.each(['add second range','remove second range','add reversed cross-line range','remove reversed cross-line range'])('%s during a same-length plain edit matches fresh active syntax',mode=>{
+    const source='Plain text\n\n![image](assets/a.png)\n\nend',from=source.indexOf('!['),to=source.indexOf(')')+1;
+    const cursor=EditorSelection.single(3),multiple=EditorSelection.create([EditorSelection.cursor(3),EditorSelection.range(from,to)],0),crossLine=EditorSelection.single(to,3);
+    const broad=mode.includes('second')?multiple:crossLine,adding=mode.startsWith('add'),view=mount(source,adding?cursor:broad);view.focus();view.dispatch({selection:view.state.selection});
+    view.dispatch({changes:{from:2,to:3,insert:'A'},selection:adding?broad:cursor,userEvent:'input.type'});
+    expect(view.state.selection.ranges).toHaveLength(adding&&mode.includes('second')?2:1);
+    expect(view.dom.querySelectorAll('.cm-live-image')).toHaveLength(adding?0:1);
+    expect(snapshot(view)).toBe(snapshot(fresh(view)));
   });
   it('keeps dense containment ranges literal while rendering syntax outside them',()=>{
     const literal=Array.from({length:40},()=>String.fromCharCode(96)+':smile: $x$ **literal**'+String.fromCharCode(96)).join(' ');

@@ -191,6 +191,11 @@ interaction and performance coverage retain their previously documented limits.
   the independent IndexedDB/conflict UI browser suite.
 - `npm run test:performance:editing`: requires `.validation/baseline-dist` from the
   recorded unmodified baseline; writes raw production Live Edit measurements.
+- `node scripts/interaction-performance.mjs`: production Editor/UI table and object
+  draft measurements, complex-preview cancellation, eight simultaneous Editors and
+  100 full session/destroy cycles. Writes raw samples and Chromium resource counts
+  to `.validation/interaction-performance-results.json`. Run performance commands
+  sequentially on an otherwise quiet runner; failure remains a failure.
 - `npm run test:performance`: existing Reader relative gate. Keep Reader and settled
   Live Edit measurements distinct.
 - `tests/fixtures/reliable/fidelity-cases.json`: 30 source constructs × three profiles

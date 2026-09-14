@@ -41,7 +41,10 @@ The continuous browser fixture runs 20 and 50 snapshots/second for thirty second
 and checks final content plus a retained reading anchor within 2 CSS px. Long tasks
 are recorded when supported; zero detected tasks is not a universal latency claim.
 
-## Layered measurements
+## Historical layered measurements
+
+The following recorded results belong to the earlier published preview and are
+retained as historical evidence; they are not the reliable-editing candidate gate.
 
 `node scripts/performance-layers.mjs` records parser-only and settled Reader timing
 (including explicit budget fallbacks). `--input-only` separately measures Source-mode
@@ -73,3 +76,23 @@ The primary initial-render comparison remains separately identified above.
 For applications subscribing to toolbar state, avoid polling the synchronous
 `state` getter on every animation frame. Further latency work should measure that
 Host and Live Edit separately, preserving formatting and composition correctness.
+
+## Reliable editing candidate gates
+
+`npm run test:performance:editing` measures settled Live Edit production bundles
+with toolbar/outline subscribers enabled and disabled. It retains five warmups
+and thirty samples for each 20/200 KiB/1 MiB fixture, including dispatch, callback
+completion and the next animation frame. The absolute gate uses the next frame,
+not callback completion. The candidate shows source preview at 512 Ki UTF-16 units;
+this rendering fallback never truncates the document or the save snapshot.
+
+On the fixed local runner, 20/200 KiB text/mixed inputs target p95 at most 50 ms;
+heavy objects and the explicit 1 MiB source fallback allow 100 ms. The same
+15-percent plus 5-ms regression rule remains active. These engineering budgets
+are not device-independent promises. Diagnostic failed runs are retained separately.
+
+`node scripts/interaction-performance.mjs` covers actual table and local object
+UI handlers, complex-preview cancellation, eight concurrent Editor/UI instances
+and one hundred complete session teardown cycles. It records real optional engine
+use, runtime hashes and Chromium resource evidence separately from native testing.
+Run it sequentially with the Live Edit and Reader comparisons on a quiet machine.

@@ -35,9 +35,19 @@ for(const [version,port] of [[18,18915],[19,18916]]) {
   await page.locator(".cm-content").click();await page.keyboard.press("End"); await page.keyboard.insertText(" 中文");
   await expect.poll(()=>page.evaluate(()=>(window as any).host.instance.state.toolbarEnabled)).toBe(true);
   await page.locator(".cm-content").blur();
-  const result=await page.evaluate(()=>{const host=(window as any).host,editor=host.instance;const saved=editor.snapshot();editor.setUI({locale:"en-US"});const conflict=editor.update({documentId:"doc",revision:"r2",source:"external"});const same=editor.source===saved.source;const accepted=editor.acknowledgeSaved(saved,"r2");editor.command("undo");return {conflict,same,accepted,source:editor.source,errors:host.errors};});
-  expect(result).toMatchObject({conflict:"conflict",same:true,accepted:true,source:"original",errors:[]});
+  const result=await page.evaluate(()=>{const host=(window as any).host,editor=host.instance;const saved=editor.snapshot();editor.setUI({locale:"en-US"});const conflict=editor.update({documentId:"doc",revision:"r2",source:"external"});const same=editor.source===saved.source;const accepted=editor.acknowledgeSaved(saved,"r2");editor.command("undo");return {conflict,same,accepted,saveState:editor.saveState,incoming:editor.conflict?.incoming.source,baseRevision:editor.snapshot().baseRevision,source:editor.source,errors:host.errors};});
+  expect(result).toMatchObject({conflict:"conflict",same:true,accepted:false,saveState:"conflict",incoming:"external",baseRevision:"r1",source:"original",errors:[]});
  });
+ test(`React ${version} accepts an issued save snapshot without conflict and keeps later edits dirty`,async({page})=>{
+  await page.goto(`http://127.0.0.1:${port}/react.html`);await page.evaluate(()=>(window as any).host.show("editor","original"));
+  await expect(page.locator(".cm-content")).toBeVisible();await page.locator(".cm-content").click();await page.keyboard.press("End");await page.keyboard.insertText(" saved");
+  await expect.poll(()=>page.evaluate(()=>(window as any).host.instance.state.toolbarEnabled)).toBe(true);await page.locator(".cm-content").blur();
+  const saved=await page.evaluate(()=>{const editor=(window as any).host.instance,snapshot=editor.snapshot();return {accepted:editor.acknowledgeSaved(snapshot,"r2"),source:editor.source,saveState:editor.saveState,baseRevision:editor.snapshot().baseRevision};});
+  expect(saved).toEqual({accepted:true,source:"original saved",saveState:"saved",baseRevision:"r2"});
+  await page.locator(".cm-content").click();await page.keyboard.press("End");await page.keyboard.insertText(" later");
+  await expect.poll(()=>page.evaluate(()=>{const editor=(window as any).host.instance;return {source:editor.source,saveState:editor.saveState,baseRevision:editor.snapshot().baseRevision};})).toEqual({source:"original saved later",saveState:"dirty",baseRevision:"r2"});
+ });
+
 }
 
 test("eight independent instances keep language and attribution isolated",async({page})=>{

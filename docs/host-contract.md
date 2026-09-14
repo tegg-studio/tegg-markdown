@@ -122,3 +122,14 @@ they never perform I/O. Exact issued snapshot verification rejects forged source
 unresolved incoming conflicts. The latest 32 issued snapshots are retained; a delayed
 older completion may need Host reconciliation. Recovery journals and three-version
 decisions are described in [recovery](recovery.md).
+
+### Save acknowledgement migration
+
+An existing `snapshot()` followed by a successful Host compare-and-swap still uses
+`acknowledgeSaved(snapshot, storedRevision)`. When `update(incoming)` has reported
+an unresolved conflict, acknowledgement now returns `false` and leaves both the
+base revision and conflict intact. An old completion must not make a different
+incoming source appear saved under its revision. Re-read storage and resolve the
+three-version conflict first; do not retry acknowledgements with an invented
+revision or clear the conflict by overwriting the draft. A later local edit remains
+dirty when an earlier, otherwise valid snapshot is acknowledged.

@@ -132,7 +132,17 @@ export class EditingUI {
     const parsed=readLinkDraft(session.original);
     if((session.kind==="link"||session.kind==="image")&&(!session.original||parsed)){
       const label=this.input(session.kind==="image"?"Alternative text":"Text",parsed?.label??"");const url=this.input("Target",parsed?.url??""),title=this.input("Title",parsed?.title??"");
-      const update=()=>{try{if(raw.value&&!readLinkDraft(raw.value))throw new Error("Use the source draft for this link.");const original=raw.value||undefined;const heading=title.value===""&&parsed?.title===undefined?undefined:title.value;raw.value=session.kind==="image"?serializeImageReference(url.value,label.value,heading,original):serializeLinkDraft({label:label.value,url:url.value,title:heading},original);this.controller.updateDraft(session.token,raw.value);if(this.apply)this.apply.disabled=false;this.message("");raw.dispatchEvent(new Event("input"));}catch(error){if(this.apply)this.apply.disabled=true;this.message((error as Error).message);}};
+      const update=(event:Event)=>{try{
+        const current=readLinkDraft(raw.value);if(raw.value&&!current)throw new Error("Use the source draft for this link.");
+        // Text inputs normalize newlines. Read untouched fields from the current source draft.
+        const fields=current??{label:"",url:"",title:undefined};
+        if(event.currentTarget===label)fields.label=label.value;
+        else if(event.currentTarget===url)fields.url=url.value;
+        else if(event.currentTarget===title)fields.title=title.value===""&&fields.title===undefined?undefined:title.value;
+        const original=raw.value||undefined;
+        raw.value=session.kind==="image"?serializeImageReference(fields.url,fields.label,fields.title,original):serializeLinkDraft(fields,original);
+        this.controller.updateDraft(session.token,raw.value);if(this.apply)this.apply.disabled=false;this.message("");raw.dispatchEvent(new Event("input"));
+      }catch(error){if(this.apply)this.apply.disabled=true;this.message((error as Error).message);}};
       for(const input of [label,url,title])input.addEventListener("input",update);
       raw.addEventListener("input",()=>{const fields=readLinkDraft(raw.value);for(const input of [label,url,title])input.disabled=!fields;if(fields){label.value=fields.label;url.value=fields.url;title.value=fields.title??"";}});
       if(session.kind==="image")this.panel.append(this.button("Replace image",()=>this.chooseResource(session)));
