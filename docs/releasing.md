@@ -46,3 +46,32 @@ License changes affect new grants only. Never claim to revoke rights already
 granted under an earlier license. Keep old releases and their original terms
 identifiable. Custom and commercial terms have not been independently reviewed
 by external counsel; do not claim a legal certification.
+
+## Repository ownership and daily Git workflow
+
+This repository is the only writable source of the shared SDK. Consumer
+applications own their platform adapters, permissions, persistence and product UI;
+they consume a tested immutable SDK identity and do not copy a second core.
+Customer-specific data and private application history never enter this repo.
+
+1. Check Git root, branch, status and origin. Use a short `codex/<task>` branch
+   from current main, preserving unrelated changes. Never switch remotes to make
+   an unrelated checkout match the task.
+2. Implement generic changes here with core tests. Keep application-specific
+   adaptations in the consumer's own repository. Record separate validation.
+3. Run `npm run check`. Package changes also run `npm run check:consumers` and
+   `npm run test:browser`, against the freshly built archive, before merging.
+4. Stage named files, inspect the staged diff, and use a behavior-focused public
+   commit description. Exclude customer identities, local machine paths and
+   private planning. Use a PR into main and wait for required checks.
+5. Push and merge only within the user's authorized scope. Publishing npm or a
+   release needs its own applicable authorization; source cleanup does not change
+   the already published version. Never force-push or move an existing tag during
+   routine maintenance.
+
+The next npm archive contains built runtime/types/styles, licenses, text guides,
+small evidence manifests and selected integration examples. Source and tests stay
+in Git; large illustration images are linked from the attribution guide. The
+package inventory check rejects source/test payloads and private application
+files. Git dependency preparation still builds from the full Git checkout.
+The published preview.2 archive is immutable and retains its original contents.

@@ -12,7 +12,8 @@ This project is not offered under Apache-2.0 and does not claim OSI approval.
 ## Status
 
 `@tegg/markdown@0.2.0-preview.2` is published on npm as a preview release.
-Source, tests, types, styles and mandatory license materials are included.
+The published preview includes source, tests, types, styles and license materials.
+Future packages use a smaller runtime distribution; source and tests remain in Git.
 See [release status](docs/npm-release.md) for the exact artifact and validation.
 [GitHub releases](https://github.com/tegg-studio/tegg-markdown/releases) provide
 versioned release notes and the original package archive.
@@ -99,7 +100,7 @@ watermark is the recommended Host presentation.
 The `attribution: "host"` option transfers display responsibility to your Host;
 it does not grant a white-label exemption.
 
-See [third-party notices](THIRD_PARTY_NOTICES.md), [contribution terms](CONTRIBUTING.md),
+See [third-party notices](THIRD_PARTY_NOTICES.md), [contribution terms](https://github.com/tegg-studio/tegg-markdown/blob/main/CONTRIBUTING.md),
 [security reporting](SECURITY.md), and [release process](docs/releasing.md).
 
 No application shell, customer content, cloud credentials or private repository
@@ -121,3 +122,5 @@ Start with [getting started](docs/getting-started.md), then [React](docs/react.m
 [security and CSP](docs/security-and-csp.md), [migration](docs/migration.md) and
 [support policy](SUPPORT.md). Syntax compatibility uses public standards and generic
 fixtures; partner-specific documents are not an acceptance prerequisite.
+
+Contributor workflow and repository boundaries are documented in [the Git and release process](docs/releasing.md).
