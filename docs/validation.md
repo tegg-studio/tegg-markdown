@@ -1,9 +1,26 @@
-# Validation status - 0.2.0-preview.1
+# Validation status — 0.2.0-preview.2
 
-This developer preview is distributed through reviewed Git commits and tarballs.
-It is not an npm registry release or a complete browser/platform certification.
+## Current published version
 
-## Current SDK evidence (2026-09-14)
+`@tegg/markdown@0.2.0-preview.2` is published on npm. The package was built from
+`6d03f9457768283e16113d870d25175bc918e730`; merged main commit
+`d6a3409e8481ec77fdfd409130348098e8715d0c` has the same source tree.
+See [artifact integrity and installation](npm-release.md).
+
+- Core: 40 files / 2,892 tests passed; HTTP CAS checks passed.
+- Four real registry consumers: vanilla, React 18, React 19 and optional engines;
+  modern/legacy TypeScript resolution, production builds and all 21 runtime hashes passed.
+- Browser: 49 Chromium/Firefox/WebKit checks passed, including source/save/undo,
+  constrained/natural React height, Mermaid color/CSP and lifecycle behavior.
+- [Mermaid CI](https://github.com/tegg-studio/tegg-markdown/actions/runs/34810728330)
+  passed for 11.9.0, 11.10.0 and the latest compatible 11.x at the run date.
+- Mac candidate consumption: 36 files / 1,545 Web tests and local Debug App/Quick
+  Look builds passed. This version has no new native window or Finder visual acceptance.
+  Release signing is a separate unresolved host configuration check.
+- The complete performance baseline below was not rerun for preview.2. No new
+  OS IME, assistive-technology or full browser-product certification is claimed.
+
+## Historical preview.1 SDK evidence (2026-09-14)
 
 - 39 test files / 2,889 tests passed, including all 652 CommonMark 0.31.2 and
   672 GFM 0.29 fixed examples, without skips. Normative parser comparisons are
@@ -143,9 +160,9 @@ This is shared-core integration plus scoped interaction evidence, not complete
 Mac/browser visual parity. Native CSS/chrome remain in the Host. Real OS input
 candidate sessions and a complete VoiceOver pass are still unverified.
 
-## Integration regression follow-up (0.2.0-preview.2 candidate)
+## Integration regression follow-up (0.2.0-preview.2)
 
-The candidate adds assertions for actual Mermaid node fill/stroke, React constrained
+The release adds assertions for actual Mermaid node fill/stroke, React constrained
 and natural-height layouts, legacy Node-style TypeScript subpath resolution,
 profile command discovery and table quantity localization. Mermaid compatibility CI
 installs 11.9.0, 11.10.0 and the latest compatible 11.x separately, records the resolved
@@ -154,7 +171,7 @@ suite alone is not evidence of readable colors. The previous lockfile already us
 Mermaid 11.17.2; this was an assertion gap, not simply use of an old engine.
 
 Historical test totals and performance samples above describe their recorded
-artifacts. New totals and exact candidate identity are recorded by the candidate CI;
+artifacts. New totals and the published identity are recorded above and by CI;
 this follow-up does not claim to have rerun the complete performance benchmark.
 
 ## npm registry installation (2026-09-14)

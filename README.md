@@ -14,6 +14,8 @@ This project is not offered under Apache-2.0 and does not claim OSI approval.
 `@tegg/markdown@0.2.0-preview.2` is published on npm as a preview release.
 Source, tests, types, styles and mandatory license materials are included.
 See [release status](docs/npm-release.md) for the exact artifact and validation.
+[GitHub releases](https://github.com/tegg-studio/tegg-markdown/releases) provide
+versioned release notes and the original package archive.
 
 The default integration requires no Tegg account, cloud, activation or telemetry.
 The Host owns document identity, persistence, resources, permissions and conflicts.
