@@ -32,4 +32,5 @@ allowlist is an additional check, not a replacement for Host permissions.
 Math and diagrams are optional. See [engines and renderers](extensions.md),
 [React](react.md), [saving](host-contract.md), and [migration](migration.md).
 The visible attribution is outside the Markdown source; keep it visible under
-[the attribution requirements](../ATTRIBUTION.md).
+[the attribution requirements](../ATTRIBUTION.md). For custom Host layouts, see
+the [illustrated attribution guide](attribution-guide.md).
