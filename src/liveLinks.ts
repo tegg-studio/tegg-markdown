@@ -6,6 +6,7 @@ import {resourceContext} from "./editorHost";
 import {analyzeSource} from "./sourceAnalysis";
 import {parseWikiLink} from "./profile";
 import {dispatchSourcePatches} from "./editorPatches";
+import {readLinkDraft, serializeLinkDraft, unwrapLinkDraft} from "./objectDraft";
 
 type Link = {from: number; to: number; raw: string; label: string; target: string; wiki: boolean; labelSource?: string; title?: string};
 export function linkAt(view: EditorView, position: number): Link | null {
@@ -33,14 +34,15 @@ export function linkAt(view: EditorView, position: number): Link | null {
     const opening = children.find(token => token.type === "link_open");
     const target = opening?.attrGet("href");
     if (!target) continue;
-    const label = children.filter(token => token.nesting === 0 && token.type !== "html_inline").map(token => token.content).join("");
+    const fallbackLabel = children.filter(token => token.nesting === 0 && token.type !== "html_inline").map(token => ["softbreak", "hardbreak"].includes(token.type) ? "\n" : token.content).join("");
     let labelSource: string | undefined;
     if (node.name === "Link") {
       for (let child = node.firstChild?.nextSibling; child; child = child.nextSibling) {
         if (child.name === "LinkMark" && source[child.from] === "]") { labelSource = source.slice(node.from + 1, child.from); break; }
       }
     }
-    return {from: node.from, to: node.to, raw, label, target, wiki: false, labelSource, title: opening?.attrGet("title") ?? undefined};
+    const fields = readLinkDraft(raw) ?? (labelSource === undefined ? null : readLinkDraft(`[${labelSource}]()`));
+    return {from: node.from, to: node.to, raw, label: fields?.label ?? fallbackLabel, target, wiki: false, labelSource, title: opening?.attrGet("title") ?? undefined};
   }
   return null;
 }
@@ -62,16 +64,21 @@ export function linkActionLabel(target: string, wiki = false): string {
   return "Show in Finder";
 }
 
+// Reference links keep the existing occurrence-only conversion to inline Markdown.
+// Their shared definition remains untouched, while its resolved title is retained.
+function inlineDraftSource(link: Link): string | undefined {
+  if (link.wiki) return undefined;
+  return readLinkDraft(link.raw) ? link.raw : link.labelSource === undefined ? undefined : `[${link.labelSource}]()`;
+}
+
 export function linkReplacement(link: Link, label: string, target: string) {
   if (!target.trim() || /[\r\n<>]/.test(target) || /^(?:javascript|data|vbscript):/i.test(target.trim())) throw new Error("Enter a supported link destination.");
-  if (/[\r\n]/.test(label)) throw new Error("Display text must be on one line.");
+  if (/[\r\n]/.test(label) && (link.wiki || label !== link.label)) throw new Error("Display text must be on one line.");
   if (link.wiki) {
     if (/[\[\]|]/.test(target) || /[\[\]|]/.test(label)) throw new Error("Wiki links cannot contain brackets or a vertical bar.");
     return `[[${target}${label === target ? "" : "|" + label}]]`;
   }
-  const text = label === link.label && link.labelSource !== undefined ? link.labelSource : label.replace(/[\\\[\]]/g, "\\$&");
-  const title = link.title === undefined ? "" : " " + JSON.stringify(link.title);
-  return `[${text}](<${target.trim()}>${title})`;
+  return serializeLinkDraft({label, url: target.trim(), title: link.title}, inlineDraftSource(link));
 }
 
 export function linkPopoverPlacement(anchor: {left: number; top: number; bottom: number}, width: number, height: number, viewport: {width: number; height: number}, preferredSide?: "above" | "below") {
@@ -178,12 +185,21 @@ class LinkController {
         label.append(field); form.append(label); return field;
       };
       const title = input("Display text", link.label), target = input("Link destination", readableTarget);
+      let labelEdited = false, targetEdited = false;
+      title.addEventListener("input", () => {labelEdited = true;});
+      target.addEventListener("input", () => {targetEdited = true;});
       const error = document.createElement("div"); error.setAttribute("role", "alert");
       const save = (remove = false) => {
         try {
           if (this.view.state.sliceDoc(link.from, link.to) !== link.raw) throw new Error("The link changed. Reopen it to edit.");
-          if (!remove && title.value === link.label && target.value === readableTarget) { this.close(); this.view.focus(); return; }
-          const insert = remove ? title.value.replace(/[\\\[\]*_`]/g, "\\$&") : linkReplacement(link, title.value, target.value);
+          // The controls flatten newlines and display decoded URLs. Preserve every
+          // untouched field from the parsed source instead of re-reading those controls.
+          const label = labelEdited ? title.value : link.label, destination = targetEdited ? target.value : link.target;
+          if (!remove && label === link.label && destination === link.target) { this.close(); this.view.focus(); return; }
+          const original = inlineDraftSource(link);
+          const insert = remove
+            ? (label === link.label && original ? unwrapLinkDraft(original) : null) ?? unwrapLinkDraft(serializeLinkDraft({label, url: ""}))!
+            : linkReplacement(link, label, destination);
           this.close();
           dispatchSourcePatches(this.view, [{from: link.from, to: link.to, expected: link.raw, insert}], {isolateHistory: true});
           this.view.focus();

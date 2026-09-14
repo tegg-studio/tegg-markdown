@@ -15,9 +15,13 @@ function scanScripts(state: EditorState):ScriptPair[] {
     }
   }});
   const pairs: {from: number; contentFrom: number; contentTo: number; to: number; tag: "sub" | "sup"}[] = [];
+  // Tree traversal skips descendants of excluded nodes, so these ranges are
+  // disjoint and source ordered. Regex matches also advance in source order.
+  let excludedIndex = 0;
   for (const match of source.matchAll(/(?<!~)~([^~\n]+)~(?!~)|\^([^\^\n]+)\^/g)) {
     const from = match.index!, to = from + match[0].length;
-    if (excluded.some(range => from < range.to && to > range.from)) continue;
+    while (excludedIndex < excluded.length && excluded[excludedIndex].to <= from) excludedIndex++;
+    if (excludedIndex < excluded.length && excluded[excludedIndex].from < to) continue;
     const tag = match[1] !== undefined ? "sub" : "sup";
     const tokens = markdownParser.parseInline(match[0], {})[0]?.children ?? [];
     if (tokens.length !== 3 || tokens[0].type !== `${tag}_open` || tokens[2].type !== `${tag}_close`) continue;
