@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0-preview.2 — npm release candidate
+## 0.2.0-preview.2 — npm preview (2026-09-14)
 
 - Prepare public registry distribution under the `preview` dist-tag.
 - Preserve the attribution license and source-first native integration.
@@ -10,7 +10,7 @@
 - Provide a compiled React toolbar reference and Mermaid version/color CI.
 - Include the completed native validation record and registry installation guidance.
 
-Registry publication is pending account/scope checks and exact artifact validation.
+Published on the official npm registry; its integrity matches the tested tarball.
 
 ## 0.2.0-preview.1 — Git preview, not a registry release
 

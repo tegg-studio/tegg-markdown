@@ -40,12 +40,12 @@ is implied. The internal 16 ms input target is not uniformly achieved.
 
 我们以公开规范和通用样例维护兼容性，不要求提供业务语料或内部系统访问。普通问题通过 GitHub Issue 提供最小复现即可，敏感安全问题使用私密反馈渠道。可安装的版本身份、实际验证范围与尚未执行的平台检查以验证记录为准。界面中的 Powered by Tegg Markdown 仍须依许可保留。
 
-## Follow-up candidate — 0.2.0-preview.2
+## Published npm preview — 0.2.0-preview.2
 
-The next candidate addresses Mermaid animation-style compatibility, React mount
+The published preview addresses Mermaid animation-style compatibility, React mount
 height propagation, legacy TypeScript subpath resolution, profile command discovery
 and table quantity localization. It adds a copyable React toolbar reference and
 explicit Mermaid version/color checks. See [React integration](react.md) and
-[validation](validation.md). This candidate is not yet an npm registry release.
+[validation](validation.md). Install the published version with `npm install --save-exact @tegg/markdown@0.2.0-preview.2`.
 
-后续候选补充 Mermaid 颜色兼容、React 高度传递、旧式 TypeScript 子路径解析、命令能力查询及表格计数本地化，并提供 React 工具栏参考。业务编号自动关联仍由宿主负责，尚未开放通用行内匹配接口；免费支持不附带固定 SLA。候选仍待 npm 账号/权限及最终发布验证，不将开发完成等同于 registry 已发布。
+已发布的 npm 预览版补充 Mermaid 颜色兼容、React 高度传递、旧式 TypeScript 子路径解析、命令能力查询及表格计数本地化，并提供 React 工具栏参考。业务编号自动关联仍由宿主负责，尚未开放通用行内匹配接口；免费支持不附带固定 SLA。`@tegg/markdown@0.2.0-preview.2` 已发布到 npm，包完整性与已验证归档一致。接入时固定精确版本和 lockfile，并保留许可要求的可见署名。

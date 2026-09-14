@@ -156,3 +156,13 @@ Mermaid 11.17.2; this was an assertion gap, not simply use of an old engine.
 Historical test totals and performance samples above describe their recorded
 artifacts. New totals and exact candidate identity are recorded by the candidate CI;
 this follow-up does not claim to have rerun the complete performance benchmark.
+
+## npm registry installation (2026-09-14)
+
+`@tegg/markdown@0.2.0-preview.2` was installed from the official registry in four
+independent vanilla/React 18/React 19/optional-engine consumers. Their lockfiles
+resolve to registry tarballs with the published integrity, and all 21 runtime
+JS/CSS hashes match the pre-publication artifact. Modern and legacy TypeScript
+resolution, production builds and all 49 Chromium/Firefox/WebKit browser checks
+passed. See [published artifact](npm-release.md#published-artifact). Native OS
+interaction and performance coverage retain their previously documented limits.
