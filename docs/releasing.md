@@ -29,8 +29,18 @@ and then flow into applications through a version update.
    Verify registry integrity and independent registry consumers before reporting
    success. Keep existing Git tags immutable; record the new release commit.
 
-The current candidate has explicit publishConfig for the official registry, public
-access and the preview dist-tag. See [npm release status](npm-release.md).
+7. Read the actual registry dist-tags after publishing. A first publication may
+   also acquire `latest`; report the actual result and do not call a pre-release stable.
+8. Create a GitHub pre-release for the exact source commit used to build the package.
+   Attach the reviewed tarball and its integrity manifest; do not rebuild a different
+   archive under the published version. Keep existing tags immutable.
+9. Update README, getting started, integration update, changelog and validation
+   together. Separate current package results from historical native/performance evidence.
+
+`0.2.0-preview.2` is published. See [npm release status](npm-release.md).
+Later documentation commits do not retroactively change the published tarball.
+CI checks a newly packed checkout; its artifact is not proof that that checkout
+was published. Use the recorded registry integrity to identify the actual release.
 
 License changes affect new grants only. Never claim to revoke rights already
 granted under an earlier license. Keep old releases and their original terms

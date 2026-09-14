@@ -11,25 +11,26 @@ This project is not offered under Apache-2.0 and does not claim OSI approval.
 
 ## Status
 
-Registry release candidate `0.2.0-preview.2`, prepared for the public npm `preview`
-dist-tag. Registry publication is pending; the existing immutable Git preview
-`v0.2.0-preview.1` remains available. Source, tests, types, styles and mandatory
-license materials are included. See [release status](docs/npm-release.md).
+`@tegg/markdown@0.2.0-preview.2` is published on npm as a preview release.
+Source, tests, types, styles and mandatory license materials are included.
+See [release status](docs/npm-release.md) for the exact artifact and validation.
+[GitHub releases](https://github.com/tegg-studio/tegg-markdown/releases) provide
+versioned release notes and the original package archive.
 
 The default integration requires no Tegg account, cloud, activation or telemetry.
 The Host owns document identity, persistence, resources, permissions and conflicts.
 [Capabilities and limits](docs/capabilities.md) describe the supported boundaries.
 
-## Install the Git preview
+## Install the npm preview
 
 ```sh
-npm install 'git+https://github.com/tegg-studio/tegg-markdown.git#v0.2.0-preview.1'
+npm install --save-exact @tegg/markdown@0.2.0-preview.2
 ```
 
-The versioned Git tag identifies the reviewed preview. This does not publish or
-reserve an npm registry scope. For reproducible deployments, retain the resolved
-commit in your lockfile. Start with the [integration guide](docs/getting-started.md)
-and choose optional engines explicitly.
+This is a pre-release, not a stable release. Retain the exact version and lockfile
+for reproducibility. Start with the [integration guide](docs/getting-started.md)
+and choose optional engines explicitly. The older immutable Git tag
+`v0.2.0-preview.1` remains available for existing consumers.
 
 ## Run the example
 
@@ -52,7 +53,7 @@ a convenience check, not atomic multi-writer storage.
 In this repository run `npm pack`. In a separate project run:
 
 ```sh
-npm install /path/to/tegg-markdown-0.2.0-preview.1.tgz
+npm install /path/to/tegg-markdown-0.2.0-preview.2.tgz
 ```
 
 Use a browser bundler supporting ES modules, CSS and web workers (the example uses Vite):

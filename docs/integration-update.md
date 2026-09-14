@@ -1,51 +1,57 @@
-# Integration update — 0.2.0-preview.1
+# Integration update — 0.2.0-preview.2
 
-This Git preview adds explicit GitHub/GFM syntax profiles, lightweight entries,
-React 18/19 integration, read-only renderer hooks, per-instance UI customization,
-resource opt-in and bounded offline geometry previews. Existing Tegg syntax remains
-the default. The source, save identity and undo model are preserved.
+The npm preview is published. Install the exact version and retain your lockfile:
 
-Use [getting started](getting-started.md), [React](react.md),
+```sh
+npm install --save-exact @tegg/markdown@0.2.0-preview.2
+```
+
+This version includes explicit GitHub/GFM syntax profiles, separate Reader/Editor
+entries, React 18/19 adapters, read-only renderer hooks, instance UI customization,
+resource opt-in and bounded offline geometry previews. Tegg remains the default
+profile. Markdown source, save identity and undo remain authoritative.
+
+## Integration fixes
+
+- Mermaid animation CSS remains readable while external CSS resources are blocked.
+- React mount wrappers propagate constrained height; Host scrolling can use natural height.
+- Legacy TypeScript Node resolution supports typed subpaths without application aliases.
+- Profile command discovery and transient command status support data-driven toolbars.
+- A copyable React toolbar handles disabled, pressed and mixed states.
+- Live Edit table counts use instance localization. Mode documentation explains syntax visibility.
+
+Start with [getting started](getting-started.md), [React](react.md),
 [Host contract](host-contract.md), [extensions](extensions.md),
 [appearance and language](appearance-and-i18n.md), and [migration](migration.md).
-The license continues to require visible **Powered by Tegg Markdown** unless a
-separate written agreement applies.
+The license requires visible **Powered by Tegg Markdown** unless a separate written
+agreement applies. npm publication does not change those terms.
 
-Compatibility is maintained against fixed public standards and generic fixtures.
-No partner-specific corpus, internal business access or partner acceptance cycle is
-required. Report ordinary reproducible problems through the repository's Issues;
-use the private security route for vulnerabilities or sensitive information.
+## Evidence and boundaries
 
-This is a developer preview, not a stable or npm registry release. The Git identity,
-package integrity, actual platform checks and remaining gaps are recorded in
-[validation](validation.md). Offline map previews do not reproduce GitHub map tiles;
-KaTeX is not a claim of complete GitHub MathJax macro parity. Native integrations
-retain their own file permissions, menus, persistence and platform validation.
+The published artifact matches the tested package integrity. Core coverage is
+2,892 tests; four independent registry consumers pass type checking and production
+builds, and 49 Chromium/Firefox/WebKit checks pass. Mermaid CI tests 11.9.0,
+11.10.0 and the latest compatible 11.x. See [validation](validation.md) and
+[the publication record](npm-release.md) for exact identities and scope.
 
-Validated core coverage includes 2,889 tests, fixed public syntax fixtures and
-independent React/vanilla consumers. The browser matrix covers 37 checks across
-Chromium, Firefox and WebKit, including real worker idle recovery. Native Host
-smoke validation covers editing, exact save/reopen, local resources and Finder
-Quick Look. Final native follow-up on the released tag also verified literal
-reference brackets and exact edit/undo/save/reopen behavior. See the validation
-record for commit-specific results and limits.
-No real OS IME, assistive-technology or complete browser product/version certificate
-is implied. The internal 16 ms input target is not uniformly achieved.
+Native interaction evidence for preview.1 remains historical; preview.2 passed
+Mac Web regression and local Debug builds, but has no new native visual acceptance.
+This is a developer preview. It is not full GitHub product parity or certification
+of OS IME, assistive technology or every browser product/version. Offline geometry
+does not reproduce GitHub map tiles; KaTeX does not promise every MathJax macro.
+The internal 16 ms input target is not uniformly achieved.
+
+Business-ID linking remains Host semantics; there is no arbitrary parser-plugin
+API or text matcher in this release. Standard Markdown links remain portable.
+Free support includes no fixed SLA. Compatibility uses public standards and generic
+fixtures, without requiring partner corpora or internal access. Report reproducible
+bugs through [GitHub Issues](https://github.com/tegg-studio/tegg-markdown/issues);
+use [private security reporting](../SECURITY.md) for sensitive vulnerabilities.
 
 ## 中文接入说明
 
-本次预览版增加 GitHub/GFM 语法配置、独立 Reader/Editor 入口、React 18/19 适配、只读组件替换、按实例设置界面语言与外观，以及显式资源授权。原有 Tegg 语法继续作为默认配置，Markdown 原文、撤销与保存版本身份继续由同一契约保护。
+`@tegg/markdown@0.2.0-preview.2` 已发布到 npm，可按上方命令固定版本安装。本次修复 Mermaid 颜色兼容、React 高度与滚动、旧式 TypeScript 子路径解析及表格计数本地化；提供命令能力查询和 React 工具栏参考。原有 Reader、Live Edit、Source、撤销、流式更新与保存版本契约保持。
 
-从接入指南开始，按需选择语法配置与渲染引擎；宿主负责鉴权、文件访问和保存冲突，参考 HTTP CAS 示例接入版本检查。地图提供离线几何预览，不能等同于完整在线地图；公式使用 KaTeX，不能承诺所有 MathJax 宏兼容。超出预览预算时保留完整源码。
+宿主负责鉴权、文件访问、资源授权、业务编号规则和保存冲突；按需选择语法 profile 与渲染引擎。SDK 使用公开规范和通用样例维护兼容性，不要求提供业务语料。问题通过 GitHub Issue 提供最小复现；敏感安全问题走私密渠道。
 
-我们以公开规范和通用样例维护兼容性，不要求提供业务语料或内部系统访问。普通问题通过 GitHub Issue 提供最小复现即可，敏感安全问题使用私密反馈渠道。可安装的版本身份、实际验证范围与尚未执行的平台检查以验证记录为准。界面中的 Powered by Tegg Markdown 仍须依许可保留。
-
-## Follow-up candidate — 0.2.0-preview.2
-
-The next candidate addresses Mermaid animation-style compatibility, React mount
-height propagation, legacy TypeScript subpath resolution, profile command discovery
-and table quantity localization. It adds a copyable React toolbar reference and
-explicit Mermaid version/color checks. See [React integration](react.md) and
-[validation](validation.md). This candidate is not yet an npm registry release.
-
-后续候选补充 Mermaid 颜色兼容、React 高度传递、旧式 TypeScript 子路径解析、命令能力查询及表格计数本地化，并提供 React 工具栏参考。业务编号自动关联仍由宿主负责，尚未开放通用行内匹配接口；免费支持不附带固定 SLA。候选仍待 npm 账号/权限及最终发布验证，不将开发完成等同于 registry 已发布。
+已完成四类真实 npm 安装工程及三浏览器 49 项回验，包完整性与发布前归档一致。Mac 新版仅完成 Web 回归和 Debug 构建，旧版原生交互证据不作为新版验收。此版本仍为预览版，不承诺完整 GitHub 产品效果、所有浏览器版本或固定性能 SLA。使用时固定版本与 lockfile，保留可见的 Powered by Tegg Markdown 署名。
