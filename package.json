@@ -1,7 +1,6 @@
 {
   "name": "@tegg/markdown",
-  "private": true,
-  "version": "0.2.0-preview.1",
+  "version": "0.2.0-preview.2",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -41,7 +40,8 @@
     "examples/http-cas",
     "SUPPORT.md",
     "SECURITY.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "examples/react-toolbar"
   ],
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -172,6 +172,42 @@
     },
     "topojson-client": {
       "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "preview",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "typesVersions": {
+    "*": {
+      "core": [
+        "dist/types/core.d.ts"
+      ],
+      "reader": [
+        "dist/types/readerEntry.d.ts"
+      ],
+      "editor": [
+        "dist/types/editorEntry.d.ts"
+      ],
+      "engines/katex": [
+        "dist/types/engines/katex.d.ts"
+      ],
+      "engines/highlight": [
+        "dist/types/engines/highlight.d.ts"
+      ],
+      "react": [
+        "dist/types/react.d.ts"
+      ],
+      "engines/geometry": [
+        "dist/types/engines/geometry.d.ts"
+      ],
+      "engines/mermaid": [
+        "dist/types/engines/mermaid.d.ts"
+      ],
+      "engines/graphviz": [
+        "dist/types/engines/graphviz.d.ts"
+      ]
     }
   }
 }

@@ -17,7 +17,12 @@
     "strict": true,
     "types": [
       "vitest/globals"
-    ]
+    ],
+    "paths": {
+      "@tegg/markdown/editor": [
+        "./src/editorEntry.ts"
+      ]
+    }
   },
   "include": [
     "src",

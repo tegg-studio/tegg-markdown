@@ -7,6 +7,12 @@ test('optional local engines and geometry under explicit CSP',async({page},info)
  await page.goto('http://127.0.0.1:18919/full.html?csp=engines');await page.evaluate(()=>(window as any).full.ready);
  await expect(page.locator('.katex')).toHaveCount(1);await expect(page.locator('.diagram-canvas[data-render-state="ready"]')).toHaveCount(2);await expect(page.locator('.diagram-canvas > svg')).toHaveCount(2);
  await expect(page.locator('[data-tegg-slot="code"] svg')).toHaveCount(3);
+ const node=page.locator('.diagram-canvas[data-engine="mermaid"] svg .node rect').first();
+ await expect(node).toBeVisible();
+ const colors=await node.evaluate(element=>({fill:getComputedStyle(element).fill,stroke:getComputedStyle(element).stroke}));
+ expect(colors.fill).not.toBe('rgb(0, 0, 0)');expect(colors.stroke).not.toBe('none');
+ await info.attach('mermaid-colors',{body:JSON.stringify(colors),contentType:'application/json'});
+
  expect(await page.evaluate(()=>(window as any).full.errors)).toEqual([]);expect(external).toEqual([]);expect(await page.evaluate(()=>(window as any).violations)).toEqual([]);
  const first=page.locator('[data-tegg-slot="code"]').first();const before=await first.locator('svg g').getAttribute('transform');await first.getByRole('button',{name:'Zoom in',exact:true}).click();expect(await first.locator('svg g').getAttribute('transform')).not.toBe(before);
  await page.getByRole('button',{name:'View diagram',exact:true}).first().click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);

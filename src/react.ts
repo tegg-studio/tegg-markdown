@@ -45,7 +45,7 @@ export const MarkdownReader = forwardRef<MarkdownReaderRef, MarkdownReaderProps>
     void reader.render(props.document).catch(error => latest.current.host?.onError?.(error));
   }, [props.document, slots.renderers]);
   useEffect(() => {instance.current?.setUI(props.host ?? {});}, [props.host?.locale, props.host?.messages]);
-  return createElement("div", {className: props.className}, createElement("div", {ref: root}), ...slots.portals);
+  return createElement("div", {className: props.className, style: {minWidth:0, minHeight:0}}, createElement("div", {ref: root, style:{height:props.host?.layout === "host" ? "auto" : "100%", minHeight:0, minWidth:0}}), ...slots.portals);
 });
 export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(function MarkdownEditor(props, ref) {
   const root = useRef<HTMLDivElement>(null), instance = useRef<TeggMarkdownEditor | null>(null);
@@ -65,5 +65,5 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
   useEffect(() => {instance.current?.update(props.document);}, [props.document]);
   useEffect(() => {if (props.mode) instance.current?.setMode(props.mode);}, [props.mode]);
   useEffect(() => {instance.current?.setUI(props.host ?? {});}, [props.host?.locale, props.host?.messages]);
-  return createElement("div", {className: props.className}, createElement("div", {ref: root}), ...slots.portals);
+  return createElement("div", {className: props.className, style: {minWidth:0, minHeight:0}}, createElement("div", {ref: root, style:{height:props.host?.layout === "host" ? "auto" : "100%", minHeight:0, minWidth:0}}), ...slots.portals);
 });

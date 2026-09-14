@@ -39,3 +39,13 @@ is implied. The internal 16 ms input target is not uniformly achieved.
 从接入指南开始，按需选择语法配置与渲染引擎；宿主负责鉴权、文件访问和保存冲突，参考 HTTP CAS 示例接入版本检查。地图提供离线几何预览，不能等同于完整在线地图；公式使用 KaTeX，不能承诺所有 MathJax 宏兼容。超出预览预算时保留完整源码。
 
 我们以公开规范和通用样例维护兼容性，不要求提供业务语料或内部系统访问。普通问题通过 GitHub Issue 提供最小复现即可，敏感安全问题使用私密反馈渠道。可安装的版本身份、实际验证范围与尚未执行的平台检查以验证记录为准。界面中的 Powered by Tegg Markdown 仍须依许可保留。
+
+## Follow-up candidate — 0.2.0-preview.2
+
+The next candidate addresses Mermaid animation-style compatibility, React mount
+height propagation, legacy TypeScript subpath resolution, profile command discovery
+and table quantity localization. It adds a copyable React toolbar reference and
+explicit Mermaid version/color checks. See [React integration](react.md) and
+[validation](validation.md). This candidate is not yet an npm registry release.
+
+后续候选补充 Mermaid 颜色兼容、React 高度传递、旧式 TypeScript 子路径解析、命令能力查询及表格计数本地化，并提供 React 工具栏参考。业务编号自动关联仍由宿主负责，尚未开放通用行内匹配接口；免费支持不附带固定 SLA。候选仍待 npm 账号/权限及最终发布验证，不将开发完成等同于 registry 已发布。

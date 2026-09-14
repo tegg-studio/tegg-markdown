@@ -62,3 +62,13 @@ retain TeX and expose an explicit preview action; individual TeX over 16 KiB rem
 source. At 1 MiB UTF-8 and above, Reader shows the complete source without rich
 parsing. Editor source and save snapshots are not truncated. These bounded fallbacks
 are visible behavior, not a claim of unlimited rendering.
+
+## Business identifiers and inline text
+
+Bare issue/order/document identifiers are Host business semantics, not built-in
+Markdown syntax. For portable content, generate standard Markdown links in the
+Host. This version does not expose arbitrary markdown-it plugin registration or
+an inline text matcher. A future Reader-only matcher must preserve source, skip
+existing links/code/math, validate destination URLs and bound matching work before
+it becomes a supported API. Live Edit requires separate selection/composition
+validation; do not patch its DOM to add business links.

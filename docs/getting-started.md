@@ -2,9 +2,9 @@
 
 Tegg Markdown is a browser SDK. Importing the lightweight Reader and React modules
 on a server is supported; creating an instance or rendering requires a browser DOM.
-Pin a reviewed Git commit or install the tarball produced by `npm pack`. The package
-remains private against accidental registry publication; these instructions do not
-claim an npm registry release.
+Pin a reviewed Git commit or install the tarball produced by `npm pack`.
+The npm release candidate is prepared with public access and the `preview` dist-tag;
+see [registry release status](npm-release.md) before using the npm installation command.
 
 ```ts
 import {TeggMarkdownReader} from "@tegg/markdown/reader";

@@ -2,6 +2,11 @@ export type Locale = "en-US" | "zh-CN";
 export type UIMessages = Readonly<Record<string, string>>;
 export type UIOptions = {locale?: Locale; messages?: UIMessages; overlayContainer?: HTMLElement};
 const chinese: UIMessages = {
+"{rows} row × {columns} column":"{rows} 行 × {columns} 列",
+"{rows} row × {columns} columns":"{rows} 行 × {columns} 列",
+"{rows} rows × {columns} column":"{rows} 行 × {columns} 列",
+"{rows} rows × {columns} columns":"{rows} 行 × {columns} 列",
+
 "Add Row":"添加行",
 "Add Column":"添加列",
 "Code language":"代码语言",

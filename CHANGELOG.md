@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0-preview.2 — npm release candidate
+
+- Prepare public registry distribution under the `preview` dist-tag.
+- Preserve the attribution license and source-first native integration.
+- Retain safe Mermaid animation styles while blocking external resource CSS.
+- Fix React mount height propagation and localize table quantity labels.
+- Add legacy TypeScript subpath mappings and profile-aware command discovery.
+- Provide a compiled React toolbar reference and Mermaid version/color CI.
+- Include the completed native validation record and registry installation guidance.
+
+Registry publication is pending account/scope checks and exact artifact validation.
+
 ## 0.2.0-preview.1 — Git preview, not a registry release
 
 - Keep unresolved reference brackets visible in Live Edit and apply the selected

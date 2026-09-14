@@ -47,3 +47,9 @@ The SDK does not implement authentication, document authorization, database CAS,
 filesystem sandboxing, uploads, malware scanning or network proxies. Those remain
 Host responsibilities. Report security issues through [SECURITY.md](../SECURITY.md),
 not public issue bodies containing sensitive material or exploit details.
+
+SVG styles permit `@keyframes` and `@-webkit-keyframes` for local diagram animation.
+Other at-rules remain rejected, along with escaped CSS and external URL/image/src
+functions. Classification removes CSS comments before checking. Local fragment
+paint references remain allowed. Unsafe blocks are dropped; this deliberately
+supports a conservative generated-style subset, not arbitrary user CSS.
