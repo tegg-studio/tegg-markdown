@@ -2,6 +2,9 @@
 
 ## 0.3.0-preview.1 — development candidate, not published
 
+- Disable native text correction, capitalization and autofill in literal search and
+  object draft fields so WebKit blur cannot silently change Markdown or replacements.
+
 - Add shared source-bound editing sessions, optional editing UI, literal search and
   replacement, profile-aware local object drafts and bounded Host extensions.
 - Add offline clipboard review, persistent attachment tasks, native picker hooks,

@@ -22,6 +22,16 @@ export type EditingUIHost = ResourceHost & UIOptions & {
   onError?:(error:unknown)=>void;
 };
 const instances=new WeakMap<EditingController,EditingUI>();
+// These controls contain literal Markdown or search strings. Native WebKit text
+// correction can otherwise rewrite a value on blur, after the last input event.
+function literalControl<T extends HTMLInputElement|HTMLTextAreaElement>(control:T):T {
+  control.setAttribute("autocorrect","off");
+  control.setAttribute("autocapitalize","none");
+  control.setAttribute("autocomplete","off");
+  control.spellcheck=false;
+  return control;
+}
+
 /** Optional DOM chrome. Document semantics and all mutations stay in the shared controller. */
 export class EditingUI {
   readonly element=document.createElement("section");
@@ -67,7 +77,7 @@ export class EditingUI {
   private safe(run:()=>unknown){try{Promise.resolve(run()).catch(error=>this.error(error));}catch(error){this.error(error);}}
   private button(label:string,run:()=>unknown){const button=document.createElement("button");button.type="button";setUIText(button,label);button.dataset.label=label;button.addEventListener("click",()=>{if(this.alive)this.safe(run);});return button;}
   private label(text:string,control:HTMLElement){const label=document.createElement("label");const span=document.createElement("span");setUIText(span,text);label.append(span,control);return label;}
-  private input(label:string,value="",type="text"){const input=document.createElement("input");input.type=type;input.value=value;this.panel.append(this.label(label,input));return input;}
+  private input(label:string,value="",type="text"){const input=document.createElement("input");input.type=type;if(type==="text")literalControl(input);input.value=value;this.panel.append(this.label(label,input));return input;}
   private message(text:string){if(this.alive)setUIText(this.status,text);}
   private error(error:unknown){if(!this.alive)return;this.message(error instanceof Error?error.message:String(error));try{this.host.onError?.(error);}catch{/* diagnostic observers cannot break UI cleanup */}}
   private sync(){const reason=this.controller.unavailableReason,extensions=this.extensions.list();for(const button of this.element.querySelectorAll<HTMLButtonElement>(".tegg-editing-toolbar button"))button.disabled=button.dataset.extension?!extensions.find(item=>item.id===button.dataset.extension)?.enabled:button.dataset.label==="Find and replace"?reason==="composing"||reason==="destroyed":!!reason;for(const button of this.panel.querySelectorAll<HTMLButtonElement>('button[data-mutation="true"]'))button.disabled=!!reason||this.controller.session?.status==="stale";}
@@ -114,7 +124,7 @@ export class EditingUI {
     if(!this.alive)throw new Error("destroyed");
     const extension=this.extensions.list().find(item=>item.id===id);if(!extension?.enabled)throw new Error(extension?.reason??"unknown-extension");
     const session=this.controller.begin();this.startPanel("Review extension draft");const epoch=this.panelEpoch;
-    const raw=this.textarea=document.createElement("textarea");raw.rows=10;raw.readOnly=true;raw.value=session.draft;this.panel.append(this.label("Object Markdown",raw),this.button("Copy draft",()=>this.copy(raw.value)));this.endPanel();this.message("Preparing draft…");
+    const raw=this.textarea=literalControl(document.createElement("textarea"));raw.rows=10;raw.readOnly=true;raw.value=session.draft;this.panel.append(this.label("Object Markdown",raw),this.button("Copy draft",()=>this.copy(raw.value)));this.endPanel();this.message("Preparing draft…");
     const prepared=await this.extensions.prepare(id,session.token);
     if(!this.alive||epoch!==this.panelEpoch)return;
     if(prepared.status!=="ready"){this.message(prepared.reason);return;}
@@ -128,7 +138,7 @@ export class EditingUI {
     if(position!==undefined&&(!Number.isInteger(position)||position<0||position>this.controller.view.state.doc.length))throw new Error("invalid-object-target");
     if(position!==undefined&&!range)this.controller.view.dispatch({selection:{anchor:Math.min(this.controller.view.state.doc.length,position+1)}});
     const session=this.controller.begin(kind,range);this.startPanel("Edit object");
-    const raw=document.createElement("textarea");raw.rows=10;raw.value=session.original||this.template(session.kind);this.textarea=raw;setUILabel(raw,"Object Markdown");
+    const raw=literalControl(document.createElement("textarea"));raw.rows=10;raw.value=session.original||this.template(session.kind);this.textarea=raw;setUILabel(raw,"Object Markdown");
     const parsed=readLinkDraft(session.original);
     if((session.kind==="link"||session.kind==="image")&&(!session.original||parsed)){
       const label=this.input(session.kind==="image"?"Alternative text":"Text",parsed?.label??"");const url=this.input("Target",parsed?.url??""),title=this.input("Title",parsed?.title??"");
@@ -200,7 +210,7 @@ export class EditingUI {
     for(;;){if(["FencedCode","CodeBlock","InlineCode"].includes(node.name)){code=true;break;}if(!node.parent)break;node=node.parent;}
     const prepared=preparePaste(input,{target:code?"code":"document"});const session=this.controller.begin("selection",range??this.controller.view.state.selection.main);
     if(prepared.status!=="ready"){
-      this.startPanel("Review paste");const original=document.createElement("textarea");original.readOnly=true;original.value=prepared.plainText||input.html||input.markdown||"";this.panel.append(this.label("Original input",original));
+      this.startPanel("Review paste");const original=literalControl(document.createElement("textarea"));original.readOnly=true;original.value=prepared.plainText||input.html||input.markdown||"";this.panel.append(this.label("Original input",original));
       const preview=document.createElement("pre");preview.textContent=prepared.markdown;this.panel.append(preview);
       const issues=document.createElement("p");issues.textContent=prepared.issues.map(item=>item.message).join('\n');this.panel.append(issues);
       if(prepared.status!=="rejected")this.panel.append(this.button("Insert converted Markdown",()=>this.applyPaste(session,preparePaste(input,{acceptSimplification:true}))));

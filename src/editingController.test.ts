@@ -96,3 +96,21 @@ describe("structured object field preservation",()=>{
   const {root,controller,editor}=make("[first](old)");const ui=attachEditingUI(controller,root);cleanup.push(()=>ui.destroy());ui.openObject("link",{from:0,to:editor.source.length});edit(root,"Target","new");expect(root.querySelector("textarea")!.value).toBe("[first](<new>)");
  });
 });
+
+
+describe("literal editing UI input policy",()=>{
+ const check=(root:HTMLElement)=>{
+  const controls=[...root.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('input[type="text"],textarea')];
+  expect(controls.length).toBeGreaterThan(0);
+  for(const control of controls){expect(control.getAttribute("autocorrect")).toBe("off");expect(control.getAttribute("autocapitalize")).toBe("none");expect(control.getAttribute("autocomplete")).toBe("off");expect(control.spellcheck).toBe(false);}
+ };
+ it("requests literal find/replace input and retains lowercase through blur and undo",()=>{
+  const {root,controller,editor}=make("alpha beta alpha");const ui=attachEditingUI(controller,root);cleanup.push(()=>ui.destroy());ui.openSearch();check(root);
+  const fields=root.querySelectorAll<HTMLInputElement>('input[type="text"]');fields[0].value="alpha";fields[1].value="omega";
+  fields[1].dispatchEvent(new Event("input"));fields[1].dispatchEvent(new FocusEvent("blur"));
+  [...root.querySelectorAll("button")].find(b=>b.textContent==="Replace all")!.click();expect(editor.source).toBe("omega beta omega");controller.command("undo");expect(editor.source).toBe("alpha beta alpha");
+ });
+ it.each(['[alpha](target "omega")','```mermaid\ngraph LR; alpha-->omega\n```','---\nname: omega\n---'])('keeps object fields literal and cancellation source-faithful: %s',source=>{
+  const {root,editor,controller}=make(source);const ui=attachEditingUI(controller,root);cleanup.push(()=>ui.destroy());editor.view.dispatch({selection:{anchor:Math.min(4,source.length)}});ui.openObject();check(root);ui.close();expect(editor.source).toBe(source);
+ });
+});
