@@ -4,9 +4,15 @@ import type {SyntaxNode} from "@lezer/common";
 import {simpleBreakTag} from "./liveBreaks";
 
 type Pair = {from: number; contentFrom: number; contentTo: number; to: number; tag: string};
-export function inlineHtmlFormatting(state: EditorState) {
+const cache=new WeakMap<EditorState,{tree:ReturnType<typeof syntaxTree>;value:{pairs:Pair[];paragraphs:Set<number>}}>();
+export function inlineHtmlFormatting(state:EditorState){
+  const tree=syntaxTree(state),old=cache.get(state);if(old?.tree===tree)return old.value;
+  const value=scanInlineHtml(state);cache.set(state,{tree,value});return value;
+}
+function scanInlineHtml(state: EditorState) {
   const pairs: Pair[] = [], paragraphs = new Set<number>();
   const source = state.doc.toString();
+  if(!source.includes("<"))return {pairs,paragraphs};
   syntaxTree(state).iterate({enter(node) {
     if (["FencedCode", "CodeBlock", "HTMLBlock"].includes(node.name)) return false;
     if (node.name !== "Paragraph" && !/^(ATX|Setext)Heading[1-6]$/.test(node.name)) return;

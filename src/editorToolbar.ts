@@ -17,6 +17,7 @@ function dispatchSourcePatches(...args: Parameters<typeof dispatchPatches>) {
 }
 
 export type EditorToolbarState = {
+  parsing?: boolean;
   mixed: string[];
   inlineFormattingEnabled: boolean;
   bold: boolean;
@@ -83,7 +84,17 @@ function selectedLines(state: EditorState) {
   return Array.from({length: end.number - start.number + 1}, (_, i) => state.doc.line(start.number + i));
 }
 
-export function editorToolbarState(state: EditorState): EditorToolbarState {
+const toolbarCache=new WeakMap<EditorState,{tree:ReturnType<typeof syntaxTree>;value:EditorToolbarState}>();
+export function editorToolbarState(state:EditorState):EditorToolbarState{
+  const tree=syntaxTree(state),old=toolbarCache.get(state);if(old?.tree===tree)return {...old.value,mixed:[...old.value.mixed]};
+  const value=computeToolbarState(state);toolbarCache.set(state,{tree:syntaxTree(state),value});return {...value,mixed:[...value.mixed]};
+}
+function computeToolbarState(state: EditorState): EditorToolbarState {
+  // Toolbar observation must not repeatedly spend full parser budgets on input.
+  // Commands can re-evaluate after the normal background parser catches up.
+  if(state.doc.length>65536&&!ensureSyntaxTree(state,Math.min(state.doc.length,state.selection.main.to+1),5))return {
+    parsing:true,mixed:[],inlineFormattingEnabled:false,bold:false,italic:false,code:false,underline:false,strike:false,highlight:false,subscript:false,superscript:false,task:false,heading:null,callout:null,calloutEnabled:false,calloutContext:calloutContextKey(state),
+  };
   const context = calloutContext(state);
   const lines = selectedLines(state);
   const tree = ensureSyntaxTree(state, lines[lines.length - 1].to, 50) ?? syntaxTree(state);

@@ -1,6 +1,6 @@
 {
   "name": "@tegg/markdown",
-  "version": "0.2.0-preview.2",
+  "version": "0.3.0-preview.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -18,7 +18,10 @@
     "test:a11y": "playwright test --grep accessible",
     "test:cas": "node --test examples/http-cas/store.node-test.mjs",
     "licenses:inventory": "node scripts/dependency-inventory.mjs",
-    "test:performance": "node scripts/performance.mjs"
+    "test:performance": "node scripts/performance.mjs",
+    "test:recovery": "playwright test --config playwright.recovery.config.ts",
+    "test:performance:editing": "node scripts/live-performance.mjs",
+    "verify:reliable": "npm run check && npm run test:cas && npm run check:consumers && npm run test:browser && npm run test:recovery"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -38,7 +41,8 @@
     "scripts/prepare.mjs",
     "examples/http-cas/README.md",
     "examples/http-cas/server.mjs",
-    "examples/react-toolbar/Toolbar.ts"
+    "examples/react-toolbar/Toolbar.ts",
+    "examples/reliable-editor"
   ],
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -134,7 +138,12 @@
       "types": "./dist/types/engines/graphviz.d.ts",
       "import": "./dist/graphvizEngine.js"
     },
-    "./editor.css": "./dist/editor.css"
+    "./editor.css": "./dist/editor.css",
+    "./ui": {
+      "types": "./dist/types/uiEntry.d.ts",
+      "import": "./dist/ui.js"
+    },
+    "./ui.css": "./dist/ui.css"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -204,6 +213,9 @@
       ],
       "engines/graphviz": [
         "dist/types/engines/graphviz.d.ts"
+      ],
+      "ui": [
+        "dist/types/uiEntry.d.ts"
       ]
     }
   }

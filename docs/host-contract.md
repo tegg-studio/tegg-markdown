@@ -113,3 +113,23 @@ and undo history constraints. Querying it does not edit source or save state.
 receive profile/command metadata with the existing state update, not a second event
 stream. Neither the support list nor query enables network resources or installs
 an optional renderer.
+
+## Reliable editing additions
+
+See [reliable editing](reliable-editing.md) for the shared controller, optional `/ui`,
+attachment storage and newline policy. `beginSave`/`saveState` are useful Host signals;
+they never perform I/O. Exact issued snapshot verification rejects forged source and
+unresolved incoming conflicts. The latest 32 issued snapshots are retained; a delayed
+older completion may need Host reconciliation. Recovery journals and three-version
+decisions are described in [recovery](recovery.md).
+
+### Save acknowledgement migration
+
+An existing `snapshot()` followed by a successful Host compare-and-swap still uses
+`acknowledgeSaved(snapshot, storedRevision)`. When `update(incoming)` has reported
+an unresolved conflict, acknowledgement now returns `false` and leaves both the
+base revision and conflict intact. An old completion must not make a different
+incoming source appear saved under its revision. Re-read storage and resolve the
+three-version conflict first; do not retry acknowledgements with an invented
+revision or clear the conflict by overwriting the draft. A later local edit remains
+dirty when an earlier, otherwise valid snapshot is acknowledged.

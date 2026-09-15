@@ -1,6 +1,27 @@
 # Changelog
 
-## Unreleased
+## 0.3.0-preview.1 — development candidate, not published
+
+- Disable native text correction, capitalization and autofill in literal search and
+  object draft fields so WebKit blur cannot silently change Markdown or replacements.
+
+- Add shared source-bound editing sessions, optional editing UI, literal search and
+  replacement, profile-aware local object drafts and bounded Host extensions.
+- Add offline clipboard review, persistent attachment tasks, native picker hooks,
+  and complete GFM table operations with rectangular copy/paste and mobile controls.
+- Add exact saved-snapshot verification, checksummed recovery journals, bounded
+  three-version reconciliation and a shared conflict review UI.
+- Preserve BOM and uniform LF/CRLF source, protect unsupported newline mixtures,
+  and reject Unicode-splitting patches.
+- Bound large-document previews and toolbar parsing; cache immutable analyses and
+  index dense object ranges while retaining full rebuilds for syntax changes.
+- Add packed vanilla/React examples, browser attachment storage workflows, source
+  fidelity fixtures and recovery/accessibility verification gates.
+
+This candidate is prepared for Draft PR review. No registry publication or release
+is implied. Existing required attribution and commercial licensing are unchanged.
+
+## Previous repository cleanup (unreleased at the time)
 
 - Limit npm archives to runtime files, declarations, legal materials and selected guides/examples. Keep source, tests and large illustrations in Git.
 - Enforce package inventory and public repository boundaries, and document the contributor Git workflow.

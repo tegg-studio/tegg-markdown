@@ -77,6 +77,22 @@ describe("Technical Markdown Profile", () => {
     ]);
   });
 
+  it("finds all diagram blocks beside complex brackets without block-math delimiters", () => {
+    const complex = "[".repeat(256) + "]".repeat(256) + " inline $x$\n\n";
+    const mermaid = "```mermaid\nflowchart LR\nA-->B\n```";
+    const graphviz = "```graphviz\ndigraph { a -> b }\n```";
+    const dot = "~~~dot\ndigraph { c -> d }\n~~~";
+    const nested = "````markdown\n```mermaid\nnot a diagram\n```\n````";
+    const source = complex + [mermaid, graphviz, dot, nested].join("\n\n");
+    expect(source).not.toContain("$$");
+    expect(findTechnicalBlocks(source)).toEqual([
+      {kind: "mermaid", source: "flowchart LR\nA-->B", from: source.indexOf(mermaid), to: source.indexOf(mermaid) + mermaid.length},
+      {kind: "graphviz", source: "digraph { a -> b }", from: source.indexOf(graphviz), to: source.indexOf(graphviz) + graphviz.length},
+      {kind: "dot", source: "digraph { c -> d }", from: source.indexOf(dot), to: source.indexOf(dot) + dot.length},
+    ]);
+    expect(findTechnicalBlocks(complex)).toEqual([]);
+  });
+
   it("does not interpret technical examples nested inside a longer code fence", () => {
     const source = "````markdown\n```mermaid\nflowchart LR\nA-->B\n```\n\n$$\nx^2\n$$\n````";
     expect(findTechnicalBlocks(source)).toEqual([]);

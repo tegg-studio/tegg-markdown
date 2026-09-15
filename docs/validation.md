@@ -183,3 +183,28 @@ JS/CSS hashes match the pre-publication artifact. Modern and legacy TypeScript
 resolution, production builds and all 49 Chromium/Firefox/WebKit browser checks
 passed. See [published artifact](npm-release.md#published-artifact). Native OS
 interaction and performance coverage retain their previously documented limits.
+
+## Reliable editing development gate
+
+- `npm run verify:reliable`: typecheck, complete unit/fidelity suite, build and package
+  inventory, CAS, independent packed consumers, three-engine browser workflows, and
+  the independent IndexedDB/conflict UI browser suite.
+- `npm run test:performance:editing`: requires `.validation/baseline-dist` from the
+  recorded unmodified baseline; writes raw production Live Edit measurements.
+- `node scripts/interaction-performance.mjs`: production Editor/UI table and object
+  draft measurements, complex-preview cancellation, eight simultaneous Editors and
+  100 full session/destroy cycles. Writes raw samples and Chromium resource counts
+  to `.validation/interaction-performance-results.json`. Run performance commands
+  sequentially on an otherwise quiet runner; failure remains a failure.
+- `npm run test:performance`: existing Reader relative gate. Keep Reader and settled
+  Live Edit measurements distinct.
+- `tests/fixtures/reliable/fidelity-cases.json`: 30 source constructs × three profiles
+  × LF/CRLF × BOM/no BOM, tested through edits, mode changes and save/reopen.
+- Native Hosts separately run macOS XCTest/WKWebView/window workflows and iPhone/iPad
+  simulator builds/tests against the same immutable SDK dependency.
+
+A test failure, skipped test or unavailable OS permission must remain visible in the
+acceptance report. Browser-created composition/clipboard events prove event handling,
+not a real operating-system IME or clipboard. Physical VoiceOver, real iCloud devices
+and the oldest supported operating systems need their own evidence. No release is
+implied by this development gate.

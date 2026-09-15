@@ -29,4 +29,10 @@ describe("source-first patch contract", () => {
     expect(() => validateSourcePatches("new", [{ from: 0, to: 3, insert: "next", expected: "old" }]))
       .toThrow("no longer matches");
   });
+  it("rejects a patch that would corrupt a Unicode code point",()=>{
+    expect(()=>applySourcePatches("A🐈B",[{from:2,to:3,insert:""}])).toThrow("Unicode code point");
+    expect(()=>applySourcePatches("text",[{from:0,to:0,insert:"\ud800"}])).toThrow("valid Unicode");
+    expect(applySourcePatches("A🐈B",[{from:1,to:3,insert:"👨‍👩‍👧‍👦"}])).toBe("A👨‍👩‍👧‍👦B");
+  });
+
 });

@@ -29,7 +29,11 @@ export class HeadingIndex {
     const starts = [offset];
     for (let i = 0; i < body.length; i++) if (body[i] === "\n") starts.push(offset + i + 1);
     const tokens = parserFor(profile).parse(body, {profile});
-    const remaining = [...this.entries];
+    const used=new Set<string>();
+    const byTitle=new Map<string,{items:OutlineHeading[];index:number}>();
+    const byPosition=new Map<string,OutlineHeading>();
+    const titleKey=(item:{level:number;title:string})=>JSON.stringify([item.level,item.title]);
+    for(const item of this.entries){const key=titleKey(item);let queue=byTitle.get(key);if(!queue){queue={items:[],index:0};byTitle.set(key,queue);}queue.items.push(item);byPosition.set(item.level+":"+item.from,item);}
     const pending: Omit<OutlineHeading, "id">[] = [];
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
@@ -42,14 +46,15 @@ export class HeadingIndex {
     // Reserve unchanged headings first. A new heading inserted at an old
     // position must not steal the identity of an unchanged heading below it.
     const matchedIDs = pending.map(item => {
-      const match = remaining.findIndex(old => old.title === item.title && old.level === item.level);
-      return match < 0 ? null : remaining.splice(match, 1)[0].id;
+      const queue=byTitle.get(titleKey(item)),match=queue?.items[queue.index++];
+      if(match)used.add(match.id);return match?.id??null;
     });
     const next = pending.map((item, index) => {
       let id = matchedIDs[index];
       if (!id) {
-        const match = remaining.findIndex(old => old.from === item.from && old.level === item.level);
-        id = match < 0 ? `heading-${++this.serial}` : remaining.splice(match, 1)[0].id;
+        const match=byPosition.get(item.level+":"+item.from);
+        id=match&&!used.has(match.id)?match.id:`heading-${++this.serial}`;
+        used.add(id);
       }
       return {...item, id};
     });

@@ -234,6 +234,9 @@ export function findTechnicalBlocks(source: string): TechnicalBlock[] {
       from,
       to,
     }));
+  // The block grammar only opens with two dollar signs. Avoid a complete
+  // Markdown parse (including expensive unrelated inline syntax) when absent.
+  if (!source.includes("$$")) return blocks.sort((a, b) => a.from - b.from);
   const lines = source.split("\n");
   const offsets: number[] = []; let offset = 0;
   for (const line of lines) {offsets.push(offset); offset += line.length + 1;}
