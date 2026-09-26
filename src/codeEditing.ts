@@ -1,6 +1,7 @@
+import {undo, redo} from "./selectionHistory";
 import {setUIText, setUILabel} from "./uiContext";
 import {WidgetType, type EditorView} from "@codemirror/view";
-import {undo, redo} from "@codemirror/commands";
+
 import {resourceContext} from "./editorHost";
 import {highlightCode} from "./renderKit";
 import {dispatchSourcePatches} from "./editorPatches";

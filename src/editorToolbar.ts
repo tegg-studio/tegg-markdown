@@ -1,3 +1,4 @@
+import {changeListType, selectedTasks} from "./listCommands";
 import {scriptFormatting} from "./scriptFormatting";
 import {codeSelectionState, formatCodeSelection} from "./codeFormatting";
 import {selectionFormats, selectionFormatting, formatSelection} from "./selectionFormatting";
@@ -122,7 +123,7 @@ function computeToolbarState(state: EditorState): EditorToolbarState {
     highlight: coverage ? coverage.status("highlight") === "on" : inlineRange(state, "highlight") !== null,
     subscript: coverage ? coverage.status("subscript") === "on" : inlineRange(state, "subscript") !== null,
     superscript: coverage ? coverage.status("superscript") === "on" : inlineRange(state, "superscript") !== null,
-    task: lines.every(line => /^\s*[-*+]\s+\[[ xX]\]\s/.test(line.text)),
+    task: selectedTasks(state),
     heading: levels.every(level => level === levels[0]) ? levels[0] : null,
     callout: context.target ? (isKnownCallout(context.target.type) ? resolveCallout(context.target.type).id : context.target.type) : null,
     calloutEnabled: context.enabled,
@@ -147,6 +148,7 @@ function removeInlineFormat(editor: EditorView, command: string) {
 }
 
 export function executeEditorCommand(editor: EditorView, command: string) {
+  if (["list", "orderedList", "task"].includes(command)) {changeListType(editor, command); return;}
   if (command === "callout" || command.startsWith("callout:")) {
     setCalloutType(editor, command === "callout" ? "note" : command.slice(8));
     return;
@@ -294,15 +296,8 @@ export function executeEditorCommand(editor: EditorView, command: string) {
     return;
   }
 
-  const prefixes: Record<string, string> = {
-    task: "- [ ] ",
-    list: "- ",
-    orderedList: "1. ",
-    quote: "> ",
-  };
-  const removingTask = command === "task" && editorToolbarState(editor.state).task;
-  const prefix = removingTask ? "" : prefixes[command];
-  if (prefix === undefined) return;
+  if (command !== "quote") return;
+  const prefix = "> ";
   const transformed = block.split("\n").map((line) => {
     const match = line.match(/^(\s*)(.*)$/);
     if (!match) return `${prefix}${line}`;

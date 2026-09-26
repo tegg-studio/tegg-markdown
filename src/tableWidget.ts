@@ -1,5 +1,6 @@
+import {undo, redo} from "./selectionHistory";
 import {WidgetType, type EditorView} from '@codemirror/view';
-import {undo,redo} from '@codemirror/commands';
+
 import {resourceContext} from './editorHost';
 import {parseMarkdownTable} from './table';
 import {applyTableOperation,copyTableRectangle,nextTablePosition,TableEditingError,type TablePosition,type TableRectangle,type TableOperation} from './tableEditing';

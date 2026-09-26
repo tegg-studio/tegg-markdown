@@ -1,9 +1,10 @@
+import {undo, redo} from "./selectionHistory";
 import {Compartment, StateEffect, type EditorState, type Extension} from "@codemirror/state";
 import {EditorView, type ViewUpdate} from "@codemirror/view";
 import {ensureSyntaxTree} from "@codemirror/language";
 import {getSupportedCommands,getCommandStatus} from "./commandRegistry";
 import {editorToolbarState} from "./editorToolbar";
-import {undoDepth,redoDepth,undo, redo} from "@codemirror/commands";
+import {undoDepth, redoDepth} from "@codemirror/commands";
 import {dispatchSourcePatches} from "./editorPatches";
 import {executeEditorCommand} from "./editorToolbar";
 import {findFrontmatter, findTechnicalBlocks} from "./profile";

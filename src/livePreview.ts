@@ -1,3 +1,7 @@
+import {selectionHistory} from "./selectionHistory";
+import {undo, redo} from "./selectionHistory";
+import {indentList, editListBoundary, deleteListSelection, deleteListContinuation} from "./listCommands";
+import {insertNewlineContinueMarkupCommand} from "@codemirror/lang-markdown";
 import {editingPerformancePolicy} from "./editingBudget";
 import {setUIText, setUILabel} from "./uiContext";
 import {bindEngines} from "./renderEngines";
@@ -10,7 +14,7 @@ import {inlineHtmlFormatting} from "./inlineHtml";
 import {simpleBreakTag, trailingLiveBreak, InlineBreakWidget, deleteLiveBreak, insertLiveBreak} from "./liveBreaks";
 import { liveLinks } from "./liveLinks";
 import { createMetadataPanel, disposeMetadataPanel } from "./metadata";
-import { undo, redo } from "@codemirror/commands";
+
 import {observeSurfaceAppearance} from "./appearance";
 import {inlineMathAt} from "./mathSyntax";
 import {action, openPanel, openObjectViewer, disposeInteractions, scopeIds, enhanceFigures} from "./renderInteraction";
@@ -296,15 +300,18 @@ class TaskWidget extends WidgetType {
     readonly from: number,
     readonly to: number,
     readonly source: string,
+    readonly aligned = false,
+    readonly editable = true,
   ) { super(); }
   eq(other: TaskWidget) {
-    return other.checked === this.checked && other.from === this.from && other.source === this.source;
+    return other.checked === this.checked && other.from === this.from && other.source === this.source && other.aligned === this.aligned && other.editable === this.editable;
   }
 
   toDOM(view: EditorView) {
     const input = document.createElement("input");
     input.type = "checkbox";
     input.checked = this.checked;
+    input.disabled = !this.editable;
     input.className = `cm-live-task ${renderClassNames.task}`;
     input.setAttribute("aria-label", this.checked ? "Completed task" : "Incomplete task");
     input.addEventListener("mousedown", (event) => {
@@ -322,7 +329,11 @@ class TaskWidget extends WidgetType {
       }]);
       view.focus();
     });
-    return input;
+    if (!this.aligned) return input;
+    const marker = document.createElement("span");
+    marker.className = "cm-live-list-marker cm-live-task-marker";
+    marker.append(input);
+    return marker;
   }
 
   destroy(dom: HTMLElement) { widgetCleanup.get(dom)?.(); disposeInteractions(dom); }
@@ -742,6 +753,21 @@ function buildDecorations(view: EditorView): DecorationSet {
   const codeRanges = syntaxRanges(view, new Set(["FencedCode", "CodeBlock", "InlineCode"]));
   const inlineExcluded = syntaxRanges(view, new Set(["InlineCode", "URL", "LinkTitle", "HTMLTag", "Escape"]));
 
+  // Lezer treats a lone nested '-' after a paragraph as an empty list;
+  // CommonMark/Reader treats it as a Setext underline. Do not project a false
+  // bullet or rewrite the source. Keep this ambiguous item directly editable.
+  syntaxTree(view.state).iterate({enter(node) {
+    if (node.name !== "BulletList" || node.node.parent?.name !== "ListItem") return;
+    const paragraph = node.node.prevSibling;
+    const items = node.node.getChildren("ListItem");
+    const mark = items[0]?.getChild("ListMark");
+    if (paragraph?.name !== "Paragraph" || !mark || source.slice(mark.from, mark.to) !== "-"
+        || items[0].to !== mark.to || view.state.doc.lineAt(mark.from).number !== view.state.doc.lineAt(paragraph.to).number + 1) return;
+    const item = node.node.parent;
+    suppressed.push({from:item.from, to:item.to});
+    addLineDecoration(view, ranges, item.from, item.to, "cm-live-list-source");
+  }});
+
   const frontmatter = analysis.frontmatter;
   const explicitSource = view.state.field(metadataSourceState);
   if (frontmatter.to > 0 || explicitSource) {
@@ -957,6 +983,28 @@ function buildDecorations(view: EditorView): DecorationSet {
 
   const quoteDepths = new Map<number, number>();
   const literalReferences = new Set<number>();
+  // Cache each list's ordinal and marker width once; source numbering is preserved.
+  const listMarkers = new Map<number, {text: string; width: number; depth: number; offsets: number[]}>();
+  syntaxTree(view.state).iterate({enter(node) {
+    if (!["BulletList", "OrderedList"].includes(node.name)) return;
+    const items = node.node.getChildren("ListItem");
+    const start = Number(source.slice(items[0]?.getChild("ListMark")?.from ?? 0).match(/^\d+/)?.[0] ?? 1);
+    const width = node.name === "OrderedList" ? String(start + items.length - 1).length + 1 : 1;
+    let depth = 0;
+    for (let ancestor = node.node.parent; ancestor; ancestor = ancestor.parent) {
+      if (ancestor.name === "ListItem") depth++;
+    }
+    const parentItem = node.node.parent?.name === "ListItem" ? node.node.parent : null;
+    const parentMarker = parentItem?.getChild("ListMark");
+    const parentLayout = parentMarker ? listMarkers.get(parentMarker.from) : undefined;
+    const offsets = parentLayout ? [...parentLayout.offsets, parentLayout.width] : [];
+    const columnWidth = Math.max(width, items.some(item => item.getChild("Task")) ? 2 : 1);
+    items.forEach((item, index) => {
+      const mark = item.getChild("ListMark");
+      if (mark) listMarkers.set(mark.from, {text: node.name === "OrderedList" ? `${start + index}.` : "•", width: columnWidth, depth, offsets});
+    });
+  }});
+  const listLines = new Map<number, {width: number; depth: number; offsets: number[]; first: boolean}>();
   let referenceEnvironment: Record<string, unknown> | undefined;
   syntaxTree(view.state).iterate({
     enter(node) {
@@ -964,9 +1012,29 @@ function buildDecorations(view: EditorView): DecorationSet {
       if (isInside(nodeRange, suppressed)) return false;
       const name = node.name;
       if (name === "Document") return;
-      if (name === "Paragraph") {
+      if (name === "Paragraph" || name === "Task") {
         const trailing = trailingLiveBreak(source, node.node);
         if (trailing) ranges.push(Decoration.replace({breakSyntax: true}).range(trailing.from, trailing.to - 1));
+        const item = node.node.parent;
+        const mark = item?.name === "ListItem" ? item.getChild("ListMark") : null;
+        const layout = mark ? listMarkers.get(mark.from) : undefined;
+        // Quoted lists retain their container geometry; code and other block children
+        // are never treated as paragraph indentation.
+        if (layout) {
+          const first = view.state.doc.lineAt(node.from).number;
+          const last = view.state.doc.lineAt(Math.max(node.from, node.to - 1)).number;
+          for (let number = first; number <= last; number++) {
+            const line = view.state.doc.line(number);
+            const isFirst = line.number === view.state.doc.lineAt(mark!.from).number;
+            listLines.set(line.from, {...layout, first: isFirst});
+            if (!isFirst) {
+              const prefix = line.text.match(/^[ \t>]+/)?.[0] ?? "";
+              const afterQuote = prefix.lastIndexOf(">") + 1;
+              const start = afterQuote ? afterQuote + (prefix[afterQuote] === " " ? 1 : 0) : 0;
+              if (prefix.length > start) ranges.push(Decoration.replace({listSyntax: true}).range(line.from + start, line.from + prefix.length));
+            }
+          }
+        }
         if (!isInside(nodeRange, callouts)) addBlockLineDecorations(view, ranges, node.from, node.to,
           `cm-live-paragraph ${renderClassNames.paragraph}`, "cm-live-paragraph");
         return;
@@ -1059,7 +1127,9 @@ function buildDecorations(view: EditorView): DecorationSet {
           }
         }
       } else if (name === "BulletList" || name === "OrderedList") {
-        addBlockLineDecorations(view, ranges, node.from, node.to, "cm-live-list-block", "cm-live-list-block");
+        if (node.node.parent?.name !== "ListItem") {
+          addBlockLineDecorations(view, ranges, node.from, node.to, "cm-live-list-block", "cm-live-list-block");
+        }
       } else if (name === "ListItem") {
         addLineDecoration(view, ranges, node.from, node.to, `cm-live-list-item ${renderClassNames.listItem}`);
       } else if (name === "Table") {
@@ -1124,7 +1194,7 @@ function buildDecorations(view: EditorView): DecorationSet {
         return;
       }
 
-      if (active && !(name === "ListMark" && quoteDepths.has(view.state.doc.lineAt(node.from).from))
+      if (active && name !== "ListMark" && name !== "TaskMarker"
         && !["Link", "Autolink", "StrongEmphasis", "Emphasis", "Strikethrough", "InlineCode"].includes(semantic.name)) return;
 
       if (["EmphasisMark", "StrikethroughMark", "CodeMark"].includes(name)) {
@@ -1134,16 +1204,39 @@ function buildDecorations(view: EditorView): DecorationSet {
           ranges.push(Decoration.replace({}).range(node.from, node.to));
         }
       } else if (name === "TaskMarker") {
-        ranges.push(Decoration.replace({
-          widget: new TaskWidget(/x/i.test(raw), node.from, node.to, raw),
-        }).range(node.from, node.to));
+        const line = view.state.doc.lineAt(node.from);
+        const aligned = listLines.has(line.from);
+        let to = node.to;
+        if (aligned) while (source[to] === " " || source[to] === "\t") to++;
+        if (to === line.to && to > node.to) to--;
+        ranges.push(Decoration.replace({listSyntax: true,
+          widget: new TaskWidget(/x/i.test(raw), node.from, node.to, raw, aligned, !view.state.readOnly),
+        }).range(node.from, to));
       } else if (name === "ListMark") {
-        const following = source.slice(node.to, Math.min(source.length, node.to + 5));
-        if (/^\s+\[[ xX]\]/.test(following)) {
-          ranges.push(Decoration.replace({}).range(node.from, node.to));
+        if (node.node.parent?.getChild("Task")?.getChild("TaskMarker")) {
+          const line = view.state.doc.lineAt(node.from);
+          const prefix = source.slice(line.from, node.from);
+          const plainPrefix = /^[ \t>]*$/.test(prefix);
+          const afterQuote = prefix.lastIndexOf(">") + 1;
+          const prefixFrom = line.from + (afterQuote ? afterQuote + (prefix[afterQuote] === " " ? 1 : 0) : 0);
+          let to = node.to;
+          if (plainPrefix) while (source[to] === " " || source[to] === "\t") to++;
+          ranges.push(Decoration.replace({listSyntax: true}).range(plainPrefix ? prefixFrom : node.from, to));
         } else {
-          const marker = /^\d/.test(raw) ? raw : "•";
-          ranges.push(Decoration.replace({ widget: new MarkerWidget(marker, node.from) }).range(node.from, node.to));
+          const layout = listMarkers.get(node.from);
+          const marker = layout?.text ?? (/^\d/.test(raw) ? raw : "•");
+          const line = view.state.doc.lineAt(node.from);
+          const prefix = source.slice(line.from, node.from);
+          const plainPrefix = /^[ \t>]*$/.test(prefix);
+          const afterQuote = prefix.lastIndexOf(">") + 1;
+          const prefixFrom = line.from + (afterQuote ? afterQuote + (prefix[afterQuote] === " " ? 1 : 0) : 0);
+          let to = node.to;
+          while (source[to] === " " || source[to] === "\t") to++;
+          // Leave a real insertion point on an empty item.
+          if (to === line.to && to > node.to) to--;
+          if (layout && plainPrefix) listLines.set(line.from, {...layout, first: true});
+          ranges.push(Decoration.replace({listSyntax: true, widget: new MarkerWidget(marker, to)})
+            .range(plainPrefix ? prefixFrom : node.from, to));
         }
       } else if (name === "QuoteMark") {
         ranges.push(Decoration.replace({}).range(node.from, node.to));
@@ -1153,6 +1246,11 @@ function buildDecorations(view: EditorView): DecorationSet {
       }
     },
   });
+
+  for (const [from, layout] of listLines) {
+    ranges.push(Decoration.line({class: `cm-live-list-layout${layout.first ? " cm-live-list-row" : ""}`,
+      attributes: {style: `--md-list-depth: ${layout.depth}; --md-list-offset: ${layout.offsets.map(width => `max(1.5em, ${width}ch + .5em)`).join(" + ") || "0px"}; --md-list-marker-width: ${layout.width}ch`}}).range(from));
+  }
 
   for (const [from, depth] of quoteDepths) {
     ranges.push(Decoration.line({class: `cm-live-quote-line ${renderClassNames.quote}`,
@@ -1236,7 +1334,7 @@ const livePreviewDecorations = ViewPlugin.fromClass(class {
   decorations: (plugin) => plugin.decorations,
   provide: (plugin) => EditorView.atomicRanges.of(view =>
     view.plugin(plugin)?.decorations.update({
-      filter: (_from, _to, value) => value.spec.quoteSyntax === true || value.spec.literalSyntax === true || value.spec.emojiSyntax === true || value.spec.headingSyntax === true || value.spec.breakSyntax === true || value.spec.inlineSyntax === true,
+      filter: (_from, _to, value) => value.spec.listSyntax === true || value.spec.quoteSyntax === true || value.spec.literalSyntax === true || value.spec.emojiSyntax === true || value.spec.headingSyntax === true || value.spec.breakSyntax === true || value.spec.inlineSyntax === true,
     }) ?? Decoration.none),
 });
 
@@ -1368,9 +1466,13 @@ export function editQuoteBoundary(view: EditorView, enter: boolean): boolean {
   return true;
 }
 
-export const livePreview = [EditorView.clipboardOutputFilter.of(literalClipboardText), Prec.highest(keymap.of([
-  {key: "Enter", run: view => editQuoteBoundary(view, true)},
+const continueLiveList = insertNewlineContinueMarkupCommand({nonTightLists: false});
+
+export const livePreview = [selectionHistory,EditorView.clipboardOutputFilter.of(literalClipboardText), Prec.highest(keymap.of([
+  {key: "Enter", run: view => !view.composing && (editListBoundary(view, true) || editQuoteBoundary(view, true) || continueLiveList(view))},
   {key: "Shift-Enter", run: insertLiveBreak},
-  {key: "Backspace", run: view => editQuoteBoundary(view, false) || deleteScriptContent(view, true) || deleteBesideInlineSyntax(view, true) || deleteLiveBreak(view, true)},
-  {key: "Delete", run: view => deleteScriptContent(view, false) || deleteBesideInlineSyntax(view, false) || deleteLiveBreak(view, false)},
+  {key: "Tab", run: view => indentList(view)},
+  {key: "Shift-Tab", run: view => indentList(view, true)},
+  {key: "Backspace", run: view => deleteListSelection(view) || editListBoundary(view, false) || editQuoteBoundary(view, false) || deleteScriptContent(view, true) || deleteBesideInlineSyntax(view, true) || deleteLiveBreak(view, true) || deleteListContinuation(view)},
+  {key: "Delete", run: view => deleteListSelection(view) || deleteScriptContent(view, false) || deleteBesideInlineSyntax(view, false) || deleteLiveBreak(view, false)},
 ])), metadataSourceState, livePreviewDecorations, livePreviewMouseSelection, liveLinks];

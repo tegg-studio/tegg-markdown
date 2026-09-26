@@ -1,9 +1,10 @@
 import {resourceContext} from "./editorHost";
+import {markdownParser} from "./markdownParser";
 import {literalClipboardText} from "./literalEditing";
 /** @vitest-environment jsdom */
 
 import { history, cursorCharLeft, deleteCharBackward, undo, insertNewline } from "@codemirror/commands";
-import { EditorState } from "@codemirror/state";
+import { EditorState, StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { markdown } from "@codemirror/lang-markdown";
 import {ensureSyntaxTree} from "@codemirror/language";
@@ -71,6 +72,94 @@ function verify(markers: string[], source: string, assertion: (parent: HTMLEleme
 afterEach(() => {
   mounted.splice(0).forEach((view) => view.destroy());
   document.body.replaceChildren();
+});
+
+describe("stable live lists", () => {
+  const combinations = [
+    '- a\n- b', '* a\n* b', '+ a\n+ b', '0. a\n1. b', '009. a\n1. b',
+    '9. a\n1. b\n1. c', '999999999. a\n1. b', '1) a\n1) b',
+    '1. a\n2) b', '- a\n* b\n+ c', '1. a\n\n8. b',
+    '100. parent\n     - child\n         - grandchild',
+    '- parent\n    100. child\n    1. next', '- parent\n\t- child',
+    '- first\n  continuation\n\n  next paragraph\n\n- last',
+    '- first\nlazy continuation\n- next', '> - first\n>     - child\n> - last',
+    '> 100. first\n> 1. second', '- > quoted\n  > continuation\n- last',
+    '- [ ] todo\n- [x] done\n- [X] done', '- [ ] parent\n    - [ ] child',
+    '- a\n    - [x] task\n- b', '- # heading\n- **bold** and `code`',
+    '- item\n\n      code\n\n- last', '- item\n\n  ```js\n  - literal\n  ```\n\n- next',
+    '- a\n\n  paragraph\n\n  > quote\n\n- last',
+    '- [link](https://example.com)\n- ~~strike~~ and ==highlight==',
+  ];
+  it.each(combinations)('matches Reader list semantics without rewriting %j', source => {
+    const expected = document.createElement('div');
+    expected.innerHTML = markdownParser.render(source);
+    const labels = [...expected.querySelectorAll('li')].filter(li => !li.classList.contains('task-list-item')).map(li => {
+      const list = li.parentElement!;
+      return list.tagName === 'OL' ? `${Number(list.getAttribute('start') ?? 1) + [...list.children].indexOf(li)}.` : '•';
+    });
+    const {parent, view} = mount(source, 0);
+    const offsets = [0, ...source.split('\n').reduce<number[]>((a, line) => [...a, (a.at(-1) ?? -1) + line.length + 1], []), source.length];
+    for (const anchor of offsets.filter(n => n <= source.length)) {
+      view.dispatch({selection:{anchor}});
+      expect([...parent.querySelectorAll('.cm-live-list-marker:not(.cm-live-task-marker)')].map(n => n.textContent)).toEqual(labels);
+      expect(view.state.doc.toString()).toBe(source);
+    }
+    view.dispatch({selection:{anchor:0, head:source.length}});
+    expect([...parent.querySelectorAll('.cm-live-list-marker:not(.cm-live-task-marker)')].map(n => n.textContent)).toEqual(labels);
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it("keeps ambiguous nested dash / Setext source editable instead of inventing a bullet", () => {
+    const source = "- first\n  -\n- next";
+    const {parent, view} = mount(source);
+    expect(parent.querySelectorAll(".cm-live-list-source")).toHaveLength(2);
+    expect(parent.querySelectorAll(".cm-live-list-marker")).toHaveLength(1);
+    expect(parent.textContent).toContain("- first");
+    expect(view.state.doc.toString()).toBe(source);
+    view.dispatch({changes:{from:source.indexOf("\n- next"),insert:" child"}});
+    expect(parent.querySelector(".cm-live-list-source")).toBeNull();
+    expect(parent.querySelectorAll(".cm-live-list-marker")).toHaveLength(3);
+  });
+
+  it.each(["- first", "100. first", "- [ ] first", "> - first", "- parent\n    - first", "-\tfirst"])("round trips a list hard break in %j", source => {
+    const {view} = mount(source);
+    expect(insertLiveBreak(view)).toBe(true);
+    expect(deleteLiveBreak(view,true)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(insertLiveBreak(view)).toBe(true);
+    const head = view.state.selection.main.head;
+    view.dispatch({changes:{from:head,insert:"continued"},selection:{anchor:head}});
+    expect(deleteLiveBreak(view,true)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source + "continued");
+  });
+
+  it("keeps bullets rendered at every cursor position and preserves source", () => {
+    const source = "- one\n    - two\n        - three\n            - four\n- back";
+    const {parent, view} = mount(source, 0);
+    for (let anchor = 0; anchor <= source.length; anchor++) {
+      view.dispatch({selection: {anchor}});
+      expect([...parent.querySelectorAll('.cm-live-list-marker:not(.cm-live-task-marker)')].map(n => n.textContent)).toEqual(Array(5).fill('•'));
+      expect(view.state.doc.toString()).toBe(source);
+    }
+    expect([...parent.querySelectorAll<HTMLElement>('.cm-live-list-layout')].map(n => n.style.getPropertyValue('--md-list-depth'))).toEqual(['0','1','2','3','0']);
+    expect(parent.querySelectorAll('.cm-live-list-block-first')).toHaveLength(1);
+  });
+  it("numbers siblings from their list start, independently of nested lists", () => {
+    const source = '1. one\n1. two\n\n    4. nested\n    1. next\n\n100. same list\n\nBreak\n\n100. new list\n1. next';
+    const {parent, view} = mount(source, 0);
+    expect([...parent.querySelectorAll('.cm-live-list-marker:not(.cm-live-task-marker)')].map(n => n.textContent)).toEqual(['1.','2.','4.','5.','3.','100.','101.']);
+    expect(view.state.doc.toString()).toBe(source);
+    const last = [...parent.querySelectorAll<HTMLElement>('.cm-live-list-layout')].at(-1)!;
+    expect(last.style.getPropertyValue('--md-list-marker-width')).toBe('4ch');
+  });
+  it("aligns continuation paragraphs without hiding code indentation or real blank lines", () => {
+    const source = '- first\n  continuation\n\n  another paragraph\n\n      code\n\nend';
+    const {parent, view} = mount(source);
+    expect(parent.querySelectorAll('.cm-live-list-layout')).toHaveLength(3);
+    expect(parent.querySelectorAll('.cm-live-list-row')).toHaveLength(1);
+    expect(parent.querySelector('.cm-live-code-line')?.textContent).toContain('      code');
+    expect(view.state.doc.toString()).toBe(source);
+  });
 });
 
 describe("Live Edit syntax contract", () => {
@@ -1080,4 +1169,24 @@ describe("code block direct editing", () => {
     input.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true,cancelable:true}));
     expect(view.state.doc.toString()).toBe("```text\n    a\n```");
   });
+});
+
+
+it("keeps list widgets and hard breaks read-only when editing is disabled",()=>{
+  const {view,parent}=mount("- [ ] first");
+  view.dispatch({effects:StateEffect.appendConfig.of(EditorState.readOnly.of(true))});
+  const checkbox=parent.querySelector<HTMLInputElement>("input[type=checkbox]")!;
+  expect(checkbox.disabled).toBe(true);
+  checkbox.click();
+  expect(insertLiveBreak(view)).toBe(false);
+  expect(deleteLiveBreak(view,true)).toBe(false);
+  expect(view.state.doc.toString()).toBe("- [ ] first");
+});
+it("leaves IME composition in a list to the platform",()=>{
+  const {view}=mount("- 中文");
+  Object.defineProperty(view,"composing",{get:()=>true,configurable:true});
+  expect(insertLiveBreak(view)).toBe(false);
+  expect(deleteLiveBreak(view,true)).toBe(false);
+  executeEditorCommand(view,"orderedList");
+  expect(view.state.doc.toString()).toBe("- 中文");
 });

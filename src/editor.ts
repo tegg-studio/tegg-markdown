@@ -1,3 +1,4 @@
+import {undo, redo} from "./selectionHistory";
 import {detectNewlinePolicy} from "./newlinePolicy";
 import {editingPerformancePolicy} from "./editingBudget";
 import {createDocumentConflict,planDocumentReconciliation,type DocumentConflict,type ConflictDecision,type DocumentVersion,type ReconciliationPlan} from "./documentDiff";
@@ -16,7 +17,7 @@ import {Compartment, EditorState} from "@codemirror/state";
 import {EditorView, keymap} from "@codemirror/view";
 import {markdown} from "@codemirror/lang-markdown";
 import {GFM} from "@lezer/markdown";
-import {indentWithTab, undo, redo, undoDepth, redoDepth} from "@codemirror/commands";
+import {indentWithTab, undoDepth, redoDepth} from "@codemirror/commands";
 import {editorSetup} from "./editorSetup";
 import {livePreview} from "./livePreview";
 import {resourceContext} from "./editorHost";

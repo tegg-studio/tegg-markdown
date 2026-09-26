@@ -1,0 +1,27 @@
+
+/* List indentation belongs to the rendered row, never to visible source spaces.
+   The negative first-line indent reserves a marker column for hanging wraps. */
+.tegg-surface .cm-content .cm-line.cm-live-list-layout {
+  padding-inline-start: calc(var(--md-list-offset) + var(--md-list-marker-width) + .5em);
+  text-indent: 0;
+  padding-top: 0;
+}
+.tegg-surface .cm-content .cm-line.cm-live-list-layout.cm-live-list-row {
+  text-indent: calc(-1 * (var(--md-list-marker-width) + .5em));
+}
+.tegg-surface .cm-live-list-layout .cm-live-list-marker {
+  display: inline-block; width: calc(var(--md-list-marker-width) + .5em); min-width: 0;
+  box-sizing: border-box; padding-inline-end: .5em; text-align: end;
+  text-indent: 0; color: var(--text); font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.tegg-surface .cm-content .cm-live-list-layout .cm-live-task {
+  width: 1em; height: 1em; margin: 0; vertical-align: -.1em;
+}
+
+.tegg-surface .cm-content .cm-line.cm-live-list-layout.cm-live-quote-line {
+  padding-inline-start: calc(var(--md-quote-depth) * 20px + var(--md-list-offset) + var(--md-list-marker-width) + .5em);
+}
+
+.tegg-surface .cm-line.cm-live-list-source { font-family: var(--font-mono, monospace); }
