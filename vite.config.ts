@@ -4,9 +4,9 @@ import {readFileSync} from "node:fs";
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 export default defineConfig({
   plugins: [{name: "shared-interaction-style", generateBundle() {
-    const base = ["styles.css", "sdk.css", "interaction.css", "editingUI.css", "conflictUI.css", "tableEditing.css", "listPresentation.css"].map(name => readFileSync(new URL(`./src/${name}`, import.meta.url), "utf8")).join("\n");
+    const base = ["styles.css", "sdk.css", "interaction.css", "editingUI.css", "conflictUI.css", "tableEditing.css", "listPresentation.css", "commandSurface.css"].map(name => readFileSync(new URL(`./src/${name}`, import.meta.url), "utf8")).join("\n");
     this.emitFile({type:"asset",fileName:"editor.css",source:base});
-    this.emitFile({type:"asset",fileName:"ui.css",source:["editingUI.css","conflictUI.css"].map(name=>readFileSync(new URL(`./src/${name}`,import.meta.url),"utf8")).join("\n")});
+    this.emitFile({type:"asset",fileName:"ui.css",source:["editingUI.css","conflictUI.css","tableEditing.css","commandSurface.css"].map(name=>readFileSync(new URL(`./src/${name}`,import.meta.url),"utf8")).join("\n")});
     const reader = postcss.parse(base);
     reader.walkRules(rule => {if(!rule.selectors) return; const selectors = rule.selectors.filter(selector => !/\.tegg-sdk-editor|\.cm-|\[data-layout=.?host.?\].*cm-/.test(selector)); if(selectors.length) rule.selectors=selectors; else rule.remove();});
     this.emitFile({type:"asset",fileName:"reader.css",source:reader.toString()});

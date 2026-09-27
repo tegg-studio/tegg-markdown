@@ -9,6 +9,7 @@ type PatchDispatchOptions = {
   scrollIntoView?: boolean;
   isolateHistory?: boolean;
   preserveSelection?: boolean;
+  userEvent?: string;
 };
 
 /** Keeps CodeMirror as the draft owner while all UI actions use SourcePatch. */
@@ -23,6 +24,7 @@ export function dispatchSourcePatches(
   view.dispatch({
     changes: ordered.map(({ from, to, insert }) => ({ from, to, insert })),
     selection: options.selection,
+    userEvent: options.userEvent,
     effects: options.preserveSelection && options.selection ? restoreSelection.of(EditorSelection.single(options.selection.anchor, options.selection.head)) : undefined,
     scrollIntoView: options.scrollIntoView,
     annotations: options.isolateHistory ? isolateHistory.of("full") : undefined,

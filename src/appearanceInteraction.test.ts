@@ -12,7 +12,7 @@ it("keeps an open viewer and operation state across actual surface appearance ch
  const r=root(),reader=new TechnicalMarkdownReader(r);
  await reader.render({source:'```mermaid\nflowchart LR\nA-->B\n```'});
  button(r,'View diagram').click();const panel=r.querySelector('dialog')!;
- button(panel,'100%').click();button(panel,'+').click();
+ button(panel,'Actual size').click();button(panel,'+').click();
  const stage=panel.querySelector<HTMLElement>('.md-object-stage')!;stage.scrollLeft=180;stage.scrollTop=40;
  const details=panel.querySelector('details')!;details.open=true;
  const background=panel.querySelector('select')!;background.value='#fff';background.dispatchEvent(new Event('change'));

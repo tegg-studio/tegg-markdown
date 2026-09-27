@@ -262,3 +262,83 @@ test('parent split keeps children with the tail and the caret before that tail',
   expect(await page.evaluate(()=>(window as any).host.instance.selection().range)).toEqual({from:7,to:7});
   await expect(page.locator('.cm-live-list-row').nth(2)).toHaveCSS('--md-list-depth','1');
 });
+
+
+for (const [label, lead, prefix] of [
+ ['loose bullet', '- first', '    '],
+ ['wide ordered', '100. first', '     '],
+ ['nested', '- parent\n    - first', '      '],
+ ['quoted list', '> - first', '>   '],
+]) test(`container blocks: ${label} align, edit and retain ownership`, async ({page}) => {
+ const code='```python\nprint("value")\n```';
+ const source=lead+'\n'+prefix+'\n'+prefix+'second paragraph\n'+prefix+'\n'+prefix+'> quoted\n'+prefix+'\n'+code.split('\n').map(line=>prefix+line).join('\n')+'\n\n- next';
+ await openList(page,source,460);
+ const input=page.getByRole('textbox',{name:/Code content|代码内容/});
+ await expect(input).toHaveValue('print("value")');
+ const box=page.locator('.md-code-editor');
+ const paragraph=page.locator('.cm-line').filter({hasText:'second paragraph'});
+ const geometry=await paragraph.evaluate(el=>{
+  const range=document.createRange();range.selectNodeContents(el);
+  return {text:range.getBoundingClientRect().left};
+ });
+ const rect=await box.boundingBox();
+ expect(Math.abs(rect!.x-geometry.text)).toBeLessThan(2);
+ const quote=page.locator('.cm-live-quote-line').filter({hasText:'quoted'});
+ const quoteText=await quote.evaluate(el=>{const r=document.createRange();r.selectNodeContents(el);return r.getBoundingClientRect().left;});
+ expect(quoteText-geometry.text).toBeGreaterThan(15);
+ expect(quoteText-geometry.text).toBeLessThan(25);
+ await input.fill('print("changed")\n    indented');
+ await expect.poll(()=>sourceOf(page)).toBe(source.replace(prefix+'print("value")',prefix+'print("changed")\n'+prefix+'    indented'));
+ await page.getByRole('combobox',{name:/Code language|代码语言/}).selectOption('json');
+ const changed=await sourceOf(page);
+ expect(changed).toContain(prefix+'```json');
+ await input.focus();
+ await input.press('ControlOrMeta+End');
+ await input.press('Enter');
+ await input.press('Tab');
+ await input.press('X');
+ expect(await input.inputValue()).toContain('\n    X');
+ expect(await sourceOf(page)).toContain('\n'+prefix+'    X\n'+prefix+'```');
+ for(let round=0;round<3;round++) {
+  const edited=await sourceOf(page);
+  await page.evaluate(()=>(window as any).host.instance.command('undo'));
+  await page.evaluate(()=>(window as any).host.instance.command('redo'));
+  expect(await sourceOf(page)).toBe(edited);
+ }
+ const final=await sourceOf(page);
+ await page.evaluate(()=>(window as any).host.instance.setMode('source'));
+ await page.evaluate(()=>(window as any).host.instance.setMode('live'));
+ await expect(input).toHaveValue('print("changed")\n    indented\n    X');
+ expect(await sourceOf(page)).toBe(final);
+});
+
+test('container blocks: whole-item indent and outdent preserve embedded code',async({page})=>{
+ const source='- parent\n- first\n\n  second paragraph\n\n  > quoted\n\n  ```python\n  print("value")\n  ```\n\n- next';
+ await openList(page,source);
+ await page.locator('.cm-live-list-marker').nth(1).click();
+ for(let round=0;round<3;round++) {
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('textbox',{name:/Code content|代码内容/})).toHaveValue('print("value")');
+  await page.keyboard.press('Shift+Tab');
+  expect(await sourceOf(page)).toBe(source);
+ }
+});
+
+
+for (const [label,source,body] of [
+ ['optional fence indent','- item\n\n    ```python\n  short\n    ```','short'],
+ ['quoted blank line','- item\n\n  > ```python\n  > a\n  >\n  > b\n  > ```','a\n\nb'],
+ ['indented code','- item\n\n      a\n          b','a\n    b'],
+]) test(`container blocks: ${label} preserves code and siblings`, async({page})=>{
+ await openList(page,source+'\n\n- next');
+ const input=page.getByRole('textbox',{name:/Code content|代码内容/});
+ await expect(input).toHaveValue(body);
+ await input.fill(body+'\nlast');
+ await page.getByRole('combobox',{name:/Code language|代码语言/}).selectOption('swift');
+ await expect(input).toHaveValue(body+'\nlast');
+ await expect(page.locator('.cm-live-list-marker')).toHaveText(['•','•']);
+ expect(await sourceOf(page)).toContain('- next');
+ await input.press('ControlOrMeta+z');
+ await input.press('ControlOrMeta+z');
+ expect(await sourceOf(page)).toBe(source+'\n\n- next');
+});

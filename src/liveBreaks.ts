@@ -21,14 +21,19 @@ export class InlineBreakWidget extends WidgetType {
 
 // Preserve the list/quote container, but never repeat a task checkbox.
 function listContinuationPrefix(view: EditorView, node: SyntaxNode | null): string {
+  const original = node;
   while (node && node.name !== "ListItem") node = node.parent;
   const mark = node?.getChild("ListMark");
-  if (!mark) return "";
-  const first = view.state.doc.lineAt(mark.from);
-  const before = view.state.sliceDoc(first.from, mark.from);
-  const tail = view.state.sliceDoc(mark.to, first.to).match(/^[ \t]+/)?.[0] ?? " ";
-  const width = countColumn(before + view.state.sliceDoc(mark.from, mark.to) + tail, 4) - countColumn(before, 4);
-  return before + " ".repeat(width);
+  if (mark) {
+    const first = view.state.doc.lineAt(mark.from);
+    const before = view.state.sliceDoc(first.from, mark.from);
+    const tail = view.state.sliceDoc(mark.to, first.to).match(/^[ \t]+/)?.[0] ?? " ";
+    const width = countColumn(before + view.state.sliceDoc(mark.from, mark.to) + tail, 4) - countColumn(before, 4);
+    return before + " ".repeat(width);
+  }
+  if (!original) return "";
+  const first = view.state.doc.lineAt(original.from);
+  return view.state.sliceDoc(first.from, original.from).match(/^[ \t]*(?:>[ \t]?)+/)?.[0] ?? "";
 }
 
 export function deleteLiveBreak(view: EditorView, backwards: boolean) {
@@ -69,11 +74,10 @@ export function insertLiveBreak(view: EditorView) {
   for (let node = tree.resolveInner(from, from === view.state.doc.lineAt(from).from ? 1 : -1); node; node = node.parent!) {
     if (["FencedCode", "CodeBlock", "InlineCode", "HTMLBlock", "Table"].includes(node.name)) return false;
     if (node.name === "ListItem" && !item) item = node;
-    if (node.name === "Blockquote" && !item) return false;
     if (["Paragraph", "Task"].includes(node.name) && to <= node.to) paragraph = true;
   }
   if (!paragraph) return false;
-  const prefix = listContinuationPrefix(view, item);
+  const prefix = listContinuationPrefix(view, item ?? tree.resolveInner(from, from === view.state.doc.lineAt(from).from ? 1 : -1));
   const insert = "\\\n" + prefix;
   view.dispatch({changes: {from, to, insert}, selection: {anchor: from + insert.length}, annotations: isolateHistory.of("full"), userEvent: "input"});
   return true;

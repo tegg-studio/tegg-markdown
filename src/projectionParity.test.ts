@@ -184,10 +184,10 @@ describe("Reader and Live Edit render parity", () => {
     expect(editor.querySelector(`.${renderClassNames.code} .hljs-keyword`)?.textContent).toBe("struct");
 
     const readerCallout = reader.querySelector(".callout");
-    const editorCallout = editor.querySelector(".cm-live-callout");
-    expect(editorCallout?.querySelector(".callout-title")?.textContent)
+    const editorCallout = editor.querySelector(".cm-live-callout-source");
+    expect(editorCallout?.querySelector(".cm-live-callout-title")?.textContent)
       .toBe(readerCallout?.querySelector(".callout-title")?.textContent);
-    expect(editorCallout?.querySelector("p")?.textContent)
+    expect(editor.querySelector(".cm-live-callout-source-last")?.textContent)
       .toBe(readerCallout?.querySelector("p")?.textContent);
   });
 });

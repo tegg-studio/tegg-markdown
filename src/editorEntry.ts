@@ -20,3 +20,10 @@ export type {NewlinePolicy} from "./newlinePolicy";
 export {applySourcePatches,validateSourcePatches,SourcePatchError} from "./sourcePatch";
 export type {SourcePatch,SourceRange} from "./sourcePatch";
 export * from "./controlledExtensions";
+
+export {focusedTableCell,focusedTableToolbarState,tableWidgetOwnsFocus,tableWidgetIsComposing,executeFocusedTableCommand} from "./tableWidget";
+export {focusCodeAtSelection} from "./codeEditing";
+export {blockContext} from "./blockContext";
+export {planStructuralInsert,planHeadingTransform} from "./structuralCommands";
+
+export {clearPendingInlineStyle} from "./pendingInlineStyle";

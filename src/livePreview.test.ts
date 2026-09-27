@@ -46,14 +46,14 @@ beforeAll(() => {
 const mounted: EditorView[] = [];
 const covered = new Set<string>();
 
-function mount(source: string, cursor = source.length, profile: "tegg" | "github" | "gfm" = "tegg") {
+function mount(source: string, cursor = source.length, profile: "tegg" | "github" | "gfm" = "tegg", readOnly = false) {
   const parent = document.createElement("div");
   document.body.append(parent);
   const view = new EditorView({
     state: EditorState.create({
       doc: source,
       selection: { anchor: cursor },
-      extensions: [history(), markdown({ extensions: GFM }), resourceContext.of({documentPath:"",profile}), livePreview],
+      extensions: [history(), markdown({ extensions: GFM }), ...(readOnly ? [EditorState.readOnly.of(true)] : []), resourceContext.of({documentPath:"",profile}), livePreview],
     }),
     parent,
   });
@@ -155,9 +155,9 @@ describe("stable live lists", () => {
   it("aligns continuation paragraphs without hiding code indentation or real blank lines", () => {
     const source = '- first\n  continuation\n\n  another paragraph\n\n      code\n\nend';
     const {parent, view} = mount(source);
-    expect(parent.querySelectorAll('.cm-live-list-layout')).toHaveLength(3);
+    expect(parent.querySelectorAll('.cm-live-list-layout')).toHaveLength(4);
     expect(parent.querySelectorAll('.cm-live-list-row')).toHaveLength(1);
-    expect(parent.querySelector('.cm-live-code-line')?.textContent).toContain('      code');
+    expect(parent.querySelector('textarea')?.value).toBe('code');
     expect(view.state.doc.toString()).toBe(source);
   });
 });
@@ -633,9 +633,9 @@ describe("Live Edit syntax contract", () => {
       expect(root.textContent).not.toContain("[[Target");
     });
     verify(["callout"], "> [!WARNING] Warning\n> Handle carefully.\n\nend", (root) => {
-      const callout = root.querySelector(".cm-live-callout-warning");
-      expect(callout?.querySelector(".callout-title")?.textContent).toBe("Warning");
-      expect(callout?.querySelector("p")?.textContent).toBe("Handle carefully.");
+      const callout = root.querySelector(".cm-live-callout-source-warning");
+      expect(callout?.querySelector(".cm-live-callout-title")?.textContent).toBe("Warning");
+      expect(root.querySelector(".cm-live-callout-source-last")?.textContent).toContain("Handle carefully.");
       expect(callout?.textContent).not.toContain("[!WARNING]");
     });
     verify(["math-inline", "math-block"], "Inline $E=mc^2$\n\n$$\nx^2\n$$\n\nend", (root) => {
@@ -665,7 +665,7 @@ describe("Live Edit syntax contract", () => {
     view.focus();
     view.dispatch({selection: {anchor: source.length}});
     expect(parent.querySelector('.cm-live-callout-source[data-callout-kind="warning"]')).not.toBeNull();
-    expect(parent.querySelector('.callout-editor-header strong')?.textContent).toBe("Careful");
+    expect(parent.querySelector('.cm-live-callout-title')?.textContent).toBe("Careful");
     expect(parent.querySelectorAll('.callout-type-button')).toHaveLength(1);
     view.dispatch({changes: {from: source.length, insert: "!"}});
     expect(parent.querySelector('.callout-type-button')).not.toBeNull();
@@ -686,7 +686,7 @@ describe("Live Edit syntax contract", () => {
     expect(view.state.doc.toString()).toBe(source);
     expect(view.state.selection.main.head).toBe(source.length);
     view.dispatch({selection: {anchor: source.indexOf("note")}});
-    expect(parent.textContent).toContain("[!note]");
+    expect(parent.textContent).not.toContain("[!note]");
     expect(parent.querySelectorAll('.callout-type-button')).toHaveLength(2);
   });
 
@@ -1157,8 +1157,12 @@ describe("code block direct editing", () => {
   it("does not expose quote prefixes to the direct code editor", () => {
     const source="> ```swift\n> let a = 1\n> ```";
     const {view,parent}=mount(source);
-    expect(parent.querySelector("textarea")).toBeNull();
+    const input=parent.querySelector("textarea")!;
+    expect(input.value).toBe("let a = 1");
     expect(view.state.doc.toString()).toBe(source);
+    input.value="let a = 2\n    nested";
+    input.dispatchEvent(new Event("input"));
+    expect(view.state.doc.toString()).toBe("> ```swift\n> let a = 2\n>     nested\n> ```");
   });
   it("inserts indentation with Tab and finishes with Escape without dropping content", () => {
     const {view,parent}=mount("```text\na\n```");
@@ -1182,6 +1186,210 @@ it("keeps list widgets and hard breaks read-only when editing is disabled",()=>{
   expect(deleteLiveBreak(view,true)).toBe(false);
   expect(view.state.doc.toString()).toBe("- [ ] first");
 });
+
+describe("shared semantic projection", () => {
+  it("keeps a complete details body inside its closed container across blank lines", () => {
+    const source = "<details>\n<summary>More</summary>\n\nFolded content.\n\n</details>\n\nend";
+    const {parent, view} = mount(source);
+    const details = parent.querySelector(".cm-live-html-block details");
+    expect(details?.textContent).toContain("Folded content.");
+    expect(details?.hasAttribute("open")).toBe(false);
+    expect(parent.textContent).toContain("end");
+    view.focus();
+    view.dispatch({selection: {anchor: source.indexOf("Folded")}});
+    expect(view.state.doc.toString()).toBe(source);
+    expect(parent.textContent).toContain("Folded content.");
+    view.dispatch({selection: {anchor: source.length}});
+    expect(parent.querySelector(".cm-live-html-block details")?.textContent).toContain("Folded content.");
+  });
+
+  it("keeps nested details together and leaves an unclosed container as visible source", () => {
+    const nested = "<details>\n<summary>Outer</summary>\n\n<details>\n<summary>Inner</summary>\n\nchild\n</details>\n\nouter\n</details>\n\nafter";
+    const complete = mount(nested, nested.length).parent;
+    expect(complete.querySelectorAll(".cm-live-html-block details")).toHaveLength(2);
+    expect(complete.querySelector("details details")?.textContent).toContain("child");
+    expect(complete.textContent).toContain("after");
+    const invalid = "<details>\n<summary>Broken</summary>\n\nbody\n\nafter";
+    const fallback = mount(invalid).parent;
+    expect(fallback.querySelector(".cm-live-html-block details")).toBeNull();
+    expect(fallback.textContent).toContain("<details>");
+    expect(fallback.textContent).toContain("after");
+  });
+
+  it("does not pair details tags inside a fenced example with a later container", () => {
+    const source = "```html\n<details>\n```\n\n<details>\n<summary>Actual</summary>\n\nbody\n</details>\n\nafter";
+    const {parent, view} = mount(source);
+    expect(parent.querySelectorAll(".cm-live-html-block details")).toHaveLength(1);
+    expect(parent.querySelector(".cm-live-html-block details")?.textContent).toContain("body");
+    expect(parent.textContent).toContain("after");
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it("leaves a details container in source when its closing line has adjacent text", () => {
+    const source = "<details>\n<summary>More</summary>\n\nbody\n</details> trailing\n\nafter";
+    const {parent, view} = mount(source, source.length);
+    expect(parent.querySelector(".cm-live-html-block details")).toBeNull();
+    expect(parent.textContent).toContain("</details> trailing");
+    expect(parent.textContent).toContain("after");
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it("projects only unescaped footnote references and parsed definition descriptions", () => {
+    const source = "Literal \\[^a] and real[^a]\n\n[^a]: Note\n\n: ordinary text\n\nTerm\n: definition";
+    const {parent} = mount(source);
+    expect(parent.querySelectorAll(".cm-live-footnote-ref")).toHaveLength(1);
+    expect(parent.textContent).toContain("[^a]");
+    expect(parent.querySelectorAll(".cm-live-definition-description")).toHaveLength(1);
+    expect(parent.querySelector(".cm-live-definition-description")?.textContent).toContain("definition");
+    expect(parent.textContent).toContain(": ordinary text");
+    expect(mount("Literal \\[^a]\n\n[^a]: Note", 0, "gfm").parent.querySelector(".cm-live-footnote-ref")).toBeNull();
+  });
+});
+
+describe("natural callout and object editing", () => {
+  it("keeps a nested callout projected through title edits, body edits, and undo", () => {
+    const source = "> [!note] Outer\n> body\n>\n> > [!tip] Inner\n> > child";
+    const {parent, view} = mount(source, source.indexOf("Outer") + 2);
+    view.focus();
+    for (const anchor of [source.indexOf("note"), source.indexOf("Outer"), source.indexOf("body"), source.length]) {
+      view.dispatch({selection: {anchor}});
+      expect(parent.textContent).not.toContain("[!note]");
+      expect(parent.textContent).not.toContain("[!tip]");
+      expect(parent.querySelectorAll(".callout-type-button")).toHaveLength(2);
+      expect(parent.querySelectorAll(".cm-live-callout-source")).toHaveLength(5);
+    }
+    const at = view.state.doc.toString().indexOf("Outer") + 5;
+    view.dispatch({changes: {from: at, insert: "!"}, selection: {anchor: at + 1}, userEvent: "input"});
+    expect(parent.querySelector(".cm-live-callout-title")?.textContent).toBe("Outer!");
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    parent.querySelector<HTMLButtonElement>(".callout-source-action")?.click();
+    expect(parent.textContent).toContain("[!note]");
+    parent.querySelector<HTMLButtonElement>(".callout-source-action")?.click();
+    expect(parent.textContent).not.toContain("[!note]");
+  });
+
+  it("respects syntax profiles and disables callout changes in read-only", () => {
+    const source = "> [!NOTE]\n> body";
+    const readonly = mount(source, source.length, "tegg", true).parent;
+    expect(readonly.querySelectorAll(".callout-type-button")).toHaveLength(1);
+    expect(readonly.querySelector<HTMLButtonElement>(".callout-type-button")?.disabled).toBe(true);
+    readonly.querySelector<HTMLElement>(".callout-title")?.click();
+    expect(readonly.textContent).not.toContain("[!NOTE]");
+    const gfm = mount(source, source.length, "gfm").parent;
+    expect(gfm.querySelector(".callout-type-button")).toBeNull();
+    expect(gfm.textContent).toContain("[!NOTE]");
+  });
+
+  it("uses one explicit action for an inline formula and preserves read-only viewing", () => {
+    const {parent} = mount("Formula $x^2$\n\nend");
+    const formula = parent.querySelector<HTMLElement>(".cm-live-math-inline")!;
+    const edited = vi.fn((event: Event) => event.preventDefault());
+    parent.addEventListener("tegg-edit-object", edited);
+    formula.click();
+    expect(document.querySelector(".md-object-viewer")).toBeNull();
+    expect(formula.classList.contains("cm-live-object-selected")).toBe(true);
+    expect(parent.querySelector<HTMLElement>(".cm-live-math-actions")?.dataset.side).toMatch(/^(above|below)$/);
+    expect(parent.querySelector<HTMLElement>(".cm-live-math-actions")?.style.position).toBe("fixed");
+    formula.dispatchEvent(new MouseEvent("dblclick", {bubbles: true}));
+    expect(edited).toHaveBeenCalledOnce();
+    expect(document.querySelector(".md-object-viewer")).toBeNull();
+    const readonly = mount("$x$", 0, "tegg", true).parent;
+    expect(readonly.querySelector(".cm-live-math-actions button[aria-label='Edit formula']")).toBeNull();
+    readonly.querySelector<HTMLButtonElement>(".cm-live-math-actions button")?.click();
+    expect(document.querySelector(".md-object-viewer")).not.toBeNull();
+  });
+
+  it("closes inline formula actions on Escape or outside focus, preserving button traversal", async () => {
+    const {parent, view} = mount("Formula $x$ after");
+    const formula = parent.querySelector<HTMLElement>(".cm-live-math-inline")!;
+    const controls = parent.querySelector<HTMLElement>(".cm-live-math-actions")!;
+    const button = controls.querySelector<HTMLButtonElement>("button")!;
+    formula.click();
+    expect(controls.hidden).toBe(false);
+    formula.dispatchEvent(new FocusEvent("focusout", {bubbles: true, relatedTarget: button}));
+    expect(controls.hidden).toBe(false);
+    const pointerStart = new MouseEvent("mousedown", {bubbles: true, cancelable: true});
+    button.dispatchEvent(pointerStart);
+    expect(pointerStart.defaultPrevented).toBe(true);
+    formula.dispatchEvent(new FocusEvent("focusout", {bubbles: true, relatedTarget: null}));
+    button.focus();
+    await Promise.resolve();
+    expect(controls.hidden).toBe(false);
+    button.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true, cancelable: true}));
+    expect(controls.hidden).toBe(true);
+    formula.focus();
+    expect(controls.hidden).toBe(false);
+    formula.dispatchEvent(new FocusEvent("focusout", {bubbles: true, relatedTarget: view.dom}));
+    expect(controls.hidden).toBe(true);
+    formula.click();
+    window.dispatchEvent(new Event("resize"));
+    expect(controls.hidden).toBe(true);
+    view.destroy();
+    mounted.splice(mounted.indexOf(view), 1);
+    expect(controls.isConnected).toBe(false);
+  });
+
+  it("keeps a formula viewer through a same-source widget replacement and restores its focus", async () => {
+    const source = "Formula $x$ after";
+    const {parent, view} = mount(source);
+    const formula = parent.querySelector<HTMLElement>(".cm-live-math-inline")!;
+    formula.click();
+    parent.querySelector<HTMLButtonElement>(".cm-live-math-actions button")!.click();
+    expect(document.querySelector(".md-object-viewer")).not.toBeNull();
+    view.setState(EditorState.create({doc: view.state.doc, extensions: [history(), markdown({extensions: GFM}),
+      resourceContext.of({documentPath: "", profile: "tegg"}), livePreview]}));
+    await Promise.resolve();
+    expect(document.querySelector(".md-object-viewer")).not.toBeNull();
+    document.querySelector<HTMLButtonElement>(".md-object-viewer header button")!.click();
+    const replacement = parent.querySelector<HTMLElement>(".cm-live-math-inline")!;
+    expect(document.activeElement).toBe(replacement);
+    expect(parent.querySelector<HTMLElement>(".cm-live-math-actions")?.hidden).toBe(false);
+  });
+
+  it("retires a formula viewer when its source is removed", async () => {
+    const source = "Formula $x$ after";
+    const {parent, view} = mount(source);
+    parent.querySelector<HTMLElement>(".cm-live-math-inline")!.click();
+    parent.querySelector<HTMLButtonElement>(".cm-live-math-actions button")!.click();
+    expect(document.querySelector(".md-object-viewer")).not.toBeNull();
+    const from = source.indexOf("$x$");
+    view.dispatch({changes: {from, to: from + 3, insert: "x"}});
+    await Promise.resolve();
+    expect(document.querySelector(".md-object-viewer")).toBeNull();
+  });
+
+  it("retires a formula viewer on a new document or a Source-mode projection change", async () => {
+    const source = "Formula $x$ after";
+    const first = mount(source);
+    first.parent.querySelector<HTMLElement>(".cm-live-math-inline")!.click();
+    first.parent.querySelector<HTMLButtonElement>(".cm-live-math-actions button")!.click();
+    first.view.setState(EditorState.create({doc: source, extensions: [history(), markdown({extensions: GFM}),
+      resourceContext.of({documentPath: "", profile: "tegg"}), livePreview]}));
+    await Promise.resolve();
+    expect(document.querySelector(".md-object-viewer")).toBeNull();
+
+    const second = mount(source);
+    second.parent.querySelector<HTMLElement>(".cm-live-math-inline")!.click();
+    second.parent.querySelector<HTMLButtonElement>(".cm-live-math-actions button")!.click();
+    const sameDocument = second.view.state.doc;
+    second.view.setState(EditorState.create({doc: sameDocument, extensions: [history(), markdown({extensions: GFM}),
+      resourceContext.of({documentPath: "", profile: "tegg"})]}));
+    await Promise.resolve();
+    expect(document.querySelector(".md-object-viewer")).toBeNull();
+  });
+
+  it("round trips a standalone quote hard break", () => {
+    const source = "> first";
+    const {view} = mount(source);
+    expect(insertLiveBreak(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe("> first\\\n> ");
+    expect(deleteLiveBreak(view, true)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe("> first\\\n> ");
+  });
+});
 it("leaves IME composition in a list to the platform",()=>{
   const {view}=mount("- 中文");
   Object.defineProperty(view,"composing",{get:()=>true,configurable:true});
@@ -1189,4 +1397,16 @@ it("leaves IME composition in a list to the platform",()=>{
   expect(deleteLiveBreak(view,true)).toBe(false);
   executeEditorCommand(view,"orderedList");
   expect(view.state.doc.toString()).toBe("- 中文");
+});
+
+it("keeps code Tab inert during composition and in a read-only document",()=>{
+ const source="- item\n\n      code";
+ const {view,parent}=mount(source);
+ const input=parent.querySelector<HTMLTextAreaElement>('textarea')!;
+ input.focus();input.setSelectionRange(0,0);
+ input.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',isComposing:true,bubbles:true,cancelable:true}));
+ expect(input.value).toBe('code');expect(view.state.doc.toString()).toBe(source);
+ view.dispatch({effects:StateEffect.appendConfig.of(EditorState.readOnly.of(true))});
+ input.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));
+ expect(input.value).toBe('code');expect(view.state.doc.toString()).toBe(source);
 });

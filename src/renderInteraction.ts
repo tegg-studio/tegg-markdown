@@ -36,7 +36,7 @@ export function disposeInteractions(root: HTMLElement) {
   for (const panel of [...panels]) if (panel.owner === root || root.contains(panel.owner) || root === panel.trigger || root.contains(panel.trigger)) panel.close(false);
 }
 export function openPanel(trigger: HTMLElement, title: string, modal = false) {
-  const owner = trigger.closest<HTMLElement>(".tegg-surface") ?? trigger.parentElement!;
+  const owner = trigger.closest<HTMLElement>(".tegg-surface") ?? trigger.closest<HTMLElement>(".cm-editor") ?? trigger.parentElement!;
   if (!trigger.closest("dialog")) disposeInteractions(owner);
   const dialog = document.createElement("dialog"); dialog.className = `md-object-panel ${modal ? "md-object-viewer" : "md-note-panel"}`;
   setUILabel(dialog, title);
@@ -48,11 +48,14 @@ export function openPanel(trigger: HTMLElement, title: string, modal = false) {
   const close = (restore = true) => {
     controller.abort(); dialog.remove(); unmountOverlay(); panels.delete(record);
     if (restore) {
-      const target = trigger.isConnected ? trigger : returnContainer?.querySelector<HTMLElement>(".md-object-actions button");
+      const replacement = trigger.dataset.sourceFrom === undefined ? null
+        : [...owner.querySelectorAll<HTMLElement>(".cm-content .cm-live-math-inline")]
+          .find(node => node.dataset.sourceFrom === trigger.dataset.sourceFrom);
+      const target = trigger.isConnected ? trigger : replacement ?? returnContainer?.querySelector<HTMLElement>(".md-object-actions button");
       target?.focus({preventScroll: true});
     }
   };
-  const record = {owner: returnContainer ?? trigger, trigger, dialog, close}; panels.add(record);
+  const record = {owner: returnContainer ?? (modal ? owner : trigger), trigger, dialog, close}; panels.add(record);
   head.append(heading, action("Close", () => close())); dialog.append(head, body); unmountOverlay = mountOverlay(owner, dialog);
   dialog.addEventListener("cancel", event => {event.preventDefault(); close();});
   dialog.addEventListener("keydown", event => {event.stopPropagation(); if (event.key === "Escape") {event.preventDefault(); close();}});
@@ -72,7 +75,8 @@ export function openPanel(trigger: HTMLElement, title: string, modal = false) {
 }
 
 export function openObjectViewer(trigger: HTMLElement, visual: HTMLElement, source: string, title: string, edit?: () => void) {
-  const {dialog, body, head, signal} = openPanel(trigger, title, true);
+  const {dialog, body, head, signal, close} = openPanel(trigger, title, true);
+  if(title==="Formula")dialog.classList.add("md-formula-viewer");
   const controls = document.createElement("nav"); setUILabel(controls, "View controls");
   const stage = document.createElement("div"); stage.className = "md-object-stage"; stage.tabIndex = 0; setUILabel(stage, "Diagram or formula. Scroll to pan; use zoom controls to enlarge.");
   const content = document.createElement("div"); content.className = "md-object-content";
@@ -82,7 +86,7 @@ export function openObjectViewer(trigger: HTMLElement, visual: HTMLElement, sour
   scopeIds(clone);
   content.append(clone); stage.append(content);
   let svg = clone.querySelector("svg"); const box = svg?.viewBox?.baseVal;
-  let naturalWidth = box?.width || visual.scrollWidth || 600;
+  let naturalWidth = box?.width || visual.getBoundingClientRect().width || visual.scrollWidth || 600;
   let scale = 1, fitting = true;
   const label = document.createElement("output"); label.setAttribute("aria-live", "polite");
   const zoom = (value: number, automatic = false) => {
@@ -92,7 +96,7 @@ export function openObjectViewer(trigger: HTMLElement, visual: HTMLElement, sour
     label.textContent = `${Math.round(scale * 100)}%`;
   };
   const fit = () => {fitting = true; zoom(Math.min(1, (stage.clientWidth - 40) / naturalWidth), true); stage.scrollTo?.(0, 0);};
-  controls.append(action("Fit", fit), action("100%", () => zoom(1)), action("−", () => zoom(scale / 1.25)), label, action("+", () => zoom(scale * 1.25)));
+  controls.append(action("Fit", fit), action("Actual size", () => zoom(1)), action("−", () => zoom(scale / 1.25)), label, action("+", () => zoom(scale * 1.25)));
   if (title === "Diagram") {
     const background = document.createElement("select"); setUILabel(background, "Viewing background");
     for (const [value, label] of [["", "Background: Automatic"], ["#fff", "Background: Light"], ["#202124", "Background: Dark"]]) {
@@ -101,9 +105,9 @@ export function openObjectViewer(trigger: HTMLElement, visual: HTMLElement, sour
     background.addEventListener("change", () => {stage.style.backgroundColor = background.value;}); controls.append(background);
   }
   const details = document.createElement("details"), summary = document.createElement("summary"), pre = document.createElement("pre");
-  summary.textContent = title === "Formula" ? "TeX source" : "Diagram source"; pre.textContent = source; details.append(summary, pre);
+  setUIText(summary,title === "Formula" ? "TeX source" : "Diagram source"); pre.textContent = source; details.append(summary, pre);
   controls.append(action(title === "Formula" ? "Copy TeX" : "Copy source", () => { void copySource(source, dialog); }));
-  if (edit) head.append(action("Edit Source", () => {disposeInteractions(dialog.parentElement!); edit();}));
+  if (edit) head.append(action("Edit Source", () => {close(false); edit();}));
   body.append(controls, stage, details); requestAnimationFrame(() => {if (fitting) fit();});
   const observer = new ResizeObserver(() => {if (fitting) fit();}); observer.observe(stage); signal.addEventListener("abort", () => observer.disconnect());
   // Refresh only the graphic after a theme render. Preserve the open panel, focus,

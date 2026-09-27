@@ -70,6 +70,7 @@ export function calloutContext(state: EditorState) {
 }
 
 export function setCalloutType(editor: EditorView, requested: string) {
+  if (editor.state.readOnly) return;
   const definition = calloutTypes.find(type => type.id === requested);
   if (!definition) return;
   const { target, enabled } = calloutContext(editor.state);

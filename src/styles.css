@@ -199,8 +199,8 @@
 :where(.tegg-surface) .md-render-math-block { overflow-x: auto; padding: 12px; }
 
 .tegg-sdk-editor { background: var(--background); overflow: hidden; }
-.tegg-sdk-editor .cm-editor { color: var(--text); background: transparent; font-size: var(--md-body); line-height: var(--md-line-height); }
-.tegg-sdk-editor .cm-editor.cm-focused { outline: none; }
+.tegg-sdk-editor > .cm-editor { color: var(--text); background: transparent; font-size: var(--md-body); line-height: var(--md-line-height); }
+.tegg-sdk-editor > .cm-editor.cm-focused { outline: none; }
 .tegg-sdk-editor .cm-scroller, .tegg-reader { scroll-padding-top: var(--toolbar-safe-top, 12px); }
 
 /* This surface's DOM scrollers do not drive AppKit's automatic scroll edge.
@@ -337,7 +337,7 @@
 
 @media (max-width: 760px) {
   .tegg-reader { padding: calc(34px + var(--toolbar-inset, 0px)) 28px 100px; }
-  .tegg-sdk-editor .cm-content { padding: calc(32px + var(--toolbar-inset, 0px)) 28px 100px !important; }
+  .tegg-sdk-editor > .cm-editor > .cm-scroller > .cm-content { padding: calc(32px + var(--toolbar-inset, 0px)) 28px 100px !important; }
   .tegg-sdk-editor .cm-gutters { inset-inline-start: 0; }
 }
 
@@ -546,6 +546,9 @@
 
 /* Live Edit uses the caret and text selection, without a full-row wash. */
 .tegg-sdk-editor[data-mode="live"] .cm-activeLine { background: transparent; }
+
+/* Focusing text must not erase its semantic container background. */
+.tegg-sdk-editor[data-mode="live"] .cm-activeLine.cm-live-callout-source { background: var(--md-callout-bg); }
 
 /* Keep the source block's own background when its active-line highlight is removed. */
 .tegg-sdk-editor[data-mode="live"] .cm-activeLine:is(.cm-live-frontmatter-source, .cm-live-technical-source) {

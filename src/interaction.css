@@ -64,3 +64,9 @@
 :where(.tegg-surface) .md-render-toolbar button {color: color-mix(in srgb, var(--accent) 78%, var(--text));}
 
 .tegg-surface .tegg-source-fallback {white-space:pre;overflow:auto;max-width:100%;max-height:70vh;}
+
+.tegg-surface .md-object-viewer.md-formula-viewer{width:min(640px,calc(100vw - 32px));height:auto;max-height:80dvh;inset:10vh 16px auto;margin-inline:auto}.tegg-surface .md-formula-viewer .md-object-body{height:auto;max-height:65dvh}.tegg-surface .md-formula-viewer .md-object-stage{min-height:120px;max-height:45dvh;flex:initial}.tegg-surface .callout-source-action{font:inherit;font-size:12px;opacity:0;border:0;background:transparent;color:var(--muted,#6b7280);padding:2px 6px;cursor:pointer}.tegg-surface .cm-live-callout-source:hover .callout-source-action,.tegg-surface .callout-source-action:focus-visible{opacity:1}.tegg-surface .cm-live-callout-title{font-weight:600;color:var(--text,#24292f)}
+
+.tegg-surface .cm-live-callout-source{position:relative}.tegg-surface .callout-source-action{position:absolute;inset-inline-end:6px;top:0;min-width:24px;line-height:inherit;font-size:16px;background:var(--background,#fff);border-radius:4px}.tegg-surface .cm-live-callout-source .callout-type-button{line-height:inherit}
+
+.tegg-surface .cm-live-math-inline{position:relative}.tegg-surface .cm-live-math-actions{position:fixed;z-index:80;width:max-content;max-width:calc(100vw - 16px);margin-top:0;gap:4px;padding:4px;border:1px solid var(--border,#d9d9dd);border-radius:7px;background:var(--background,#fff);box-shadow:0 4px 16px #0002}.tegg-surface .cm-live-math-actions button{font:13px/1.4 -apple-system,system-ui,sans-serif;min-height:28px;padding:4px 8px;color:var(--text,#24292f);background:transparent;border:0;border-radius:4px}.tegg-surface .cm-live-math-actions button:hover{background:color-mix(in srgb,var(--text,#24292f) 8%,transparent)}

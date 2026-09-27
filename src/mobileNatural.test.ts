@@ -8,6 +8,7 @@ import {GFM} from "@lezer/markdown";
 import {deleteCharBackward, history, redo, undo} from "@codemirror/commands";
 import {mobileNaturalExtensions} from "./core";
 import {livePreview} from "./livePreview";
+import {focusedTableCell} from "./tableWidget";
 import {editorToolbarState} from "./editorToolbar";
 
 // Exercise the opt-in extension through a real EditorView and public export.
@@ -132,30 +133,47 @@ describe("mobile natural editing integration", () => {
     undo(view);expect(view.state.doc.toString()).toBe(source);
   });
 
-  it.each([390, 1024])("edits a projected table at width %i and cancels without changing the source", width => {
-    vi.stubGlobal("innerWidth", width);
+  it("keeps narrow table drafts cancelable until Apply", () => {
+    vi.stubGlobal("innerWidth", 390);
     const source = "before\n\n| 名称 |\n| --- |\n| 原内容 |\n\nafter";
     const {view, parent} = mount(source);
     const begin = () => {
       const button = parent.querySelector<HTMLButtonElement>('[aria-label="Edit table cell: 原内容"]');
       expect(button).not.toBeNull();button!.click();
-      return parent.querySelector<HTMLInputElement>(width < 640 ? '[aria-label="Cell value"]' : '[aria-label="Table cell: 原内容"]')!;
+      return parent.querySelector<HTMLInputElement>('[aria-label="Cell value"]')!;
     };
-    const first = begin();first.value = "discarded";
-    first.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+    const first=begin();first.value="discarded";
+    first.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));
     expect(view.state.doc.toString()).toBe(source);
-    const second = begin();second.value = "新内容";
-    second.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
-    expect(view.state.doc.toString()).toBe(source.replace("原内容", "新内容"));
+    const second=begin();second.value="新内容";
+    second.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));
+    expect(view.state.doc.toString()).toBe(source.replace("原内容","新内容"));
     undo(view);expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it("keeps desktop table edits through Escape and restores them with document Undo", () => {
+    vi.stubGlobal("innerWidth", 1024);
+    const source="before\n\n| 名称 |\n| --- |\n| 原内容 |\n\nafter";
+    const {view,parent}=mount(source);
+    parent.querySelector<HTMLButtonElement>('[aria-label="Edit table cell: 原内容"]')!.click();
+    const cell=focusedTableCell(view)!;expect(cell).not.toBeNull();
+    cell.dispatch({changes:{from:0,to:cell.state.doc.length,insert:"新内容"}});
+    expect(view.state.doc.toString()).toBe(source.replace("原内容","新内容"));
+    cell.dom.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));
+    expect(focusedTableCell(view)).toBeNull();
+    expect(view.state.doc.toString()).toBe(source.replace("原内容","新内容"));
+    const preview=parent.querySelector<HTMLButtonElement>('[aria-label="Edit table cell: 新内容"]')!;
+    preview.dispatchEvent(new KeyboardEvent("keydown",{key:"z",metaKey:true,bubbles:true,cancelable:true}));
+    expect(view.state.doc.toString()).toBe(source);
   });
 
   it("opens a mobile table's source through its real Edit Source control without changing source or history", () => {
     const source = "before\n\n| A |\n| --- |\n| B |\n\nafter";
     const {view, parent} = mount(source);
     const table = parent.querySelector(".cm-live-table");expect(table).not.toBeNull();
-    const sourceButton = [...table!.querySelectorAll("button")].find(button => button.textContent === "Edit Source");
-    expect(sourceButton).toBeDefined();sourceButton!.click();
+    const actions = table!.querySelector<HTMLSelectElement>('select[aria-label="Table actions"]')!;
+    expect([...actions.options].some(option => option.value === "edit-source" && option.textContent === "Edit Source")).toBe(true);
+    actions.value = "edit-source";actions.dispatchEvent(new Event("change", {bubbles:true}));
     expect(view.state.selection.main.head).toBe(source.indexOf("| A |"));
     expect(parent.querySelector(".cm-live-table")).toBeNull();
     expect(parent.querySelector(".cm-live-table-line")?.textContent).toContain("| A |");

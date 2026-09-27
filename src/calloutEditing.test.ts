@@ -76,4 +76,12 @@ describe("Callout source-preserving commands", () => {
     setCalloutType(view, "note");
     expect(view.state.doc.toString()).toContain("[!note]");
   });
+  it("does not change a read-only callout", () => {
+    const source = "> [!note] Title\n> body";
+    const view = editor(source, source.length);
+    Object.assign(view, {state: EditorState.create({doc: source, selection: {anchor: source.length},
+      extensions: [markdown(), history(), EditorState.readOnly.of(true)]})});
+    setCalloutType(view, "tip");
+    expect(view.state.doc.toString()).toBe(source);
+  });
 });

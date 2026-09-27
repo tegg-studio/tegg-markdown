@@ -42,3 +42,10 @@ export {applySourcePatches,validateSourcePatches,SourcePatchError} from "./sourc
 export type {SourcePatch,SourceRange} from "./sourcePatch";
 export {dispatchSourcePatches} from "./editorPatches";
 export * from "./controlledExtensions";
+
+export {focusedTableCell,focusedTableToolbarState,tableWidgetOwnsFocus,tableWidgetIsComposing,executeFocusedTableCommand} from "./tableWidget";
+export {focusCodeAtSelection} from "./codeEditing";
+export {blockContext} from "./blockContext";
+export {planStructuralInsert,planHeadingTransform} from "./structuralCommands";
+
+export {clearPendingInlineStyle} from "./pendingInlineStyle";

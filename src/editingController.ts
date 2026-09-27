@@ -12,6 +12,9 @@ import {inlineMathAt} from "./mathSyntax";
 import {calloutRanges} from "./calloutEditing";
 import type {MarkdownProfile} from "./syntaxProfiles";
 import type {SourceRange} from "./sourcePatch";
+import {planStructuralInsert} from "./structuralCommands";
+import {clearPendingInlineStyle} from "./pendingInlineStyle";
+import {focusedTableCell,tableWidgetOwnsFocus,tableWidgetIsComposing,executeFocusedTableCommand} from "./tableWidget";
 
 export type EditingIdentity = {documentId:string; generation:string; sequence?:number; profile?:MarkdownProfile; mode?:"reader"|"live"|"source"; readOnly?:boolean};
 export type ObjectKind = "selection"|"link"|"image"|"code"|"math"|"mermaid"|"graphviz"|"footnote"|"callout"|"metadata"|"table";
@@ -105,7 +108,7 @@ export class EditingController {
     if(this.queued||this.dead)return;this.queued=true;
     queueMicrotask(()=>{this.queued=false;if(this.dead)return;const value=this.session;try{this.options.onSessionChange?.(value);}catch(error){this.report(error);}for(const listener of this.listeners){try{listener(value?{...value}:null);}catch(error){this.report(error);}}});
   }
-  private reason(){if(this.dead)return "destroyed";const id=this.identity;return (id.readOnly||id.mode==="reader"||this.view.state.readOnly)?"read-only":this.view.composing?"composing":null;}
+  private reason(){if(this.dead)return "destroyed";const id=this.identity;return (id.readOnly||id.mode==="reader"||this.view.state.readOnly)?"read-only":tableWidgetIsComposing(this.view)?"composing":null;}
   signalForSession(token:string):AbortSignal|null{this.refreshIdentity();return this.active?.token===token?this.sessionAbort?.signal??null:null;}
   private refreshIdentity(){if(!this.dead&&this.active?.status==="editing"&&(!this.captured||!sameIdentity(this.captured,this.identity)))this.invalidate("document-changed");}
   /** Current capability check for asynchronous tasks; does not advance or replace a draft. */
@@ -171,9 +174,20 @@ export class EditingController {
     }
     if(typeof(draft??session.draft)!=="string")return {ok:false,reason:"invalid-draft"};
     const next=(draft??session.draft).replace(/\r\n/g,"\n");
+    const structuralKind = ["code","table","math","mermaid","graphviz"].includes(session.kind);
+    const currentObject = session.from===session.to ? null : objectAt(this.view.state,Math.min(session.to,session.from+1),this.identity.profile);
+    const editingExisting = currentObject?.kind===session.kind && currentObject.from===session.from && currentObject.to===session.to;
+    const inserting = (this.identity.mode??"live")==="live" && structuralKind && !editingExisting;
+    const structural = inserting ? planStructuralInsert(this.view.state,session,next,
+      ["code","mermaid","graphviz"].includes(session.kind)?"code":"block") : null;
+    if(inserting && !structural)
+      return {ok:false,reason:"protected-structure"};
     this.applying=true;
     try{
-      if(next!==session.original)dispatchSourcePatches(this.view,[{from:session.from,to:session.to,expected:session.original,insert:next}],{isolateHistory:true,selection:{anchor:session.from+next.length},scrollIntoView:true});
+      if(next!==session.original){
+        if(structural)dispatchSourcePatches(this.view,structural.patches,{isolateHistory:true,selection:structural.selection,scrollIntoView:true});
+        else dispatchSourcePatches(this.view,[{from:session.from,to:session.to,expected:session.original,insert:next}],{isolateHistory:true,selection:{anchor:session.from+next.length},scrollIntoView:true});
+      }
       session.status="applied";session.draft=next;this.applied.add(token);
       if(this.applied.size>32)this.applied.delete(this.applied.values().next().value!);
       this.publish();return {ok:true,changed:next!==session.original};
@@ -187,12 +201,18 @@ export class EditingController {
   reset(){if(this.dead)return;this.invalidate("document-changed");this.applied.clear();this.attachToCurrentState();this.publish();}
   command(command:string):boolean{
     if(this.reason())return false;
+    if(tableWidgetOwnsFocus(this.view)){
+      if(!focusedTableCell(this.view)&&command!=="undo"&&command!=="redo")return false;
+      return executeFocusedTableCommand(this.view,command);
+    }
+    if(this.identity.mode==="source")clearPendingInlineStyle(this.view);
+    if(this.identity.mode==="source" && (command==="moveBlockUp"||command==="moveBlockDown"))return false;
     const profile=this.identity.profile??"tegg";
     const state={...editorToolbarState(this.view.state),profile,commands:getSupportedCommands(profile),mode:this.identity.mode??"live",dirty:false,toolbarEnabled:true,canUndo:undoDepth(this.view.state)>0,canRedo:redoDepth(this.view.state)>0};
     if(!getCommandStatus(command,state).enabled)return false;
     if(command==="undo")return undo(this.view);
     if(command==="redo")return redo(this.view);
-    executeEditorCommand(this.view,command);return true;
+    executeEditorCommand(this.view,command,this.identity.mode==="source"?"source":"live");return true;
   }
   find(query:string,options:FindOptions={}):SourceRange[]{
     if(!query)return [];

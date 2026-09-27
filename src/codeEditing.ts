@@ -14,11 +14,19 @@ export function readCode(raw: string) {
   const closed = new RegExp(`^ {0,3}${opening[2][0]}{${opening[2].length},}\\s*$`).test(last);
   return {body: lines.slice(1, closed ? -1 : undefined).join("\n"), language: opening[3].trim().split(/\s+/)[0] || "", opening, closing: last, closed};
 }
+export function fenceCode(body: string, language = "") {
+  const runs = body.match(/`+/g) ?? [];
+  const fence = "`".repeat(Math.max(3, ...runs.map(run => run.length + 1)));
+  return fence + language + "\n" + body + "\n" + fence;
+}
 export function writeCode(raw: string, body: string, language?: string) {
   const model = readCode(raw);
   if (!model.opening) {
-    if (language === undefined || !language) return body.split("\n").map(line => "    " + line).join("\n");
-    return writeCode("```" + language + "\n\n```", body);
+    if (language === undefined && body === model.body) return raw;
+    // Blank boundary lines have no stable representation in indented Markdown.
+    if (language === undefined && body.trim() && !/^[ \t]*\n|\n[ \t]*$/.test(body))
+      return body.split("\n").map(line => "    " + line).join("\n");
+    return fenceCode(body, language);
   }
   const [, indent, fence, info] = model.opening;
   const runs = body.match(new RegExp(fence[0] + "+", "g")) ?? [];
@@ -27,6 +35,26 @@ export function writeCode(raw: string, body: string, language?: string) {
   const nextInfo = language === undefined ? info : info.replace(/^\s*\S*/, language);
   const close = length === fence.length ? model.closing : indent + marker;
   return indent + marker + nextInfo + "\n" + body + (model.closed ? "\n" + close : "");
+}
+// Container prefixes are source structure, never part of the editable/copyable code.
+export function unwrapCodeContainer(raw: string, prefix = "") {
+  if (!prefix) return raw;
+  return raw.split("\n").map(line => {
+    if (line.startsWith(prefix)) return line.slice(prefix.length);
+    if (!line.trim() || line === prefix.trimEnd()) return "";
+    // A fence may have optional indentation beyond its list container. A body
+    // line with less indentation loses only the spaces it actually contains.
+    if (/^ +$/.test(prefix)) return line.replace(new RegExp(`^ {0,${prefix.length}}`), "");
+    return line;
+  }).join("\n");
+}
+export function writeContainerCode(raw: string, prefix: string, body: string, language?: string) {
+  const plain = unwrapCodeContainer(raw, prefix);
+  const next = writeCode(plain, body, language);
+  if (!prefix || next === plain) return !prefix ? next : raw;
+  const oldLines = plain.split("\n"), sourceLines = raw.split("\n");
+  return next.split("\n").map((line, index) =>
+    line === oldLines[index] ? sourceLines[index] : prefix + line).join("\n");
 }
 export function mapCodePosition(before: string, after: string, position: number) {
   let from=0, oldEnd=before.length, newEnd=after.length;
@@ -38,21 +66,24 @@ export function mapCodePosition(before: string, after: string, position: number)
 }
 const names: Record<string,string> = {swift:"Swift", json:"JSON", python:"Python", javascript:"JavaScript", typescript:"TypeScript", html:"HTML", css:"CSS", text:"Plain Text", markdown:"Markdown", bash:"Shell", sql:"SQL", yaml:"YAML", xml:"XML", go:"Go", rust:"Rust", java:"Java", kotlin:"Kotlin", c:"C", cpp:"C++", csharp:"C#", ruby:"Ruby", php:"PHP"};
 const cleanups = new WeakMap<HTMLElement,()=>void>();
-const controls = new WeakMap<HTMLElement, {update(raw:string,from:number,to:number):void}>();
+const controls = new WeakMap<HTMLElement, {update(raw:string,from:number,to:number,prefix:string):void}>();
 export class EditableCodeWidget extends WidgetType {
-  constructor(readonly raw: string, readonly from: number, readonly to: number) {super();}
-  eq(other: EditableCodeWidget) {return this.raw === other.raw && this.from === other.from && this.to === other.to;}
-  updateDOM(dom: HTMLElement) {controls.get(dom)?.update(this.raw,this.from,this.to); return true;}
+  constructor(readonly raw: string, readonly from: number, readonly to: number, readonly prefix = "") {super();}
+  eq(other: EditableCodeWidget) {return this.raw === other.raw && this.from === other.from && this.to === other.to && this.prefix === other.prefix;}
+  updateDOM(dom: HTMLElement) {controls.get(dom)?.update(this.raw,this.from,this.to,this.prefix); return true;}
   toDOM(view: EditorView) {
-    let raw = this.raw, from = this.from, to = this.to, composing = false;
+    let raw = this.raw, from = this.from, to = this.to, prefix = this.prefix, composing = false;
+    const model = () => readCode(unwrapCodeContainer(raw, prefix));
+    const write = (body: string, language?: string) => writeContainerCode(raw, prefix, body, language);
     const wrapper = document.createElement("section");
     wrapper.contentEditable = "false";
+    wrapper.dataset.sourceFrom=String(from);wrapper.dataset.sourceTo=String(to);
     wrapper.className = "md-render-block md-render-code cm-live-code-block md-code-editor";
     const bar = document.createElement("div"); bar.className = "md-render-toolbar cm-preview-toolbar";
     const language = document.createElement("select"); language.className = "md-code-language";
     setUILabel(language, "Code language"); language.title = "Code language";
     const syncLanguage = () => {
-      const current=readCode(raw).language;
+      const current=model().language;
       const choices: Record<string,string>={"":"Plain Text",...names};
       if(current==="text") delete choices[""]; else delete choices.text;
       if(current && !choices[current]) choices[current]=current;
@@ -68,7 +99,7 @@ export class EditableCodeWidget extends WidgetType {
     const code = document.createElement("code"); pre.append(code);
     const input = document.createElement("textarea"); setUILabel(input, "Code content"); input.spellcheck=false; input.wrap="off";
     const resize = () => { if(!wrapper.isConnected) return; const left=input.scrollLeft; input.style.height="0px"; input.style.height=Math.max(input.scrollHeight, 48)+"px"; input.scrollLeft=left; pre.scrollLeft=left; pre.scrollTop=input.scrollTop; view.requestMeasure(); };
-    const paint = () => { code.innerHTML=highlightCode(input.value + (input.value.endsWith("\n") ? "\n" : ""), readCode(raw).language, view.state.facet(resourceContext).engines); requestAnimationFrame(resize); };
+    const paint = () => { code.innerHTML=highlightCode(input.value + (input.value.endsWith("\n") ? "\n" : ""), model().language, view.state.facet(resourceContext).engines); requestAnimationFrame(resize); };
     const commit = (next:string) => { if(next===raw) return; const focused=document.activeElement===input;
       const start=input.selectionStart,end=input.selectionEnd,direction=input.selectionDirection;
       dispatchSourcePatches(view,[{from,to,insert:next,expected:raw}]);
@@ -76,7 +107,7 @@ export class EditableCodeWidget extends WidgetType {
     const icon = (paths:string) => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths}</svg>`;
     const copyIcon=icon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/>');
     const copy = button("", async ()=>{
-      const text = readCode(raw).body;
+      const text = model().body;
       const request = new CustomEvent("tegg-copy-text", {detail:text, bubbles:true, cancelable:true});
       if (!copy.dispatchEvent(request)) return;
       let copied = false;
@@ -104,16 +135,18 @@ export class EditableCodeWidget extends WidgetType {
     wrap.innerHTML=icon('<path d="M3 6h18M3 12h13a4 4 0 0 1 0 8h-4m3-3-3 3 3 3M3 18h4"/>');
     setUILabel(wrap, "Wrap lines");wrap.title="Wrap lines";wrap.setAttribute("aria-pressed","false");
     actions.append(wrap,copy); bar.append(language,actions); area.append(pre,input); wrapper.append(bar,area);
-    input.value=readCode(raw).body;
+    input.readOnly=view.state.readOnly; language.disabled=view.state.readOnly;
+    input.value=model().body;
     syncLanguage();
     input.addEventListener("compositionstart",()=>{composing=true;});
-    input.addEventListener("compositionend",()=>{composing=false; commit(writeCode(raw,input.value)); paint();});
-    input.addEventListener("input",()=>{paint(); if(!composing) commit(writeCode(raw,input.value));});
+    input.addEventListener("compositionend",()=>{composing=false; commit(write(input.value)); paint();});
+    input.addEventListener("input",()=>{paint(); if(!composing) commit(write(input.value));});
     input.addEventListener("scroll",()=>{pre.scrollLeft=input.scrollLeft;pre.scrollTop=input.scrollTop;});
     input.addEventListener("keydown",event=>{
       event.stopPropagation();
       if(event.isComposing) return;
-      if(event.key==="Escape") {event.preventDefault(); input.blur();}
+      if(view.state.readOnly && (event.key === "Tab" || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z"))) {event.preventDefault(); return;}
+      if(event.key==="Escape") {event.preventDefault();view.dispatch({selection:{anchor:to}});view.focus();}
       if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="z") {
         event.preventDefault();
         (event.shiftKey?redo:undo)(view);
@@ -128,12 +161,13 @@ export class EditableCodeWidget extends WidgetType {
     });
     language.addEventListener("keydown",event=>event.stopPropagation());
     language.addEventListener("change",()=>{
-      commit(writeCode(raw,readCode(raw).body,language.value));
+      commit(write(model().body,language.value));
       syncLanguage();
     });
-    controls.set(wrapper,{update(next,start,end){
-      raw=next;from=start;to=end;
-      const value=readCode(raw).body;
+    controls.set(wrapper,{update(next,start,end,nextPrefix){
+      raw=next;from=start;to=end;prefix=nextPrefix;
+      wrapper.dataset.sourceFrom=String(from);wrapper.dataset.sourceTo=String(to);
+      const value=model().body;
       if(input.value!==value) {
         const start=mapCodePosition(input.value,value,input.selectionStart);
         const end=mapCodePosition(input.value,value,input.selectionEnd);
@@ -156,4 +190,15 @@ export class EditableCodeWidget extends WidgetType {
   }
   destroy(dom: HTMLElement){cleanups.get(dom)?.();controls.delete(dom);}
   ignoreEvent(){return true;}
+}
+
+/** Focus the editable body after a semantic code insertion. Called after decoration layout. */
+export function focusCodeAtSelection(view:EditorView):boolean {
+  const position=view.state.selection.main.head;
+  for(const widget of view.dom.querySelectorAll<HTMLElement>(".md-code-editor")){
+    if(position<Number(widget.dataset.sourceFrom)||position>Number(widget.dataset.sourceTo))continue;
+    const input=widget.querySelector<HTMLTextAreaElement>(".md-code-area textarea");if(!input)return false;
+    input.focus({preventScroll:true});input.setSelectionRange(0,0);return true;
+  }
+  return false;
 }

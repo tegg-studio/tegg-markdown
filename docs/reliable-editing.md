@@ -30,6 +30,42 @@ find/replace. Hosts may use `toolbar:false` and call `openObject`/`openSearch` f
 menus. Keep the required visible attribution when integrating `/core` directly.
 The public examples include both vanilla DOM and a React wrapper.
 
+## Natural editing commands
+
+Live Edit resolves a command against the current semantic container and selection.
+Paragraph splits, list continuation indentation, nested quotes and heading changes
+use guarded local source patches. Source mode remains literal. A structural command
+does not silently serialize the whole document or reinterpret unsupported syntax.
+
+With no text selected, inline formatting arms the next input rather than inserting
+placeholder text. Toggling it off preserves the caret and existing formatting on
+either side. Composition input is applied once; mode changes clear pending styles.
+Selections with mixed formatting follow the shared inline-format command semantics.
+
+The optional shared UI provides an empty-block plus button, a Slash command menu,
+and an existing-block menu with paragraph styles, list styles and move-up/down commands. Escape or
+clicking outside dismisses the menu without deleting a typed query. Code is inserted
+directly and its body receives focus. Formula and diagram commands open a local
+draft first: Cancel preserves the original query, and Apply commits one operation.
+Menus respect the grammar profile, read-only state and composition; they do not
+capture ordinary typing inside code, table cells or other local editors. Dragging
+blocks is not implemented by this menu.
+
+The block trigger identifies the current type with a compact text or line icon.
+Paragraph style and list style are independent: changing a heading inside a list
+or quote preserves that container. Current-style checkmarks are separate from
+keyboard navigation highlighting. Wrapping an entire list in a quote is labelled
+explicitly. Metadata YAML and other object editors do not offer prose block actions.
+The menu stays inside the visible editor region and scrolls when space is limited.
+Ordinary text focus does not paint a full-row selection or imply drag support.
+
+Native hosts should route commands through the same SDK capability checks. When a
+table cell owns focus, inline commands target that cell and block commands are
+unavailable. When focus is on the table preview or its controls, prose formatting
+and block commands are unavailable; retained outer selection is not an editing
+target. Undo, redo and find remain available. A separate dialog or input must never
+dispatch to an old document selection merely because the outer editor still has one.
+
 ## Object sessions
 
 `editor.editing.begin(kind?, range?)` captures a document/generation/profile/mode-bound
@@ -48,8 +84,10 @@ the old identity and reinstall its listener. Destroy UI, controller, then Editor
 The structured inline link adapter preserves title and escaped labels. Reference-style
 links use their source draft rather than being silently rewritten into inline links.
 Metadata is edited as local YAML; unknown fields, comments and untouched source remain.
-Math and diagram drafts have input budgets, generation guards and source fallbacks.
-A preview is never a save or an acknowledgement.
+Math and diagram drafts expose their language body first, with the Markdown wrapper
+available in a secondary source disclosure. Unchanged wrappers are preserved;
+malformed or unsafe projections remain source. Drafts have input budgets, generation
+guards and source fallbacks. A preview is never a save or an acknowledgement.
 
 ## Clipboard and attachments
 
@@ -80,6 +118,43 @@ Expansion is reviewed before mutation. Delimiter style and untouched cells are r
 where representable; pipe/newline escaping is explicit. Complex merged/formula tables
 are not silently represented as equivalent GFM tables. Narrow layouts expose current
 cell editing and local scrolling rather than widening the whole document.
+
+Live cell editing uses a small CodeMirror view with projected inline formatting.
+The parent Markdown document owns changes and the only undo history. Ordinary
+typing can form one history group; formatting and leaving a cell form explicit
+boundaries. Select-all is scoped to the cell, Tab/Shift-Tab move between cells, and
+Escape returns to its cell control. Undo/redo stays available from either focus.
+Links use the shared destination editor and navigation policy.
+The cell-selection tint appears only while focus is within that table. Leaving
+the table removes the tint without discarding the retained cell position; returning
+restores it. Table controls manage rows and columns, while text formatting uses the
+shared inline toolbar rather than a separate per-cell block menu. The compact
+table toolbar keeps Add Row and Add Column visible; selection, cell copying and
+source editing remain available from the table actions menu. Dimensions stay on
+one line, with responsive controls rather than overflowing the document.
+
+## Live semantic projection
+
+Live Edit keeps Markdown as the editable document. A complete, safely rendered
+`<details>...</details>` container is projected as one unit across blank lines, so
+its content stays inside the disclosure. Malformed or unclosed containers remain
+visible source. Raw HTML editing uses Source; projection does not make arbitrary
+HTML executable or promise full browser HTML editing.
+
+Footnote references and definition descriptions are projected only when the
+selected profile parses them in context. Escaped `\[^label]` and an ordinary
+`: text` line retain their literal meaning.
+
+In the `tegg` profile, a Callout keeps its type marker projected while the caret
+moves through its directly editable title and body. The type menu changes only
+the type; an explicit “View Callout Markdown” action exposes the header source.
+Nested quote structure stays in the underlying Markdown. The `github` profile
+supports its standard alerts, while `gfm` leaves Callout syntax as source.
+
+Clicking an inline formula selects it and shows compact View and Edit actions.
+Double-click or Enter/F2 opens a local formula edit; View opens the viewer.
+Escape or moving focus away closes the actions. Read-only formula controls allow
+viewing without editing. Unsupported or invalid syntax stays available in Source.
 
 ## Saving and recovery
 

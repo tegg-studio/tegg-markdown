@@ -1,10 +1,14 @@
+import {createCommandSurface} from "./commandSurface";
 import {Compartment, StateEffect} from "@codemirror/state";
 import {EditorView} from "@codemirror/view";
 import {syntaxTree} from "@codemirror/language";
 import {parseDocument} from "yaml";
-import {EditingController, sameEditingIdentity, type ObjectKind, type EditSession, type FindOptions} from "./editingController";
+import {objectAt,EditingController, sameEditingIdentity, type ObjectKind, type EditSession, type FindOptions} from "./editingController";
 import {captureClipboard,preparePaste,type ClipboardInput,type PastePreparation} from "./clipboard";
 import {ResourceTask,type ResourceHost,type StoredResource,assertPersistentReference} from "./resourceTasks";
+import {focusedTableCell,tableWidgetOwnsFocus,executeFocusedTableCommand} from "./tableWidget";
+import {focusCodeAtSelection} from "./codeEditing";
+import {technicalDraft} from "./technicalDraft";
 import {readLinkDraft,serializeLinkDraft,serializeImageReference} from "./objectDraft";
 import {enginesFor} from "./renderEngines";
 import {sanitizeRenderedHtml,sanitizeDiagramSvg} from "./renderKit";
@@ -52,6 +56,7 @@ export class EditingUI {
   private returnFocus?:HTMLElement;
   private extensions:ControlledExtensionRegistry;
   private uiBinding:ReturnType<typeof bindUI>;
+  private tableFocusChanged=()=>this.sync();
   constructor(readonly controller:EditingController,root:HTMLElement,readonly host:EditingUIHost={}){
     if(instances.has(controller))throw new Error("This controller already has an editing UI");this.extensions=new ControlledExtensionRegistry(controller,host.extensions??[]);instances.set(controller,this);
     this.uiBinding=bindUI(this.element,{...contextFor(controller.view.dom),...(host.locale?{locale:host.locale}:{}),...(host.messages?{messages:host.messages}:{}),...(host.overlayContainer?{overlayContainer:host.overlayContainer}:{})});
@@ -59,7 +64,7 @@ export class EditingUI {
     this.status.setAttribute("role","status");this.status.setAttribute("aria-live","polite");
     if(host.toolbar!==false){
       const bar=document.createElement("div");bar.className="tegg-editing-toolbar";bar.setAttribute("role","toolbar");setUILabel(bar,"Editing tools");
-      for(const [label,command] of [["Undo","undo"],["Redo","redo"],["Bold","bold"],["Italic","italic"],["List","list"],["Task list","task"]])bar.append(this.button(label,()=>controller.command(command)));
+      for(const [label,command] of [["Undo","undo"],["Redo","redo"],["Bold","bold"],["Italic","italic"],["List","list"],["Task list","task"]])bar.append(this.button(label,()=>executeFocusedTableCommand(controller.view,command)||controller.command(command)));
       for(const [label,kind] of [["Edit object",undefined],["Link","link"],["Image","image"],["Code block","code"],["Formula","math"],["Mermaid","mermaid"],["GraphViz","graphviz"],["Footnote","footnote"],["Callout","callout"],["Metadata · YAML","metadata"]] as const)bar.append(this.button(label,()=>this.openObject(kind)));
       bar.append(this.button("Attach file",()=>this.chooseResource()),this.button("Find and replace",()=>this.openSearch()));
       for(const extension of this.extensions.list()){const button=this.button(extension.label,()=>this.openExtension(extension.id));button.dataset.extension=extension.id;bar.append(button);}
@@ -71,20 +76,24 @@ export class EditingUI {
     controller.view.dom.addEventListener("keydown",this.editorKey);
     controller.view.dom.addEventListener("tegg-edit-object",this.objectEvent);
     controller.view.dom.addEventListener("tegg-table-resource-paste",this.tablePaste);
+    controller.view.dom.addEventListener("tegg-toolbar-state",this.tableFocusChanged);
+    controller.view.dom.addEventListener("focusin",this.tableFocusChanged);
+    controller.view.dom.addEventListener("focusout",this.tableFocusChanged);
     this.attachToCurrentState();this.sync();
   }
   setUI(options:UIOptions){if(this.alive)this.uiBinding.update(options);}
   private safe(run:()=>unknown){try{Promise.resolve(run()).catch(error=>this.error(error));}catch(error){this.error(error);}}
-  private button(label:string,run:()=>unknown){const button=document.createElement("button");button.type="button";setUIText(button,label);button.dataset.label=label;button.addEventListener("click",()=>{if(this.alive)this.safe(run);});return button;}
+  private button(label:string,run:()=>unknown){const button=document.createElement("button");button.type="button";setUIText(button,label);button.dataset.label=label;button.addEventListener("mousedown",event=>{if(!this.element.querySelector(".tegg-editing-panel:not([hidden])"))event.preventDefault();});button.addEventListener("click",()=>{if(this.alive)this.safe(run);});return button;}
   private label(text:string,control:HTMLElement){const label=document.createElement("label");const span=document.createElement("span");setUIText(span,text);label.append(span,control);return label;}
   private input(label:string,value="",type="text"){const input=document.createElement("input");input.type=type;if(type==="text")literalControl(input);input.value=value;this.panel.append(this.label(label,input));return input;}
   private message(text:string){if(this.alive)setUIText(this.status,text);}
   private error(error:unknown){if(!this.alive)return;this.message(error instanceof Error?error.message:String(error));try{this.host.onError?.(error);}catch{/* diagnostic observers cannot break UI cleanup */}}
-  private sync(){const reason=this.controller.unavailableReason,extensions=this.extensions.list();for(const button of this.element.querySelectorAll<HTMLButtonElement>(".tegg-editing-toolbar button"))button.disabled=button.dataset.extension?!extensions.find(item=>item.id===button.dataset.extension)?.enabled:button.dataset.label==="Find and replace"?reason==="composing"||reason==="destroyed":!!reason;for(const button of this.panel.querySelectorAll<HTMLButtonElement>('button[data-mutation="true"]'))button.disabled=!!reason||this.controller.session?.status==="stale";}
+  private sync(){const reason=this.controller.unavailableReason,extensions=this.extensions.list(),cell=!!focusedTableCell(this.controller.view),preview=tableWidgetOwnsFocus(this.controller.view)&&!cell;for(const button of this.element.querySelectorAll<HTMLButtonElement>(".tegg-editing-toolbar button"))button.disabled=(preview&&!["Undo","Redo","Find and replace"].includes(button.dataset.label??""))||(cell&&!["Undo","Redo","Bold","Italic","Link","Find and replace"].includes(button.dataset.label??""))||(button.dataset.extension?!extensions.find(item=>item.id===button.dataset.extension)?.enabled:button.dataset.label==="Find and replace"?reason==="composing"||reason==="destroyed":!!reason);for(const button of this.panel.querySelectorAll<HTMLButtonElement>('button[data-mutation="true"]'))button.disabled=!!reason||this.controller.session?.status==="stale";}
   attachToCurrentState(){
     if(!this.alive||this.controller.unavailableReason==="destroyed")return;
     if(this.effects.get(this.controller.view.state)!==undefined)return;
     this.controller.view.dispatch({effects:StateEffect.appendConfig.of(this.effects.of([
+      createCommandSurface(this.controller),
       EditorView.updateListener.of(()=>queueMicrotask(()=>{if(this.alive)this.sync();})),
       EditorView.domEventHandlers({paste:(event,view)=>{
         if(view.composing||view.state.readOnly||this.controller.identity.mode==="reader"||!event.clipboardData)return false;
@@ -99,7 +108,7 @@ export class EditingUI {
     ]))});
   }
   private editorKey=(event:KeyboardEvent)=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="f"&&!event.isComposing&&!this.controller.view.composing){event.preventDefault();event.stopPropagation();this.safe(()=>this.openSearch());}};
-  private objectEvent=(event:Event)=>{event.preventDefault();event.stopPropagation();this.safe(()=>{const detail=(event as CustomEvent<{kind?:ObjectKind;from:number;to?:number}>).detail;if(!detail||!Number.isInteger(detail.from))throw new Error("invalid-object-target");this.openObject(detail.kind,detail.to===undefined?undefined:{from:detail.from,to:detail.to},detail.from);});};
+  private objectEvent=(event:Event)=>{event.preventDefault();event.stopPropagation();this.safe(()=>{const detail=(event as CustomEvent<{kind?:ObjectKind;from:number;to?:number;create?:boolean}>).detail;if(!detail||!Number.isInteger(detail.from))throw new Error("invalid-object-target");this.openObject(detail.kind,detail.to===undefined?undefined:{from:detail.from,to:detail.to},detail.from,detail.create===true);});};
   private tablePaste=(event:Event)=>{
     event.preventDefault();event.stopPropagation();
     const detail=(event as CustomEvent<{from:number;to:number;expected:string;prepared:PastePreparation}>).detail;
@@ -133,12 +142,27 @@ export class EditingUI {
     this.apply=this.button("Apply",()=>{const result=this.extensions.commit(prepared,raw.value);if(!result.ok)throw new Error(result.reason);this.close();});this.apply.dataset.mutation="true";
     this.panel.insertBefore(this.apply,this.panel.lastChild);this.sync();this.message("Review the draft before applying.");raw.focus();
   }
-  openObject(kind?:ObjectKind,range?:SourceRange,position?:number){
+  openObject(kind?:ObjectKind,range?:SourceRange,position?:number,create=false){
     if(!this.alive)throw new Error("destroyed");const reason=this.controller.unavailableReason;if(reason)throw new Error(reason);
+    if(tableWidgetOwnsFocus(this.controller.view)) {if(focusedTableCell(this.controller.view)&&kind==="link")executeFocusedTableCommand(this.controller.view,"link");return;}
     if(position!==undefined&&(!Number.isInteger(position)||position<0||position>this.controller.view.state.doc.length))throw new Error("invalid-object-target");
     if(position!==undefined&&!range)this.controller.view.dispatch({selection:{anchor:Math.min(this.controller.view.state.doc.length,position+1)}});
-    const session=this.controller.begin(kind,range);this.startPanel("Edit object");
-    const raw=literalControl(document.createElement("textarea"));raw.rows=10;raw.value=session.original||this.template(session.kind);this.textarea=raw;setUILabel(raw,"Object Markdown");
+    if(kind==="code"&&!range&&this.controller.identity.mode!=="source"){
+      const object=objectAt(this.controller.view.state,this.controller.view.state.selection.main.head,this.controller.identity.profile);
+      if(!object||object.kind!=="code"){
+        if(this.controller.command("codeBlock")){
+          const view=this.controller.view, doc=view.state.doc, anchor=view.state.selection.main.anchor, identity=this.controller.identity;
+          requestAnimationFrame(()=>{if(this.alive&&view.dom.isConnected&&view.state.doc===doc&&
+            view.state.selection.main.anchor===anchor&&sameEditingIdentity(identity,this.controller.identity))
+            focusCodeAtSelection(view);});
+        }
+        return;
+      }
+    }
+    const session=this.controller.begin(kind,range);
+    const title=({math:"Edit formula",mermaid:"Edit diagram",graphviz:"Edit diagram",code:"Edit code",image:"Edit image",link:"Edit link"} as Partial<Record<ObjectKind,string>>)[session.kind]??"Edit object";
+    this.startPanel(title);
+    const raw=literalControl(document.createElement("textarea"));raw.rows=10;raw.value=create?this.template(session.kind):session.original||this.template(session.kind);this.textarea=raw;setUILabel(raw,"Object Markdown");
     const parsed=readLinkDraft(session.original);
     if((session.kind==="link"||session.kind==="image")&&(!session.original||parsed)){
       const label=this.input(session.kind==="image"?"Alternative text":"Text",parsed?.label??"");const url=this.input("Target",parsed?.url??""),title=this.input("Title",parsed?.title??"");
@@ -157,7 +181,16 @@ export class EditingUI {
       raw.addEventListener("input",()=>{const fields=readLinkDraft(raw.value);for(const input of [label,url,title])input.disabled=!fields;if(fields){label.value=fields.label;url.value=fields.url;title.value=fields.title??"";}});
       if(session.kind==="image")this.panel.append(this.button("Replace image",()=>this.chooseResource(session)));
     }
-    this.panel.append(this.label("Object Markdown",raw));
+    let projection=technicalDraft(session.kind,raw.value);
+    if(projection){
+      const body=literalControl(document.createElement("textarea"));body.rows=6;body.value=projection.body;setUILabel(body,projection.label);
+      body.className="tegg-object-body";this.panel.append(this.label(projection.label,body));
+      const source=document.createElement("details"),summary=document.createElement("summary");setUIText(summary,"Markdown source");
+      source.className="tegg-object-source";source.append(summary,this.label("Object Markdown",raw));this.panel.append(source);
+      let writing=false;
+      body.addEventListener("input",()=>{if(!projection)return;writing=true;raw.value=projection.serialize(body.value);raw.dispatchEvent(new Event("input"));writing=false;});
+      raw.addEventListener("input",()=>{projection=technicalDraft(session.kind,raw.value);body.disabled=!projection;if(projection&&!writing)body.value=projection.body;});
+    }else this.panel.append(this.label("Object Markdown",raw));
     const preview=document.createElement("div");preview.className="tegg-object-preview";setUILabel(preview,"Draft preview");this.panel.append(preview);
     raw.addEventListener("input",()=>{this.controller.updateDraft(session.token,raw.value);this.schedulePreview(session.kind,raw.value,preview);});
     this.controller.updateDraft(session.token,raw.value);
@@ -171,7 +204,11 @@ export class EditingUI {
   private template(kind:ObjectKind){return ({link:"[text](https://)",image:"![description](assets/image.png)",code:"```text\n\n```",math:"$$\n\n$$",mermaid:"```mermaid\nflowchart TD\n  A --> B\n```",graphviz:"```graphviz\ndigraph { a -> b }\n```",footnote:"[^note]: ",callout:"> [!note]\n> ",metadata:"---\ntitle: \n---\n",table:"| A | B |\n| --- | --- |\n|  |  |",selection:""})[kind];}
   private schedulePreview(kind:ObjectKind,source:string,target:HTMLElement){
     clearTimeout(this.previewTimer);const epoch=++this.previewEpoch;
-    this.previewTimer=setTimeout(()=>{void this.preview(kind,source,target,epoch).catch(error=>{if(epoch===this.previewEpoch)target.textContent=(error as Error).message;});},250);
+    this.previewTimer=setTimeout(()=>{void this.preview(kind,source,target,epoch).catch(error=>{
+      if(epoch!==this.previewEpoch)return;
+      const message=target.querySelector(".tegg-preview-error")??document.createElement("p");message.className="tegg-preview-error";message.setAttribute("role","status");
+      message.textContent=(error as Error).message;target.append(message);
+    });},250);
   }
   private async preview(kind:ObjectKind,source:string,target:HTMLElement,epoch:number){
     if(epoch!==this.previewEpoch||!this.alive)return;
@@ -254,6 +291,6 @@ export class EditingUI {
     picker.addEventListener("cancel",()=>{picker.remove();if(!existing)this.controller.cancel(session.token);},{once:true});
     picker.addEventListener("change",()=>{const files=Array.from(picker.files??[]);picker.remove();if(!this.alive||this.filePicker!==picker)return;this.filePicker=undefined;if(!files.length){if(!existing)this.controller.cancel(session.token);return;}this.safe(async()=>{const input={files:files.map((file,i)=>({id:String(i),name:file.name,type:file.type,size:file.size,blob:file}))};const prepared=preparePaste(input);if(existing){const fields=readLinkDraft(this.controller.session?.draft??session.original);if(!fields||prepared.resources.length!==1||prepared.resources[0].kind!=="image")throw new Error("Select one image to replace the current image.");prepared.resources[0].alt=fields.label;prepared.resources[0].title=fields.title;}await this.applyPaste(session,prepared,!!existing);});},{once:true});picker.click();
   }
-  destroy(){if(!this.alive)return;this.close(false);this.extensions.dispose();this.uiBinding.destroy();this.alive=false;this.stop();this.controller.view.dom.removeEventListener("keydown",this.editorKey);this.controller.view.dom.removeEventListener("tegg-edit-object",this.objectEvent);this.controller.view.dom.removeEventListener("tegg-table-resource-paste",this.tablePaste);this.element.removeEventListener("keydown",this.panelKey);if(this.effects.get(this.controller.view.state)!==undefined)this.controller.view.dispatch({effects:this.effects.reconfigure([])});this.element.remove();instances.delete(this.controller);}
+  destroy(){if(!this.alive)return;this.close(false);this.extensions.dispose();this.uiBinding.destroy();this.alive=false;this.stop();this.controller.view.dom.removeEventListener("keydown",this.editorKey);this.controller.view.dom.removeEventListener("tegg-edit-object",this.objectEvent);this.controller.view.dom.removeEventListener("tegg-table-resource-paste",this.tablePaste);this.controller.view.dom.removeEventListener("tegg-toolbar-state",this.tableFocusChanged);this.controller.view.dom.removeEventListener("focusin",this.tableFocusChanged);this.controller.view.dom.removeEventListener("focusout",this.tableFocusChanged);this.element.removeEventListener("keydown",this.panelKey);if(this.effects.get(this.controller.view.state)!==undefined)this.controller.view.dispatch({effects:this.effects.reconfigure([])});this.element.remove();instances.delete(this.controller);}
 }
 export function attachEditingUI(controller:EditingController,root:HTMLElement,host:EditingUIHost={}){return new EditingUI(controller,root,host);}

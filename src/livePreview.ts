@@ -1,3 +1,4 @@
+import {preserveCodeStructure, selectCodeBoundary} from "./codeStructure";
 import {selectionHistory} from "./selectionHistory";
 import {undo, redo} from "./selectionHistory";
 import {indentList, editListBoundary, deleteListSelection, deleteListContinuation} from "./listCommands";
@@ -6,7 +7,7 @@ import {editingPerformancePolicy} from "./editingBudget";
 import {setUIText, setUILabel} from "./uiContext";
 import {bindEngines} from "./renderEngines";
 import {imageForView, resourceContext} from "./editorHost";
-import {EditableCodeWidget} from "./codeEditing";
+import {EditableCodeWidget, unwrapCodeContainer} from "./codeEditing";
 import {LiteralWidget, decodeEntity, literalClipboardText} from "./literalEditing";
 import {scriptFormatting} from "./scriptFormatting";
 import {EmojiWidget} from "./emojiEditing";
@@ -17,12 +18,12 @@ import { createMetadataPanel, disposeMetadataPanel } from "./metadata";
 
 import {observeSurfaceAppearance} from "./appearance";
 import {inlineMathAt} from "./mathSyntax";
-import {action, openPanel, openObjectViewer, disposeInteractions, scopeIds, enhanceFigures} from "./renderInteraction";
+import {action, openPanel, openObjectViewer, disposeInteractions} from "./renderInteraction";
 import {renderMarkdown} from "./markdown";
 import { makeHorizontalScrollRegion } from "./localScroll";
 import { syntaxTree } from "@codemirror/language";
 import { EditorSelection, Prec, Range, StateEffect, StateField } from "@codemirror/state";
-import { Decoration, DecorationSet, EditorView, keymap, ViewPlugin, ViewUpdate, WidgetType } from "@codemirror/view";
+import { Decoration, DecorationSet, Direction, EditorView, keymap, ViewPlugin, ViewUpdate, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import emojiMap from "markdown-it-emoji/lib/data/full.mjs";
 import { dispatchSourcePatches } from "./editorPatches";
@@ -34,14 +35,11 @@ import {
   type TechnicalBlock,
 } from "./profile";
 import {
-  applySemanticClasses,
   createHtmlPreview,
   createRenderToolbar,
-  enhanceCallouts,
   renderClassNames,
   renderDiagram,
   renderMathInto,
-  enhanceMathTokens,
   sanitizeRenderedHtml,
 } from "./renderKit";
 import {EditableTableWidget} from "./tableWidget";
@@ -117,20 +115,114 @@ class InlineMathWidget extends WidgetType {
   eq(other: InlineMathWidget) { return other.source === this.source && other.from === this.from; }
   toDOM(view: EditorView) {
     const span = document.createElement("span");
+    const sourceDocument = view.state.doc;
     span.className = "cm-live-math-inline";
+    span.dataset.sourceFrom = String(this.from);
     span.tabIndex = 0;
     setUILabel(span, "Formula: {value}", {value: String(this.source)});
     bindEngines(span, view.state.facet(resourceContext).engines);
     renderMathInto(span, { kind: "math", source: this.source, display: "inline" });
-    span.addEventListener("dblclick",event=>{event.stopPropagation();editObject(view,this.from,"math");});
-    span.addEventListener("click", event => {event.stopPropagation(); openObjectViewer(span, span, this.source, "Formula", () => editSource(view, this.from + 1));});
+    const controls = document.createElement("span");
+    controls.className = "md-object-actions cm-live-math-actions";
+    controls.hidden = true;
+    controls.style.display = "none";
+    controls.append(action("View formula", () => openObjectViewer(span, span, this.source, "Formula",
+      view.state.readOnly ? undefined : () => editObject(view, this.from, "math"))));
+    if (!view.state.readOnly) controls.append(action("Edit formula", () => {
+      if (!view.state.readOnly) editObject(view, this.from, "math");
+    }));
+    // Keep the menu outside CodeMirror's content and scroll layers. The
+    // formula remains the focus target while the menu is a transient overlay.
+    const overlayHost = view.dom.closest<HTMLElement>(".tegg-surface") ?? view.dom.parentElement ?? view.dom;
+    overlayHost.append(controls);
+    const lifetime = new AbortController();
+    const select = () => {
+      const rect = span.getBoundingClientRect();
+      const surface = span.closest<HTMLElement>(".tegg-surface") ?? view.dom;
+      const toolbarInset = Number.parseFloat(getComputedStyle(surface).getPropertyValue("--toolbar-inset")) || 0;
+      const above = rect.top - toolbarInset - 8;
+      const below = window.innerHeight - rect.bottom - 8;
+      const side = above >= 48 || above > below ? "above" : "below";
+      controls.dataset.side = side;
+      // Anchor the separate overlay in viewport coordinates without moving
+      // the formula or its following text.
+      controls.style.position = "fixed";
+      controls.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 190))}px`;
+      controls.style.top = side === "below" ? `${rect.bottom + 5}px` : "auto";
+      controls.style.bottom = side === "above" ? `${window.innerHeight - rect.top + 5}px` : "auto";
+      controls.hidden = false;
+      controls.style.removeProperty("display");
+      span.classList.add("cm-live-object-selected");
+    };
+    const clearSelection = () => {
+      controls.hidden = true;
+      controls.style.display = "none";
+      span.classList.remove("cm-live-object-selected");
+    };
+    // Keep focus on the formula while a pointer activates a menu button.
+    // WebKit otherwise reports a null relatedTarget on focusout and can hide
+    // the button before its click is delivered.
+    controls.addEventListener("mousedown", event => event.preventDefault(), {signal: lifetime.signal});
+    span.addEventListener("focusin", event => {
+      if (event.target === span) select();
+    }, {signal: lifetime.signal});
+    span.addEventListener("focusout", event => {
+      if (controls.contains(event.relatedTarget as Node | null)) return;
+      if (event.relatedTarget) { clearSelection(); return; }
+      queueMicrotask(() => {
+        if (!controls.contains(document.activeElement)) clearSelection();
+      });
+    }, {signal: lifetime.signal});
+    controls.addEventListener("focusout", event => {
+      if (event.relatedTarget !== span && !controls.contains(event.relatedTarget as Node | null)) clearSelection();
+    }, {signal: lifetime.signal});
+    controls.addEventListener("keydown", event => {
+      if (event.key !== "Escape") return;
+      event.preventDefault(); event.stopPropagation(); clearSelection(); view.focus();
+    }, {signal: lifetime.signal});
+    const hideOnViewportMove = () => clearSelection();
+    window.addEventListener("scroll", hideOnViewportMove, {capture: true, passive: true, signal: lifetime.signal});
+    window.addEventListener("resize", hideOnViewportMove, {signal: lifetime.signal});
+    span.addEventListener("click", event => {
+      event.stopPropagation();
+      select();
+      span.focus();
+    }, {signal: lifetime.signal});
+    span.addEventListener("dblclick",event=>{
+      event.stopPropagation();
+      if (view.state.readOnly) openObjectViewer(span, span, this.source, "Formula");
+      else editObject(view,this.from,"math");
+    }, {signal: lifetime.signal});
     span.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {event.preventDefault(); event.stopPropagation(); openObjectViewer(span, span, this.source, "Formula", () => editSource(view, this.from + 1));}
+      if (event.key === "Escape") {
+        event.preventDefault(); event.stopPropagation(); clearSelection(); view.focus(); return;
+      }
+      if (event.target !== span) return;
+      if (event.key === "Enter" || event.key === "F2") {
+        event.preventDefault(); event.stopPropagation();
+        if (view.state.readOnly) openObjectViewer(span, span, this.source, "Formula");
+        else editObject(view, this.from, "math");
+      } else if (event.key === " ") {
+        event.preventDefault(); event.stopPropagation(); select();
+      }
+    }, {signal: lifetime.signal});
+    widgetCleanup.set(span, () => {
+      lifetime.abort(); controls.remove();
+      // Losing focus can replace this widget while its viewer is opening.
+      // Retain it only for a replacement in the same document and Live view;
+      // a mode/document switch must not retain an old viewer or edit callback.
+      queueMicrotask(() => {
+        const current = inlineMathAt(view.state.doc.toString(), this.from);
+        const replacement = [...view.contentDOM.querySelectorAll<HTMLElement>(".cm-live-math-inline")]
+          .find(node => node.dataset.sourceFrom === String(this.from));
+        if (!view.dom.isConnected || view.state.doc !== sourceDocument || current?.source !== this.source || !replacement)
+          disposeInteractions(span);
+      });
     });
     return span;
   }
 
-  destroy(dom: HTMLElement) { widgetCleanup.get(dom)?.(); disposeInteractions(dom); }
+  destroy(dom: HTMLElement) { widgetCleanup.get(dom)?.(); }
   ignoreEvent() { return true; }
 }
 
@@ -177,9 +269,12 @@ class HtmlPreviewWidget extends WidgetType {
     }, renderedSource, view.state.facet(resourceContext));
     wrapper.classList.add(this.block ? "cm-live-html-block" : "cm-live-html-inline");
     wrapper.tabIndex = 0;
-    wrapper.addEventListener("click", () => editSource(view, this.from));
+    wrapper.addEventListener("click", event => {
+      if ((event.target as Element).closest("summary")) return;
+      editSource(view, this.from);
+    });
     wrapper.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") editSource(view, this.from);
+      if (event.target === wrapper && (event.key === "Enter" || event.key === " ")) editSource(view, this.from);
     });
     return wrapper;
   }
@@ -381,6 +476,15 @@ class HorizontalRuleWidget extends WidgetType {
 }
 
 const setMetadataSource = StateEffect.define<SourceRange | null>();
+const setCalloutSource = StateEffect.define<number | null>();
+const calloutSourceState = StateField.define<number | null>({
+  create: () => null,
+  update(value, transaction) {
+    if (value != null) value = transaction.changes.mapPos(value, -1);
+    for (const effect of transaction.effects) if (effect.is(setCalloutSource)) value = effect.value;
+    return value;
+  },
+});
 const metadataSourceState = StateField.define<SourceRange | null>({
   create: () => null,
   update(value, transaction) {
@@ -476,73 +580,51 @@ class FrontmatterWidget extends WidgetType {
 }
 
 class CalloutHeaderWidget extends WidgetType {
-  constructor(readonly from: number, readonly type: string, readonly title: string, readonly showTitle: boolean) { super(); }
-  eq(other: CalloutHeaderWidget) { return this.from === other.from && this.type === other.type && this.title === other.title && this.showTitle === other.showTitle; }
+  constructor(readonly from: number, readonly type: string, readonly title: string, readonly titleFrom: number) { super(); }
+  eq(other: CalloutHeaderWidget) { return this.from === other.from && this.type === other.type && this.title === other.title && this.titleFrom === other.titleFrom; }
   toDOM(view: EditorView) {
     const header = document.createElement("span");
     header.className = "callout-editor-header";
     applyCalloutAppearance(header, this.type);
     header.append(calloutTypeButton(view, this.from, this.type));
-    if (this.showTitle) {
+    if (!this.title) {
       const title = document.createElement("span");
       title.className = "callout-title";
-      title.innerHTML = sanitizeRenderedHtml(parserFor(view.state.facet(resourceContext).profile).renderInline(this.title || this.type.toUpperCase()), view.state.facet(resourceContext).documentPath, view.state.facet(resourceContext).resolveImage);
-      title.addEventListener("click", () => editSource(view, this.from));
+      title.textContent = this.type.toUpperCase();
+      if (!view.state.readOnly) title.addEventListener("click", () => {
+        view.dispatch({changes: {from: this.titleFrom, insert: " "}, selection: {anchor: this.titleFrom + 1}, userEvent: "input"});
+        view.focus();
+      });
       header.append(title);
     }
+    const source = document.createElement("button");
+    source.type = "button";
+    source.textContent = "⋯";
+    setUILabel(source, "View Callout Markdown");
+    source.title = "View Callout Markdown";
+    source.addEventListener("click", event => {
+      event.stopPropagation();
+      view.dispatch({effects: setCalloutSource.of(this.from), selection: {anchor: this.titleFrom}, scrollIntoView: true});
+      view.focus();
+    });
+    source.classList.add("callout-source-action");
+    header.append(source);
     return header;
   }
   destroy(dom: HTMLElement) { widgetCleanup.get(dom)?.(); disposeInteractions(dom); }
   ignoreEvent() { return true; }
 }
 
-class BlockquoteWidget extends WidgetType {
-  constructor(
-    readonly source: string,
-    readonly from: number,
-    readonly calloutType?: string,
-  ) { super(); }
-
-  eq(other: BlockquoteWidget) {
-    return other.source === this.source && other.from === this.from && other.calloutType === this.calloutType;
-  }
-
+class CalloutSourceToolbar extends WidgetType {
+  eq() { return true; }
   toDOM(view: EditorView) {
-    const shell = document.createElement("div");
-    shell.innerHTML = sanitizeRenderedHtml(parserFor(view.state.facet(resourceContext).profile).render(this.source, {profile: view.state.facet(resourceContext).profile}), view.state.facet(resourceContext).documentPath, view.state.facet(resourceContext).resolveImage);
-    scopeIds(shell); applySemanticClasses(shell);
-    enhanceCallouts(shell); enhanceMathTokens(shell); enhanceFigures(shell);
-    enhanceRenderedLinks(shell, href => view.dom.dispatchEvent(new CustomEvent("tegg-open-link", {detail: href, bubbles: true})));
-    const quote = shell.querySelector<HTMLElement>("blockquote") ?? document.createElement("blockquote");
-    quote.classList.add(this.calloutType ? "cm-live-callout" : "cm-live-quote-widget");
-    if (this.calloutType) quote.classList.add(`cm-live-callout-${this.calloutType}`);
-    if (this.calloutType) {
-      const targets = calloutRanges(view.state).filter(range => range.from >= this.from && range.to <= this.from + this.source.length);
-      const elements = [quote, ...quote.querySelectorAll<HTMLElement>("blockquote.callout")];
-      elements.forEach((element, index) => {
-        const target = targets[index];
-        if (!target) return;
-        element.querySelector(":scope > .callout-title > .callout-icon")?.replaceWith(calloutTypeButton(view, target.from, target.type));
-      });
-    }
-    quote.tabIndex = 0;
-    quote.setAttribute("aria-label", this.calloutType ? `${this.calloutType} callout` : "Block quote");
-    const edit = () => editSource(view, this.from);
-    quote.addEventListener("click", event => {
-      if ((event.target as Element).closest("button, a, input, summary, [data-tex-source]")) return;
-      edit();
+    const button = action("Return to Callout", () => {
+      view.dispatch({effects: setCalloutSource.of(null)});
+      view.focus();
     });
-    quote.addEventListener("keydown", (event) => {
-      if (event.target !== quote) return;
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        edit();
-      }
-    });
-    return quote;
+    button.classList.add("callout-source-action");
+    return button;
   }
-
-  destroy(dom: HTMLElement) { widgetCleanup.get(dom)?.(); disposeInteractions(dom); }
   ignoreEvent() { return true; }
 }
 
@@ -702,6 +784,39 @@ function collectHtmlRanges(view: EditorView, inlineParagraphs: Set<number>) {
   return result;
 }
 
+// Lezer splits an HTML block at blank lines. A complete details element must
+// be rendered from one source slice so the browser keeps its body inside it.
+function collectDetailsRanges(view: EditorView, codeRanges: SourceRange[]) {
+  const complete: SourceRange[] = [];
+  const unsupported: SourceRange[] = [];
+  const stack: number[] = [];
+  const source = view.state.doc.toString();
+  for (let number = 1; number <= view.state.doc.lines; number++) {
+    const line = view.state.doc.line(number);
+    for (const match of line.text.matchAll(/<\/?details\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi)) {
+      const from = line.from + match.index!;
+      const to = from + match[0].length;
+      if (isInside({from, to}, codeRanges) || source.lastIndexOf("<!--", from) > source.lastIndexOf("-->", from)) continue;
+      if (match[0][1] !== "/") {
+        // A block opener may have attributes or other HTML on its line, but
+        // prose containing the same text is ordinary editable Markdown.
+        if (line.text.slice(0, match.index).trim() && stack.length === 0) continue;
+        stack.push(line.from);
+      } else if (stack.length) {
+        const start = stack.pop()!;
+        if (stack.length === 0) {
+          // The multiline widget replaces its entire closing line. Preserve
+          // adjacent Markdown on that line by leaving the container as source.
+          const trailing = line.text.slice(match.index! + match[0].length);
+          (trailing.trim() ? unsupported : complete).push({from: start, to: line.to});
+        }
+      } else unsupported.push({from: line.from, to: line.to});
+    }
+  }
+  if (stack.length) unsupported.push({from: stack[0], to: source.length});
+  return {complete, unsupported};
+}
+
 type LinkDefinition = { label: string; value: string; from: number; to: number; footnote: boolean };
 
 function findLinkDefinitions(source: string, codeRanges: SourceRange[]): LinkDefinition[] {
@@ -732,13 +847,19 @@ function footnoteNumbers(source: string, definitions: LinkDefinition[], codeRang
   for (const match of source.matchAll(pattern)) {
     const from = match.index ?? 0;
     const range = { from, to: from + match[0].length };
-    if (isInside(range, codeRanges) || isInside(range, definitionRanges)) continue;
+    if (isInside(range, codeRanges) || isInside(range, definitionRanges) || isEscaped(source, from)) continue;
     if (definitionRanges.some(definition => definition.label === match[1]) && !result.has(match[1])) result.set(match[1], result.size + 1);
   }
   for (const definition of definitionRanges) {
     if (!result.has(definition.label)) result.set(definition.label, result.size + 1);
   }
   return result;
+}
+
+function isEscaped(source: string, from: number) {
+  let backslashes = 0;
+  for (let index = from - 1; index >= 0 && source[index] === "\\"; index--) backslashes++;
+  return backslashes % 2 === 1;
 }
 
 
@@ -813,9 +934,21 @@ function buildDecorations(view: EditorView): DecorationSet {
     }
   }
 
+  const details = collectDetailsRanges(view, codeRanges);
+  for (const container of details.complete) {
+    suppressed.push(container);
+    if (isRangeActive(view, container.from, container.to)) {
+      addLineDecoration(view, ranges, container.from, container.to, "cm-live-technical-source");
+    } else {
+      collapseMultilineSource(view, ranges, container.from, container.to,
+        new HtmlPreviewWidget(source.slice(container.from, container.to), container.from, true));
+    }
+  }
+
   const inlineHtml = inlineHtmlFormatting(view.state);
   for (const html of collectHtmlRanges(view, inlineHtml.paragraphs)) {
-    if (isInside(html, codeRanges) || isInside(html, suppressed)) continue;
+    if (isInside(html, codeRanges) || isInside(html, suppressed)
+      || [...details.complete, ...details.unsupported].some(item => html.from < item.to && html.to > item.from)) continue;
     suppressed.push(html);
     if (isRangeActive(view, html.from, html.to)) {
       addLineDecoration(view, ranges, html.from, html.to, "cm-live-technical-source");
@@ -857,7 +990,8 @@ function buildDecorations(view: EditorView): DecorationSet {
   for (const match of (profile === "gfm" ? [] : source.matchAll(/\[\^([^\]\n]+)\]/g))) {
     const from = match.index ?? 0;
     const range = { from, to: from + match[0].length };
-    if (isInside(range, codeRanges) || isInside(range, definitions)) continue;
+    if (isInside(range, codeRanges) || isInside(range, definitions) || isEscaped(source, from)
+      || inlineExcluded.some(item => range.from < item.to && range.to > item.from)) continue;
     const number = numbers.get(match[1]);
     suppressed.push(range);
     if (!number) continue;
@@ -871,39 +1005,34 @@ function buildDecorations(view: EditorView): DecorationSet {
   const callouts = profile === "gfm" ? [] : calloutRanges(view.state).filter(item => profile === "tegg" || /^[ \t]{0,3}>[ \t]*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*$/.test(view.state.doc.lineAt(item.from).text));
   const outerCallouts = callouts.filter(item => !callouts.some(parent => parent.from < item.from && parent.to >= item.to));
   for (const callout of outerCallouts) {
-    if (isRangeActive(view, callout.from, callout.to) || (view.hasFocus && view.state.selection.ranges.some(selection => selection.empty && selection.from === callout.to))) {
-      const children = callouts.filter(item => item.from >= callout.from && item.to <= callout.to);
-      const first = view.state.doc.lineAt(callout.from);
-      const last = view.state.doc.lineAt(Math.max(callout.from, callout.to - 1));
-      for (let number = first.number; number <= last.number; number++) {
-        const line = view.state.doc.line(number);
-        const owner = children.filter(item => item.from <= line.to && item.to >= line.from).at(-1) ?? callout;
-        const style = resolveCallout(owner.type);
-        const edge = `${number === first.number ? " cm-live-callout-source-first" : ""}${number === last.number ? " cm-live-callout-source-last" : ""}`;
-        ranges.push(Decoration.line({class: `cm-live-callout-source cm-live-callout-source-${owner.type}${edge}`,
-          attributes: {"data-callout-kind": style.id, style: `--callout-light:${style.light};--callout-dark:${style.dark}`},
-        }).range(line.from));
+    const children = callouts.filter(item => item.from >= callout.from && item.to <= callout.to);
+    const first = view.state.doc.lineAt(callout.from);
+    const last = view.state.doc.lineAt(Math.max(callout.from, callout.to - 1));
+    for (let number = first.number; number <= last.number; number++) {
+      const line = view.state.doc.line(number);
+      const owner = children.filter(item => item.from <= line.to && item.to >= line.from).at(-1) ?? callout;
+      const style = resolveCallout(owner.type);
+      const edge = `${number === first.number ? " cm-live-callout-source-first" : ""}${number === last.number ? " cm-live-callout-source-last" : ""}`;
+      ranges.push(Decoration.line({class: `cm-live-callout-source ${renderClassNames.callout} cm-live-callout-source-${owner.type}${edge}`,
+        attributes: {"data-callout-kind": style.id, style: `--callout-light:${style.light};--callout-dark:${style.dark}`},
+      }).range(line.from));
+    }
+    for (const child of children) {
+      if (view.state.field(calloutSourceState) === child.from) {
+        suppressed.push({from: child.headerFrom, to: child.headerTo});
+        ranges.push(Decoration.widget({widget: new CalloutSourceToolbar(), side: -1}).range(child.headerFrom));
+        continue;
       }
-      for (const child of children) {
-        const headerLine = view.state.doc.lineAt(child.headerFrom);
-        const editingHeader = view.state.selection.ranges.some(selection =>
-          selection.from <= headerLine.to && selection.to >= headerLine.from);
-        if (editingHeader) {
-          ranges.push(Decoration.widget({widget: new CalloutHeaderWidget(child.from, child.type, child.title, false), side: -1}).range(child.headerFrom));
-        } else {
-          suppressed.push({from: child.headerFrom, to: child.headerTo});
-          ranges.push(Decoration.replace({widget: new CalloutHeaderWidget(child.from, child.type, child.title, true)}).range(child.headerFrom, child.headerTo));
-        }
+      const header = source.slice(child.headerFrom, child.headerTo);
+      const marker = header.match(/^\[![A-Za-z][A-Za-z0-9_-]*\][+-]?[ \t]*/)?.[0] ?? "";
+      const titleFrom = child.headerFrom + marker.length;
+      suppressed.push({from: child.headerFrom, to: titleFrom});
+      ranges.push(Decoration.replace({widget: new CalloutHeaderWidget(child.from, child.type, child.title, child.headerTo)})
+        .range(child.headerFrom, child.title ? titleFrom : child.headerTo));
+      if (child.title) {
+        ranges.push(Decoration.mark({class: "cm-live-callout-title callout-title"})
+          .range(titleFrom, child.headerTo));
       }
-    } else {
-      suppressed.push(callout);
-      collapseMultilineSource(
-        view,
-        ranges,
-        callout.from,
-        callout.to,
-        new BlockquoteWidget(source.slice(callout.from, callout.to), callout.from, callout.type),
-      );
     }
   }
 
@@ -962,18 +1091,24 @@ function buildDecorations(view: EditorView): DecorationSet {
   }
 
   const documentLines = source.split("\n");
+  const definitionLines = new Map<number, number>();
+  if (profile === "tegg" && /^\s*:[ \t]+\S/m.test(source)) {
+    let termLine = -1;
+    for (const token of parserFor(profile).parse(source, {})) {
+      if (token.type === "dt_open") termLine = token.map?.[0] ?? -1;
+      if (token.type === "dd_open" && token.map && termLine >= 0) definitionLines.set(token.map[0], termLine);
+    }
+  }
   let documentOffset = 0;
   for (let index = 0; index < documentLines.length; index += 1) {
     const line = documentLines[index].replace(/\r$/, "");
     const definition = line.match(/^([ \t]*):[ \t]+(.+)$/);
     const currentRange = { from: documentOffset, to: documentOffset + line.length };
-    if (profile === "tegg" && definition && !isInside(currentRange, codeRanges) && !isInside(currentRange, suppressed)) {
+    if (definition && definitionLines.has(index) && !isInside(currentRange, codeRanges) && !isInside(currentRange, suppressed)) {
       ranges.push(Decoration.line({ class: `cm-live-definition-description ${renderClassNames.definitionDescription}` }).range(currentRange.from));
-      const previousLine = index > 0 ? documentLines[index - 1].replace(/\r$/, "") : "";
-      if (previousLine.trim() && !/^\s*:/.test(previousLine)) {
-        const previousFrom = currentRange.from - documentLines[index - 1].length - 1;
-        ranges.push(Decoration.line({ class: `cm-live-definition-term ${renderClassNames.definitionTerm}` }).range(previousFrom));
-      }
+      const term = definitionLines.get(index)!;
+      const termFrom = view.state.doc.line(term + 1).from;
+      ranges.push(Decoration.line({ class: `cm-live-definition-term ${renderClassNames.definitionTerm}` }).range(termFrom));
       if (!isRangeActive(view, currentRange.from, currentRange.to)) {
         ranges.push(Decoration.replace({}).range(currentRange.from, currentRange.from + definition[0].indexOf(definition[2])));
       }
@@ -982,6 +1117,7 @@ function buildDecorations(view: EditorView): DecorationSet {
   }
 
   const quoteDepths = new Map<number, number>();
+  const quoteRails = new Map<number, string[]>();
   const literalReferences = new Set<number>();
   // Cache each list's ordinal and marker width once; source numbering is preserved.
   const listMarkers = new Map<number, {text: string; width: number; depth: number; offsets: number[]}>();
@@ -1005,6 +1141,18 @@ function buildDecorations(view: EditorView): DecorationSet {
     });
   }});
   const listLines = new Map<number, {width: number; depth: number; offsets: number[]; first: boolean}>();
+  const containingList = (node: SyntaxNode | null) => {
+    for (let current = node; current; current = current.parent) {
+      if (current.name === "ListItem") {
+        const mark = current.getChild("ListMark");
+        if (mark) return listMarkers.get(mark.from);
+      }
+    }
+    return undefined;
+  };
+  const listOffset = (layout: {width: number; offsets: number[]}) =>
+    [...layout.offsets.map(width => `max(1.5em, ${width}ch + .5em)`), `${layout.width}ch`, ".5em"].join(" + ");
+
   let referenceEnvironment: Record<string, unknown> | undefined;
   syntaxTree(view.state).iterate({
     enter(node) {
@@ -1017,7 +1165,7 @@ function buildDecorations(view: EditorView): DecorationSet {
         if (trailing) ranges.push(Decoration.replace({breakSyntax: true}).range(trailing.from, trailing.to - 1));
         const item = node.node.parent;
         const mark = item?.name === "ListItem" ? item.getChild("ListMark") : null;
-        const layout = mark ? listMarkers.get(mark.from) : undefined;
+        const layout = containingList(item);
         // Quoted lists retain their container geometry; code and other block children
         // are never treated as paragraph indentation.
         if (layout) {
@@ -1025,13 +1173,14 @@ function buildDecorations(view: EditorView): DecorationSet {
           const last = view.state.doc.lineAt(Math.max(node.from, node.to - 1)).number;
           for (let number = first; number <= last; number++) {
             const line = view.state.doc.line(number);
-            const isFirst = line.number === view.state.doc.lineAt(mark!.from).number;
+            const isFirst = line.number === (mark ? view.state.doc.lineAt(mark.from).number : -1);
             listLines.set(line.from, {...layout, first: isFirst});
             if (!isFirst) {
               const prefix = line.text.match(/^[ \t>]+/)?.[0] ?? "";
-              const afterQuote = prefix.lastIndexOf(">") + 1;
-              const start = afterQuote ? afterQuote + (prefix[afterQuote] === " " ? 1 : 0) : 0;
-              if (prefix.length > start) ranges.push(Decoration.replace({listSyntax: true}).range(line.from + start, line.from + prefix.length));
+              for (const gap of prefix.matchAll(/(?:^|> ?)([ \t]+)/g)) {
+                const start = gap.index! + gap[0].length - gap[1].length;
+                ranges.push(Decoration.replace({listSyntax: true}).range(line.from + start, line.from + start + gap[1].length));
+              }
             }
           }
         }
@@ -1123,7 +1272,11 @@ function buildDecorations(view: EditorView): DecorationSet {
           const last = view.state.doc.lineAt(Math.max(node.from, node.to - 1)).number;
           for (let number = first; number <= last; number++) {
             const from = view.state.doc.line(number).from;
-            quoteDepths.set(from, (quoteDepths.get(from) ?? 0) + 1);
+            const rails = quoteRails.get(from) ?? [];
+            const layout = containingList(node.node.parent);
+            rails.push(`calc(${layout ? listOffset(layout) : "0px"} + ${rails.length * 20}px)`);
+            quoteRails.set(from, rails);
+            quoteDepths.set(from, rails.length);
           }
         }
       } else if (name === "BulletList" || name === "OrderedList") {
@@ -1141,8 +1294,22 @@ function buildDecorations(view: EditorView): DecorationSet {
         addLineDecoration(view, ranges, node.from, node.to, "cm-live-table-line");
       } else if (name === "FencedCode") {
         const code = parseFencedCode(raw);
-        // Container prefixes belong to the quote/list, not the editable code body.
+        // Standalone fences inside containers use the same editor, with source
+        // prefixes restored on write. Inline list-opening fences retain source.
         if (node.node.parent?.name !== "Document") {
+          const firstLine = view.state.doc.lineAt(node.from);
+          const prefix = source.slice(firstLine.from, node.from);
+          const containerRaw = source.slice(firstLine.from, node.to);
+          const safe = /^[ \t>]+$/.test(prefix) && containerRaw.split("\n").every(line => /^ +$/.test(prefix) || line.startsWith(prefix) || !line.trim() || line === prefix.trimEnd());
+          if (safe && parseFencedCode(unwrapCodeContainer(containerRaw, prefix))) {
+            suppressed.push(nodeRange);
+            collapseMultilineSource(view, ranges, firstLine.from, node.to,
+              new EditableCodeWidget(containerRaw, firstLine.from, node.to, prefix));
+            const closing = view.state.doc.lineAt(Math.max(node.from, node.to - 1)).from;
+            const layout = containingList(node.node.parent);
+            if (layout) listLines.set(closing, {...layout, first: false});
+            return false;
+          }
           addLineDecoration(view, ranges, node.from, node.to, "cm-live-code-line");
           return false;
         }
@@ -1155,6 +1322,19 @@ function buildDecorations(view: EditorView): DecorationSet {
       } else if (name === "CodeBlock") {
         const blockRange = lineRange(view, nodeRange);
         if (node.node.parent?.name !== "Document") {
+          const indentation = source.slice(blockRange.from, node.from);
+          // Indented code contributes four spaces of its own after the container.
+          const prefix = indentation.endsWith("    ") ? indentation.slice(0, -4) : "";
+          const containerRaw = source.slice(blockRange.from, blockRange.to);
+          if (prefix && /^[ \t>]+$/.test(prefix) && containerRaw.split("\n").every(line => line.startsWith(prefix) || !line.trim() || line === prefix.trimEnd())) {
+            suppressed.push(blockRange);
+            collapseMultilineSource(view, ranges, blockRange.from, blockRange.to,
+              new EditableCodeWidget(containerRaw, blockRange.from, blockRange.to, prefix));
+            const closing = view.state.doc.lineAt(Math.max(blockRange.from, blockRange.to - 1)).from;
+            const layout = containingList(node.node.parent);
+            if (layout) listLines.set(closing, {...layout, first: false});
+            return false;
+          }
           addLineDecoration(view, ranges, blockRange.from, blockRange.to, "cm-live-code-line");
           return false;
         }
@@ -1254,7 +1434,7 @@ function buildDecorations(view: EditorView): DecorationSet {
 
   for (const [from, depth] of quoteDepths) {
     ranges.push(Decoration.line({class: `cm-live-quote-line ${renderClassNames.quote}`,
-      attributes: {style: `--md-quote-depth: ${depth}`}}).range(from));
+      attributes: {style: `--md-quote-depth: ${depth}; background-image: ${Array(depth).fill("linear-gradient(color-mix(in srgb, var(--text) 18%, transparent), color-mix(in srgb, var(--text) 18%, transparent))").join(",")}; background-size: ${Array(depth).fill("2px 100%").join(",")}; background-position: ${quoteRails.get(from)!.map(offset => `${offset} top`).join(",")}; background-repeat: no-repeat`}}).range(from));
   }
 
   // Attach the gap to the following block's first visible line, including
@@ -1332,10 +1512,19 @@ const livePreviewDecorations = ViewPlugin.fromClass(class {
   }
 }, {
   decorations: (plugin) => plugin.decorations,
-  provide: (plugin) => EditorView.atomicRanges.of(view =>
-    view.plugin(plugin)?.decorations.update({
+  provide: (plugin) => EditorView.atomicRanges.of(view => {
+    const decorations = view.plugin(plugin)?.decorations;
+    if (!decorations) return Decoration.none;
+    const blocks: Range<Decoration>[] = [];
+    decorations.between(0, view.state.doc.length, (_from, _to, value) => {
+      const widget = value.spec.widget;
+      if (widget instanceof EditableCodeWidget) blocks.push(Decoration.replace({}).range(widget.from, widget.to));
+    });
+    return decorations.update({
       filter: (_from, _to, value) => value.spec.listSyntax === true || value.spec.quoteSyntax === true || value.spec.literalSyntax === true || value.spec.emojiSyntax === true || value.spec.headingSyntax === true || value.spec.breakSyntax === true || value.spec.inlineSyntax === true,
-    }) ?? Decoration.none),
+      add: blocks, sort: true,
+    });
+  }),
 });
 
 type CaretPointDocument = Document & {
@@ -1468,11 +1657,85 @@ export function editQuoteBoundary(view: EditorView, enter: boolean): boolean {
 
 const continueLiveList = insertNewlineContinueMarkupCommand({nonTightLists: false});
 
-export const livePreview = [selectionHistory,EditorView.clipboardOutputFilter.of(literalClipboardText), Prec.highest(keymap.of([
+// CodeMirror's wrapped-line command locates the edge through posAtCoords. In
+// Live Preview, collapsed source rows can make that height-based lookup land
+// on a later line. Correct a crossed source-line boundary with CodeMirror's
+// visual side or the actual DOM row, and keep hidden prefixes outside typing.
+function keepLiveLineBoundary(view: EditorView, forward: boolean, extend = false): boolean {
+  if (!view.hasFocus || view.composing || view.state.selection.ranges.length !== 1) return false;
+  const selection = view.state.selection.main;
+  const sourceLine = view.state.doc.lineAt(selection.head);
+  const safePosition = (position: number) => {
+    let normalized = position;
+    for (let previous = -1; normalized !== previous;) {
+      previous = normalized;
+      for (const getRanges of view.state.facet(EditorView.atomicRanges)) {
+        getRanges(view).between(Math.max(0, normalized - 1), Math.min(view.state.doc.length, normalized + 1), (from, to, value) => {
+          if (normalized === from && (value.spec.quoteSyntax || value.spec.listSyntax || value.spec.headingSyntax) && from < to)
+            normalized = to;
+          else if (from < normalized && normalized < to) normalized = forward ? to : from;
+        });
+      }
+    }
+    return normalized;
+  };
+  const place = (target: number) => {
+    const normalized = safePosition(target);
+    if (normalized < sourceLine.from || normalized > sourceLine.to) return true;
+    const moved = extend ? EditorSelection.range(selection.anchor, normalized, undefined, undefined, forward ? -1 : 1)
+      : EditorSelection.cursor(normalized, forward ? -1 : 1);
+    if (!moved.eq(selection, true)) view.dispatch({selection: EditorSelection.create([moved]), scrollIntoView: true, userEvent: "select"});
+    return true;
+  };
+  const block = view.lineBlockAt(selection.head);
+  let candidate = view.moveToLineBoundary(selection, forward);
+  if (candidate.head === selection.head && candidate.head !== (forward ? block.to : block.from))
+    candidate = view.moveToLineBoundary(selection, forward, false);
+  if (candidate.head >= sourceLine.from && candidate.head <= sourceLine.to)
+    return candidate.head === sourceLine.from && safePosition(candidate.head) !== candidate.head ? place(candidate.head) : false;
+
+  const first = view.coordsAtPos(sourceLine.from, 1);
+  const last = view.coordsAtPos(sourceLine.to, -1);
+  // On an unwrapped row CodeMirror already knows the bidi-aware visual side.
+  // Avoid browser-specific caret hit testing (and a character walk) there.
+  if (first && last && first.bottom > last.top + 2 && last.bottom > first.top + 2)
+    return place(view.visualLineSide(sourceLine, forward).head);
+
+  const dom = view.domAtPos(selection.head, selection.assoc || 1).node;
+  const line = (dom instanceof Element ? dom : dom.parentElement)?.closest<HTMLElement>(".cm-line");
+  if (!line || !view.contentDOM.contains(line)) return true;
+  const caret = view.coordsAtPos(selection.head, selection.assoc || 1);
+  const bounds = line.getBoundingClientRect();
+  if (!caret || bounds.height <= 0) return true;
+  const y = (caret.top + caret.bottom) / 2;
+  if (y < bounds.top || y > bounds.bottom) return true;
+  const direction = view.textDirectionAt(selection.head);
+  const x = forward === (direction === Direction.LTR) ? bounds.right - 1 : bounds.left + 1;
+  const owner = view.contentDOM.ownerDocument as CaretPointDocument;
+  const point = owner.caretPositionFromPoint?.(x, y);
+  const range = point ? null : owner.caretRangeFromPoint?.(x, y);
+  const node = point?.offsetNode ?? range?.startContainer;
+  const offset = point?.offset ?? range?.startOffset;
+  let target: number | null = null;
+  if (node && offset != null && line.contains(node)) {
+    try { target = view.posAtDOM(node, offset); } catch { /* Keep the cursor on this line. */ }
+  }
+  if (target == null) return true;
+  if (target < sourceLine.from || target > sourceLine.to) return true;
+  return place(target);
+}
+
+export const livePreview = [preserveCodeStructure,selectionHistory,EditorView.clipboardOutputFilter.of(literalClipboardText), Prec.highest(keymap.of([
+  {mac: "Cmd-ArrowRight", run: view => keepLiveLineBoundary(view, view.textDirectionAt(view.state.selection.main.head) === Direction.LTR),
+    shift: view => keepLiveLineBoundary(view, view.textDirectionAt(view.state.selection.main.head) === Direction.LTR, true)},
+  {mac: "Cmd-ArrowLeft", run: view => keepLiveLineBoundary(view, view.textDirectionAt(view.state.selection.main.head) !== Direction.LTR),
+    shift: view => keepLiveLineBoundary(view, view.textDirectionAt(view.state.selection.main.head) !== Direction.LTR, true)},
+  {key: "End", run: view => keepLiveLineBoundary(view, true), shift: view => keepLiveLineBoundary(view, true, true)},
+  {key: "Home", run: view => keepLiveLineBoundary(view, false), shift: view => keepLiveLineBoundary(view, false, true)},
   {key: "Enter", run: view => !view.composing && (editListBoundary(view, true) || editQuoteBoundary(view, true) || continueLiveList(view))},
   {key: "Shift-Enter", run: insertLiveBreak},
   {key: "Tab", run: view => indentList(view)},
   {key: "Shift-Tab", run: view => indentList(view, true)},
-  {key: "Backspace", run: view => deleteListSelection(view) || editListBoundary(view, false) || editQuoteBoundary(view, false) || deleteScriptContent(view, true) || deleteBesideInlineSyntax(view, true) || deleteLiveBreak(view, true) || deleteListContinuation(view)},
-  {key: "Delete", run: view => deleteListSelection(view) || deleteScriptContent(view, false) || deleteBesideInlineSyntax(view, false) || deleteLiveBreak(view, false)},
-])), metadataSourceState, livePreviewDecorations, livePreviewMouseSelection, liveLinks];
+  {key: "Backspace", run: view => selectCodeBoundary(view, true) || deleteListSelection(view) || editListBoundary(view, false) || editQuoteBoundary(view, false) || deleteScriptContent(view, true) || deleteBesideInlineSyntax(view, true) || deleteLiveBreak(view, true) || deleteListContinuation(view)},
+  {key: "Delete", run: view => selectCodeBoundary(view, false) || deleteListSelection(view) || deleteScriptContent(view, false) || deleteBesideInlineSyntax(view, false) || deleteLiveBreak(view, false)},
+])), metadataSourceState, calloutSourceState, livePreviewDecorations, livePreviewMouseSelection, liveLinks];

@@ -1,3 +1,4 @@
+import {clearPendingInlineStyle} from "./pendingInlineStyle";
 import {undo, redo} from "./selectionHistory";
 import {detectNewlinePolicy} from "./newlinePolicy";
 import {editingPerformancePolicy} from "./editingBudget";
@@ -21,6 +22,8 @@ import {indentWithTab, undoDepth, redoDepth} from "@codemirror/commands";
 import {editorSetup} from "./editorSetup";
 import {livePreview} from "./livePreview";
 import {resourceContext} from "./editorHost";
+import {focusedTableCell,focusedTableToolbarState,tableWidgetOwnsFocus,tableWidgetIsComposing,executeFocusedTableCommand} from "./tableWidget";
+import {focusCodeAtSelection} from "./codeEditing";
 import {executeEditorCommand, editorToolbarState, type EditorToolbarState} from "./editorToolbar";
 import {HeadingIndex, type OutlineHeading} from "./headingIndex";
 import {resolveHeadingLink} from "./linkNavigation";
@@ -41,7 +44,7 @@ export type DraftChange = {
   generation: string; sequence: number;
 };
 export type OutlineSnapshot = {documentId: string; generation: string; sequence: number; headings: OutlineHeading[]};
-export type EditorUIState = EditorToolbarState & {mode: EditorMode; dirty: boolean; toolbarEnabled: boolean; canUndo: boolean; canRedo: boolean; profile: MarkdownProfile; commands: readonly string[]};
+export type EditorUIState = EditorToolbarState & {mode: EditorMode; dirty: boolean; toolbarEnabled: boolean; tablePreviewFocused?: boolean; canUndo: boolean; canRedo: boolean; profile: MarkdownProfile; commands: readonly string[]};
 export type EditorAppearance = {fontScale?: number; contentWidth?: number; toolbarInset?: number;
   background?: string; text?: string; muted?: string; border?: string; accent?: string; accentSoft?: string};
 export type CalloutMenuRequest = {current: string; x: number; y: number; viewportWidth: number};
@@ -121,6 +124,7 @@ export class TeggMarkdownEditor {
     this.frame.addEventListener("tegg-open-link", this.openLink);
     this.frame.addEventListener("tegg-copy-text", this.copyText);
     this.frame.addEventListener("tegg-callout-menu", this.openCalloutMenu);
+    this.frame.addEventListener("tegg-toolbar-state", this.queueState);
     this.frame.addEventListener("focusin", this.queueState);
     this.frame.addEventListener("focusout", this.queueState);
     this.setAppearance({}); this.applyMode(); this.queueState(); this.queueOutline();
@@ -204,7 +208,7 @@ export class TeggMarkdownEditor {
         }
       }),
       EditorView.updateListener.of(update => {
-        if (update.docChanged || update.selectionSet || update.focusChanged) this.queueState();
+        if (update.docChanged || update.selectionSet || update.focusChanged || update.transactions.some(tr=>tr.effects.length)) this.queueState();
         if (update.selectionSet) {try {this.host.onSelection?.(this.selection());} catch(error) {this.report(error);}}
         if (!update.docChanged) return;
         const beforeBudget=editingPerformancePolicy(this.document.source).sourcePreview;
@@ -305,6 +309,7 @@ export class TeggMarkdownEditor {
     if (mode === this.modeValue) return true;
     const previous = this.scrollElement;
     const ratio = previous.scrollTop / Math.max(1, previous.scrollHeight - previous.clientHeight);
+    clearPendingInlineStyle(this.viewValue);
     this.modeValue = mode; this.applyMode(); this.queueState();
     const epoch = this.modeEpoch;
     void this.ready().then(() => requestAnimationFrame(() => {
@@ -329,24 +334,38 @@ export class TeggMarkdownEditor {
   command(command: string): boolean {
     this.assertAlive();
     if (!this.commandStatus(command).enabled) return false;
+    if (executeFocusedTableCommand(this.viewValue,command)) return true;
     this.viewValue.focus();
     if (command === "undo") return undo(this.viewValue);
     if (command === "redo") return redo(this.viewValue);
     if (command === "link" && this.modeValue === "live" && editCurrentLink(this.viewValue)) return true;
-    executeEditorCommand(this.viewValue, command); return true;
+    executeEditorCommand(this.viewValue, command,this.modeValue==="source"?"source":"live");
+    if(command==="codeBlock"&&this.modeValue==="live"){
+      const doc=this.viewValue.state.doc, anchor=this.viewValue.state.selection.main.anchor, generation=this.generation;
+      requestAnimationFrame(()=>{if(!this.destroyed&&this.modeValue==="live"&&this.generation===generation&&
+        this.viewValue.dom.isConnected&&this.viewValue.state.doc===doc&&this.viewValue.state.selection.main.anchor===anchor)
+        focusCodeAtSelection(this.viewValue);});
+    }
+    return true;
   }
   commandStatus(command: string): CommandStatus {
     this.assertAlive();
-    return getCommandStatus(command, this.state);
+    const state=this.state, status=getCommandStatus(command,state);
+    if(!status.supported)return status;
+    if(focusedTableCell(this.viewValue)&&!["bold","italic","underline","strike","highlight","subscript","superscript","code","link","wikilink","undo","redo"].includes(command))
+      return {supported:true,enabled:false,reason:"selection-disabled"};
+    return status;
   }
   /** Current Host toolbar state; independent widget inputs keep their own editing focus. */
   get state(): EditorUIState {
     this.assertAlive();
     const active = document.activeElement;
-    const independent = this.frame.contains(active) && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement);
-    const enabled = !this.viewValue.state.readOnly && this.modeValue !== "reader" && this.document.contentState !== "streaming" && !this.composing && !this.viewValue.composing && !independent;
-    return {...editorToolbarState(this.viewValue.state), profile:this.document.profile ?? "tegg", commands:getSupportedCommands(this.document.profile), mode:this.modeValue, dirty:this.dirty, toolbarEnabled:enabled,
-      canUndo:enabled && undoDepth(this.viewValue.state) > 0, canRedo:enabled && redoDepth(this.viewValue.state) > 0};
+    const tableActionMenu = tableWidgetOwnsFocus(this.viewValue) && active instanceof HTMLSelectElement && active.matches('.md-table-actions select');
+    const independent = this.frame.contains(active) && !tableActionMenu && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement);
+    const available = !this.viewValue.state.readOnly && this.modeValue !== "reader" && this.document.contentState !== "streaming" && !this.composing && !tableWidgetIsComposing(this.viewValue) && !independent;
+    const previewFocus=tableWidgetOwnsFocus(this.viewValue)&&!focusedTableCell(this.viewValue);
+    return {...(focusedTableToolbarState(this.viewValue)??editorToolbarState(this.viewValue.state)), profile:this.document.profile ?? "tegg", commands:getSupportedCommands(this.document.profile), mode:this.modeValue, dirty:this.dirty, toolbarEnabled:available&&!previewFocus, tablePreviewFocused:previewFocus,
+      canUndo:available && undoDepth(this.viewValue.state) > 0, canRedo:available && redoDepth(this.viewValue.state) > 0};
   }
   private queueState = () => {
     // Hosts without a toolbar subscriber can read state explicitly when needed.
@@ -438,6 +457,7 @@ export class TeggMarkdownEditor {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true; disposeInteractions(this.frame); clearTimeout(this.compositionTimer); clearTimeout(this.outlineTimer);
+    this.frame.removeEventListener("tegg-toolbar-state", this.queueState);
     this.frame.removeEventListener("focusin", this.queueState); this.frame.removeEventListener("focusout", this.queueState);
     this.frame.removeEventListener("tegg-open-link", this.openLink);
     this.frame.removeEventListener("tegg-copy-text", this.copyText);

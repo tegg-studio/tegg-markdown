@@ -1,8 +1,16 @@
 import {undo, redo} from "./selectionHistory";
-import {WidgetType, type EditorView} from '@codemirror/view';
+import {isolateHistory} from '@codemirror/commands';
+import {WidgetType, EditorView} from '@codemirror/view';
+import {EditorState,Transaction} from '@codemirror/state';
+import {markdown} from '@codemirror/lang-markdown';
+import {GFM} from '@lezer/markdown';
+import {editorToolbarState,executeEditorCommand,type EditorToolbarState} from './editorToolbar';
+import {tableCellProjection} from './tableCellProjection';
+import {editCurrentLink,liveLinks} from './liveLinks';
 
 import {resourceContext} from './editorHost';
 import {parseMarkdownTable} from './table';
+import {enhanceRenderedLinks} from './renderedLinks';
 import {applyTableOperation,copyTableRectangle,nextTablePosition,TableEditingError,type TablePosition,type TableRectangle,type TableOperation} from './tableEditing';
 import {captureClipboard,preparePaste,type PastePreparation} from './clipboard';
 import {dispatchSourcePatches} from './editorPatches';
@@ -13,8 +21,57 @@ import {makeHorizontalScrollRegion} from './localScroll';
 import './tableEditing.css';
 
 type FocusRequest={from:number;at:TablePosition;edit:boolean};
+type ActiveCell={editor:EditorView;history:(redo:boolean)=>boolean;composing:()=>boolean};
+const activeCells=new WeakMap<EditorView,ActiveCell>();
+const inlineCellCommands=new Set(['bold','italic','underline','strike','highlight','subscript','superscript','code','link','wikilink']);
+function activeCellForCommand(view:EditorView){const active=activeCells.get(view);return active?.editor.dom.isConnected&&active.editor.hasFocus?active:null;}
+/** A focused table control owns keyboard context even after its cell editor exits. */
+export function tableWidgetOwnsFocus(view:EditorView):boolean {
+  const active=view.dom.ownerDocument.activeElement;
+  const panel=active instanceof Element&&view.dom.contains(active)?active.closest<HTMLElement>('.cm-live-table'):null;
+  return !!panel&&mounted.has(panel);
+}
+/** A table cell has a transient view, but the outer CodeMirror document owns history. */
+export function focusedTableCell(view:EditorView):EditorView|null {
+  return activeCellForCommand(view)?.editor??null;
+}
+export function tableWidgetIsComposing(view:EditorView):boolean {
+  const active=activeCellForCommand(view);
+  return view.composing||!!active&&(active.editor.composing||active.composing());
+}
+export function focusedTableToolbarState(view:EditorView):EditorToolbarState|null {
+  const cell=focusedTableCell(view);
+  if(cell)return editorToolbarState(cell.state);
+  if(!tableWidgetOwnsFocus(view))return null;
+  return {mixed:[],inlineFormattingEnabled:false,bold:false,italic:false,code:false,
+    underline:false,strike:false,highlight:false,subscript:false,superscript:false,
+    task:false,heading:0,callout:null,calloutEnabled:false,calloutContext:''};
+}
+export function executeFocusedTableCommand(view:EditorView,command:string):boolean {
+  const active=activeCellForCommand(view);
+  if(!active){
+    if(!tableWidgetOwnsFocus(view))return false;
+    if(command==='undo'||command==='redo'){
+      const panel=view.dom.ownerDocument.activeElement?.closest<HTMLElement>('.cm-live-table');
+      mounted.get(panel!)?.history(command==='redo');
+    }
+    // A preview/control has no text selection. Never apply a command to the
+    // outer view's retained selection in a different block.
+    return true;
+  }
+  if(view.state.readOnly||tableWidgetIsComposing(view))return true;
+  if(command==='undo'||command==='redo'){
+    if(!view.state.readOnly&&!view.composing&&!active.editor.composing)active.history(command==='redo');
+    return true;
+  }
+  if(!inlineCellCommands.has(command))return true;
+  if(command==='link'&&editCurrentLink(active.editor))return true;
+  executeEditorCommand(active.editor,command,'live');
+  if(command==='link')editCurrentLink(active.editor);
+  return true;
+}
 const focusRequests=new WeakMap<EditorView,FocusRequest>();
-const mounted=new WeakMap<HTMLElement,{update(source:string,from:number,to:number):boolean;destroy():void}>();
+const mounted=new WeakMap<HTMLElement,{update(source:string,from:number,to:number):boolean;history(redo:boolean):boolean;destroy():void}>();
 export class EditableTableWidget extends WidgetType {
   constructor(readonly source:string,readonly from:number,readonly to:number){super();}
   eq(other:WidgetType){return other instanceof EditableTableWidget&&other.source===this.source&&other.from===this.from&&other.to===this.to;}
@@ -22,7 +79,8 @@ export class EditableTableWidget extends WidgetType {
   toDOM(view:EditorView){
     let source=this.source,from=this.from,to=this.to,latest=this.source,stale=false,destroyed=false;
     let selected:TablePosition={row:0,column:0},anchor:TablePosition|null=null,rectangle:TableRectangle={from:selected,to:selected};
-    let editing:{at:TablePosition;input:HTMLInputElement;original:string;preview:HTMLButtonElement;composing:boolean}|null=null;
+    let editing:{at:TablePosition;input:HTMLInputElement;original:string;preview:HTMLButtonElement;composing:boolean;editor?:EditorView;mount?:HTMLElement}|null=null;
+    let ownSource:string|null=null,acceptHistory=false;
     let pendingPaste:PastePreparation|null=null,pendingOperation:TableOperation|null=null;
     const panel=document.createElement('section');panel.className='cm-live-table md-render-table';panel.dataset.teggTableFrom=String(from);
     makeHorizontalScrollRegion(panel,'Editable table. Scroll horizontally for more columns.');
@@ -33,10 +91,11 @@ export class EditableTableWidget extends WidgetType {
     const field=document.createElement('input');field.className='md-table-sheet-input';setUILabel(field,'Cell value');
     const review=document.createElement('div');review.className='md-table-paste-review';review.hidden=true;review.setAttribute('role','group');setUILabel(review,'Review table paste');
     const reviewText=document.createElement('p'),reviewData=document.createElement('pre');reviewData.className='md-table-paste-preview';
-    const controls=new Map<string,{button:HTMLButtonElement;input:HTMLInputElement;cell:HTMLElement;value:string}>();
+    const controls=new Map<string,{button:HTMLButtonElement;input:HTMLInputElement;mount:HTMLElement;cell:HTMLElement;value:string}>();
     const key=(at:TablePosition)=>at.row+':'+at.column;
     const narrow=()=>typeof window!=='undefined'&&window.innerWidth<640;
     const report=(failure:unknown)=>{setUIText(error,failure instanceof Error?failure.message:String(failure));};
+    const notifyToolbar=()=>queueMicrotask(()=>{if(!destroyed)view.dom.dispatchEvent(new CustomEvent('tegg-toolbar-state',{bubbles:true}));});
     const button=(title:string,run:()=>void)=>{const result=document.createElement('button');result.type='button';setUIText(result,title);result.addEventListener('click',run);return result;};
     const selectedLabel=()=>{
       const table=parseMarkdownTable(source),header=table?.headers[selected.column]??'';
@@ -49,6 +108,19 @@ export class EditableTableWidget extends WidgetType {
     };
     const select=(at:TablePosition,extend=false)=>{selected={...at};rectangle=extend?{from:anchor??rectangle.from,to:selected}:{from:selected,to:selected};if(!extend)anchor=null;paintSelection();};
     const safe=()=>{if(destroyed||stale||view.state.sliceDoc(from,to)!==source)throw new Error('The table changed. Your cell draft is retained. Cancel to reload the table.');if(view.state.readOnly)throw new Error('This document is read-only.');if(view.composing||editing?.composing)throw new Error('Finish composing text before changing the table.');};
+    const cellValue=()=>{if(!editing)return '';if(narrow())return field.value;const editorValue=editing.editor?.state.doc.toString();return editorValue!==undefined&&editing.input.value===editorValue?editorValue:editing.input.value;};
+    const syncCell=(value:string,history:{userEvent?:string;isolate?:boolean}={})=>{
+      if(!editing)return false;
+      try{
+        safe();const result=applyTableOperation(source,{type:'cell',at:editing.at,value});
+        if(!result.patches.length)return true;
+        ownSource=result.source;
+        dispatchSourcePatches(view,result.patches.map(patch=>({...patch,from:from+patch.from,to:from+patch.to})),{
+          userEvent:history.userEvent??'input.type',isolateHistory:history.isolate,
+        });
+        return true;
+      }catch(failure){report(failure);return false;}
+    };
     const focus=(at:TablePosition,edit=false)=>{
       const control=controls.get(key(at));if(!control)return;select(at);if(edit)start(at);else control.button.focus({preventScroll:true});
     };
@@ -63,20 +135,28 @@ export class EditableTableWidget extends WidgetType {
         return true;
       }catch(failure){report(failure);return false;}
     };
+    const release=()=>{const current=editing;if(!current)return;editing=null;activeCells.delete(view);current.editor?.destroy();current.mount?.replaceChildren();current.input.hidden=true;current.preview.hidden=false;sheet.hidden=true;notifyToolbar();};
     const finish=(save:boolean,destination?:TablePosition)=>{
       if(!editing)return true;
       const current=editing;if(current.composing)return false;
-      const value=narrow()?field.value:current.input.value;
+      const value=cellValue();
       if(save){try{safe();}catch(failure){report(failure);return false;}}
-      editing=null;sheet.hidden=true;current.input.hidden=true;current.preview.hidden=false;
+      // Programmatic input and the narrow-screen sheet keep the legacy explicit commit path.
+      const pending=narrow()?value:current.input.value!==value?current.input.value:value;
+      if(save&&pending!==current.original&&pending!==sourceCell(current.at)){
+        if(!syncCell(pending))return false;
+      }
+      if(save)view.dispatch({annotations:isolateHistory.of('after')});
+      release();
       if(!save){current.input.value=current.original;field.value=current.original;if(stale){source=latest;stale=false;render();}else current.preview.focus({preventScroll:true});return true;}
-      if(value!==current.original){const success=apply({type:'cell',at:current.at,value},{focus:destination??current.at,edit:!!destination});if(!success){editing=current;current.input.hidden=narrow();current.preview.hidden=!narrow();sheet.hidden=!narrow();}return success;}
-      if(destination)focus(destination,true);else current.preview.focus({preventScroll:true});return true;
+      if(destination)focus(destination,true);else current.preview.focus({preventScroll:true});
+      return true;
     };
+    const sourceCell=(at:TablePosition)=>{const model=parseMarkdownTable(source);return at.row===0?model?.headers[at.column]:model?.rows[at.row-1]?.[at.column];};
     const navigate=(direction:1|-1)=>{
       try{
         const at=editing?.at??selected;
-        const current=editing,original=current?.original,value=current?(narrow()?field.value:current.input.value):undefined;
+        const current=editing,original=current?.original,value=current?cellValue():undefined;
         if(current?.composing)return;
         safe();
         const step=nextTablePosition(source,at,direction);
@@ -85,18 +165,42 @@ export class EditableTableWidget extends WidgetType {
           // Save the current cell and append in one source transaction.
           let next=source;if(value!==undefined&&value!==original)next=applyTableOperation(next,{type:'cell',at,value}).source;
           next=applyTableOperation(next,{type:'insert-row',index:step.position.row}).source;
-          editing=null;sheet.hidden=true;focusRequests.set(view,{from,at:step.position,edit:true});
+          release();focusRequests.set(view,{from,at:step.position,edit:true});
           dispatchSourcePatches(view,[{from,to,expected:source,insert:next}],{isolateHistory:true});
         }else if(current)finish(true,step.position);else focus(step.position,true);
       }catch(failure){report(failure);}
     };
-    const start=(at:TablePosition)=>{
+    const start=(at:TablePosition,point?:{x:number;y:number})=>{
+      if(view.state.readOnly){report('This document is read-only.');return;}
       if(editing){if(key(editing.at)!==key(at))finish(true,at);return;}
       const control=controls.get(key(at));if(!control)return;select(at);error.textContent='';
-      editing={at:{...at},input:control.input,original:control.value,preview:control.button,composing:false};
+      editing={at:{...at},input:control.input,original:control.value,preview:control.button,composing:false,mount:control.mount};
       control.input.value=control.value;field.value=control.value;
-      if(narrow()){sheet.hidden=false;selectedLabel();field.focus();field.select();}
-      else{control.button.hidden=true;control.input.hidden=false;control.input.focus();control.input.select();}
+      if(narrow()){sheet.hidden=false;selectedLabel();field.focus();field.select();return;}
+      const table=panel.querySelector('table');
+      if(table){const headers=[...table.querySelectorAll('thead th')];const widths=headers.map(header=>header.getBoundingClientRect().width);const width=table.getBoundingClientRect().width;if(width>0&&widths.every(size=>size>0)&&!table.querySelector('colgroup')){const cols=document.createElement('colgroup');for(const size of widths){const col=document.createElement('col');col.style.width=`${size}px`;cols.append(col);}table.prepend(cols);table.style.width=`${width}px`;table.style.tableLayout='fixed';}}
+      control.button.hidden=true;control.input.hidden=false;
+      const editor=new EditorView({parent:control.mount,state:EditorState.create({doc:control.value,extensions:[markdown({extensions:GFM}),resourceContext.of(view.state.facet(resourceContext)),tableCellProjection,liveLinks,EditorView.lineWrapping,EditorView.editorAttributes.of({class:'md-table-inline-editor'}),EditorView.updateListener.of(update=>{if(update.docChanged||update.selectionSet||update.focusChanged)notifyToolbar();})]}),dispatchTransactions:transactions=>{
+        editor.update(transactions);
+        if(!transactions.some(transaction=>transaction.docChanged)||!editing||editing.editor!==editor)return;
+        const value=editor.state.doc.toString();editing.input.value=value;
+        if(!editing.composing){
+          const userEvent=transactions.find(transaction=>transaction.docChanged)?.annotation(Transaction.userEvent);
+          syncCell(value,{userEvent:userEvent??'input.type',isolate:transactions.some(transaction=>!!transaction.annotation(isolateHistory))});
+        }
+      }});
+      editing.editor=editor;activeCells.set(view,{editor,composing:()=>editing?.editor===editor&&editing.composing,history:(isRedo)=>{
+        if(view.state.readOnly||view.composing||editor.composing)return false;
+        acceptHistory=true;try{return (isRedo?redo:undo)(view);}finally{acceptHistory=false;}
+      }});
+      editor.contentDOM.setAttribute('aria-label',`Table cell: ${control.value||'Empty'}`);
+      editor.dom.addEventListener('keydown',inputKeys);
+      editor.dom.addEventListener('compositionstart',()=>{if(editing?.editor===editor){editing.composing=true;notifyToolbar();}});
+      editor.dom.addEventListener('compositionend',()=>{if(editing?.editor===editor){editing.composing=false;notifyToolbar();queueMicrotask(()=>{if(editing?.editor===editor)syncCell(editor.state.doc.toString());});}});
+      editor.dom.addEventListener('paste',paste,true);
+      editor.focus();notifyToolbar();
+      const anchor=point?editor.posAtCoords(point)??editor.state.doc.length:editor.state.doc.length;
+      editor.dispatch({selection:{anchor}});
     };
     const copy=async()=>{
       try{const text=copyTableRectangle(source,rectangle);const event=new CustomEvent('tegg-copy-text',{detail:text,bubbles:true,cancelable:true});if(!panel.dispatchEvent(event))return;await navigator.clipboard.writeText(text);setUIText(status,'Copied');}
@@ -113,20 +217,19 @@ export class EditableTableWidget extends WidgetType {
         try{safe();const planned=applyTableOperation(source,{type:'paste',at,cells:prepared.cells});
           if(planned.requiresConfirmation){pendingOperation={type:'paste',at,cells:prepared.cells};review.hidden=false;setUIText(reviewText,'This paste expands the table to {rows} rows and {columns} columns.',{rows:String(planned.expansion!.rows),columns:String(planned.expansion!.columns)});reviewData.textContent=prepared.plainText;return;}
           const delegated=new CustomEvent('tegg-table-resource-paste',{bubbles:true,cancelable:true,detail:{from,to,expected:source,prepared:{...prepared,markdown:planned.source,cells:undefined}}});
-          if(panel.dispatchEvent(delegated))report('This Host does not support storing attachments.');else{editing=null;sheet.hidden=true;}
+          if(panel.dispatchEvent(delegated))report('This Host does not support storing attachments.');else release();
         }catch(failure){report(failure);}return;
       }
-      editing=null;sheet.hidden=true;
-      apply({type:'paste',at,cells:prepared.cells});
+      try{safe();const operation:TableOperation={type:'paste',at,cells:prepared.cells};const planned=applyTableOperation(source,operation);if(planned.requiresConfirmation){apply(operation);return;}release();apply(operation);}catch(failure){report(failure);}
     };
     const inputKeys=(event:KeyboardEvent)=>{
       event.stopPropagation();if(event.isComposing||event.keyCode===229)return;
-      if(event.key==='Escape'){event.preventDefault();finish(false);}
+      if(event.key==='Escape'){event.preventDefault();finish(stale?false:!narrow());}
       if(event.key==='Enter'){event.preventDefault();finish(true);}
       if(event.key==='Tab'){event.preventDefault();navigate(event.shiftKey?-1:1);}
       if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='z'){
         // Draft text uses the platform input undo; after committing the document owns undo.
-        if(!editing){event.preventDefault();(event.shiftKey?redo:undo)(view);}
+        event.preventDefault();acceptHistory=true;try{(event.shiftKey?redo:undo)(view);}finally{acceptHistory=false;}
       }
     };
     field.addEventListener('keydown',inputKeys);field.addEventListener('paste',paste);
@@ -140,33 +243,36 @@ export class EditableTableWidget extends WidgetType {
       if(pendingPaste?.resources.length){
         try{safe();const prepared=pendingPaste;const planned=applyTableOperation(source,pendingOperation,{allowExpansion:true});
           const delegated=new CustomEvent('tegg-table-resource-paste',{bubbles:true,cancelable:true,detail:{from,to,expected:source,prepared:{...prepared,markdown:planned.source,cells:undefined}}});
-          if(panel.dispatchEvent(delegated))report('This Host does not support storing attachments.');else{editing=null;sheet.hidden=true;review.hidden=true;pendingPaste=null;pendingOperation=null;}
+          if(panel.dispatchEvent(delegated))report('This Host does not support storing attachments.');else{release();review.hidden=true;pendingPaste=null;pendingOperation=null;}
         }catch(failure){report(failure);}return;
       }
-      editing=null;sheet.hidden=true;
+      release();
       if(apply(pendingOperation,{allowExpansion:true})){pendingPaste=null;pendingOperation=null;review.hidden=true;}
     }),button('Cancel paste',()=>{pendingPaste=null;pendingOperation=null;review.hidden=true;}));
     const render=()=>{
       const model=parseMarkdownTable(source);if(!model){panel.textContent=source;return;}
       controls.clear();panel.replaceChildren();panel.dataset.teggTableFrom=String(from);
-      const toolbar=document.createElement('div');toolbar.className='cm-preview-toolbar';toolbar.contentEditable='false';
-      const label=document.createElement('span');setUIText(label,'{rows} rows × {columns} columns',{rows:String(model.rows.length),columns:String(model.headers.length)});
+      const toolbar=document.createElement('div');toolbar.className='cm-preview-toolbar md-table-toolbar';toolbar.contentEditable='false';
+      const label=document.createElement('span');label.className='md-table-dimensions';setUIText(label,'{rows} rows × {columns} columns',{rows:String(model.rows.length),columns:String(model.headers.length)});
       const actions=document.createElement('div');actions.className='md-table-actions';
       const action=(operation:TableOperation)=>{
         if(!editing){apply(operation);return;}
         try{
-          safe();const current=editing,value=narrow()?field.value:current.input.value;
+          safe();const current=editing,value=cellValue();
           let next=value===current.original?source:applyTableOperation(source,{type:'cell',at:current.at,value}).source;
           const result=applyTableOperation(next,operation);next=result.source;
-          editing=null;sheet.hidden=true;focusRequests.set(view,{from,at:result.selection,edit:false});
+          release();focusRequests.set(view,{from,at:result.selection,edit:false});
           dispatchSourcePatches(view,[{from,to,expected:source,insert:next}],{isolateHistory:true});
         }catch(failure){report(failure);}
       };
-      actions.append(button('Add Row',()=>action({type:'insert-row',index:model.rows.length+1})),button('Add Column',()=>action({type:'insert-column',index:model.headers.length})),button('Select range',()=>{if(editing&&!finish(true))return;anchor={...selected};setUIText(status,'Select the opposite corner of the range.');}),button('Copy cells',()=>{void copy();}));
+      actions.append(button('Add Row',()=>action({type:'insert-row',index:model.rows.length+1})),button('Add Column',()=>action({type:'insert-column',index:model.headers.length})));
       const menu=document.createElement('select');setUILabel(menu,'Table actions');
-      for(const [value,label] of [['','Table actions'],['row-before','Insert row before'],['row-after','Insert row after'],['delete-row','Delete row'],['column-before','Insert column before'],['column-after','Insert column after'],['delete-column','Delete column'],['align-left','Align left'],['align-center','Align center'],['align-right','Align right'],['align-none','Clear alignment'],['delete-table','Delete table']]){const option=document.createElement('option');option.value=value;setUIText(option,label);menu.append(option);}
+      for(const [value,label] of [['','Table actions'],['select-range','Select range'],['copy-cells','Copy cells'],['edit-source','Edit Source'],['row-before','Insert row before'],['row-after','Insert row after'],['delete-row','Delete row'],['column-before','Insert column before'],['column-after','Insert column after'],['delete-column','Delete column'],['align-left','Align left'],['align-center','Align center'],['align-right','Align right'],['align-none','Clear alignment'],['delete-table','Delete table']]){const option=document.createElement('option');option.value=value;setUIText(option,label);menu.append(option);}
       menu.addEventListener('change',()=>{
         const value=menu.value;menu.value='';
+        if(value==='select-range'){if(editing&&!finish(true))return;anchor={...selected};setUIText(status,'Select the opposite corner of the range.');return;}
+        if(value==='copy-cells'){void copy();return;}
+        if(value==='edit-source'){if(editing&&!finish(true))return;view.dispatch({selection:{anchor:from},scrollIntoView:true});view.focus();return;}
         if(value==='delete-table'){review.hidden=false;setUIText(reviewText,'Delete this table? Undo can restore it.');reviewData.textContent=source;pendingOperation={type:'delete-table'};pendingPaste=null;return;}
         if(value==='row-before')action({type:'insert-row',index:selected.row});
         if(value==='row-after')action({type:'insert-row',index:selected.row+1});
@@ -175,7 +281,7 @@ export class EditableTableWidget extends WidgetType {
         if(value==='column-after')action({type:'insert-column',index:selected.column+1});
         if(value==='delete-column')action({type:'delete-column',index:selected.column});
         if(value.startsWith('align-'))action({type:'align',column:selected.column,alignment:value==='align-none'?null:value.slice(6) as 'left'|'center'|'right'});
-      });actions.append(menu,button('Edit Source',()=>{if(editing&&!finish(true))return;view.dispatch({selection:{anchor:from},scrollIntoView:true});view.focus();}));
+      });actions.append(menu);
       toolbar.append(label,actions);
       const table=document.createElement('table');table.setAttribute('role','grid');setUILabel(table,'Editable Markdown table');
       const head=document.createElement('thead'),body=document.createElement('tbody');
@@ -186,9 +292,13 @@ export class EditableTableWidget extends WidgetType {
           const preview=document.createElement('button');preview.type='button';preview.className='cm-live-table-preview';setUILabel(preview,'Edit table cell: {value}',{value});
           const context=view.state.facet(resourceContext);preview.innerHTML=sanitizeRenderedHtml(parserFor(context.profile).renderInline(value),context.documentPath,context.resolveImage);
           if(!value)preview.textContent='\u00a0';
-          const input=document.createElement('input');input.value=value;input.hidden=true;setUILabel(input,'Table cell: {value}',{value:value||'Empty'});
-          preview.addEventListener('click',event=>{if(event.shiftKey||anchor){if(editing&&!finish(true))return;select(at,true);}else start(at);});
+          const input=document.createElement('input');input.className='md-table-source-input';input.value=value;input.hidden=true;setUILabel(input,'Table cell: {value}',{value:value||'Empty'});
+          const editorMount=document.createElement('div');editorMount.className='md-table-inline-mount';
+          enhanceRenderedLinks(preview,href=>view.dom.dispatchEvent(new CustomEvent('tegg-open-link',{detail:href,bubbles:true,cancelable:true})),view.dom);
+          preview.addEventListener('focus',()=>{selected={...at};});
+          preview.addEventListener('click',event=>{if((event.target as Element).closest('a'))return;if(event.shiftKey||anchor){if(editing&&!finish(true))return;select(at,true);}else start(at,{x:event.clientX,y:event.clientY});});
           preview.addEventListener('keydown',event=>{
+            if((event.target as Element).closest('a'))return;
             if(event.key==='Enter'||event.key==='F2'){event.preventDefault();start(at);}
             if(event.key==='Tab'){event.preventDefault();select(at);navigate(event.shiftKey?-1:1);}
             if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key)){
@@ -196,17 +306,35 @@ export class EditableTableWidget extends WidgetType {
               if(event.shiftKey){anchor??={...at};select(destination,true);controls.get(key(destination))?.button.focus();}else focus(destination);
             }
             if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='c'){event.preventDefault();void copy();}
+            if((event.metaKey||event.ctrlKey)&&['z','y'].includes(event.key.toLowerCase())){
+              event.preventDefault();
+              // History replaces the rendered table widget. Re-focus the matching
+              // preview so the next native shortcut still reaches this document.
+              const request=mounted.get(panel);
+              request?.history(event.shiftKey||event.key.toLowerCase()==='y');
+            }
           });preview.addEventListener('paste',paste);
           input.addEventListener('keydown',inputKeys);input.addEventListener('paste',paste);
           input.addEventListener('compositionstart',()=>{if(editing)editing.composing=true;});input.addEventListener('compositionend',()=>{if(editing)editing.composing=false;});
           input.addEventListener('blur',event=>{if(editing?.input!==input||editing.composing)return;if(event.relatedTarget instanceof Node&&panel.contains(event.relatedTarget))return;finish(true);});
-          controls.set(key(at),{button:preview,input,cell,value});shell.append(preview,input);cell.append(shell);tr.append(cell);
+          controls.set(key(at),{button:preview,input,mount:editorMount,cell,value});shell.append(preview,input,editorMount);cell.append(shell);tr.append(cell);
         });(r===0?head:body).append(tr);
       });table.append(head,body);panel.append(toolbar,status,table,sheet,review,error);paintSelection();
       const request=focusRequests.get(view);if(request?.from===from){focusRequests.delete(view);queueMicrotask(()=>{if(!destroyed&&panel.isConnected)focus(request.at,request.edit);});}
     };
-    panel.addEventListener('keydown',event=>{if(event.key==='Escape'&&!editing){anchor=null;rectangle={from:selected,to:selected};paintSelection();view.focus();}});
-    mounted.set(panel,{update(next,start,end){from=start;to=end;latest=next;panel.dataset.teggTableFrom=String(from);if(next===source)return true;if(editing||!review.hidden){stale=true;report('The table changed. Your cell draft is retained. Cancel to reload the table.');return true;}return false;},destroy(){destroyed=true;mounted.delete(panel);}});
+    panel.addEventListener('keydown',event=>{
+      if(event.defaultPrevented||event.isComposing||editing?.composing)return;
+      const target=event.target;
+      if((event.metaKey||event.ctrlKey)&&['z','y'].includes(event.key.toLowerCase())&&
+        !(target instanceof Element&&target.closest('input,textarea,.md-table-inline-editor'))){
+        event.preventDefault();
+        mounted.get(panel)?.history(event.shiftKey||event.key.toLowerCase()==='y');
+        return;
+      }
+      if(event.key==='Escape'&&!editing){anchor=null;rectangle={from:selected,to:selected};paintSelection();view.focus();}
+    });
+    mounted.set(panel,{history(isRedo){if(view.state.readOnly||view.composing||editing?.composing)return false;focusRequests.set(view,{from,at:selected,edit:false});if(!(isRedo?redo:undo)(view)){focusRequests.delete(view);return false;}return true;},update(next,start,end){from=start;to=end;latest=next;panel.dataset.teggTableFrom=String(from);if(next===source)return true;if(ownSource===next||acceptHistory){
+        ownSource=null;source=next;latest=next;stale=false;const current=editing;if(current){const value=sourceCell(current.at);if(value!==undefined){current.original=value;current.input.value=value;if(current.editor&&current.editor.state.doc.toString()!==value){const cell=current.editor;cell.dispatch({changes:{from:0,to:cell.state.doc.length,insert:value}});}}const control=controls.get(key(current.at));if(control){control.value=value??'';setUILabel(control.button,'Edit table cell: {value}',{value:value??''});const context=view.state.facet(resourceContext);control.button.innerHTML=sanitizeRenderedHtml(parserFor(context.profile).renderInline(value??''),context.documentPath,context.resolveImage);if(!value)control.button.textContent='\u00a0';enhanceRenderedLinks(control.button,href=>view.dom.dispatchEvent(new CustomEvent('tegg-open-link',{detail:href,bubbles:true,cancelable:true})),view.dom);}}return true;}if(editing||!review.hidden){stale=true;report('The table changed. Your cell draft is retained. Cancel to reload the table.');return true;}return false;},destroy(){release();destroyed=true;mounted.delete(panel);}});
     render();return panel;
   }
   destroy(dom:HTMLElement){mounted.get(dom)?.destroy();}

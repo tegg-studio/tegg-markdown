@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {readCode,writeCode,mapCodePosition} from "./codeEditing";
+import {readCode,writeCode,mapCodePosition, unwrapCodeContainer, writeContainerCode} from "./codeEditing";
 describe("code source preservation",()=>{
  it("preserves blank lines, tabs, unknown languages and fence metadata",()=>{
   const raw="~~~~unknown option\n\tfirst\n\nlast\n~~~~";
@@ -32,5 +32,25 @@ describe("code caret mapping",()=>{
  it("keeps positions before edits and shifts positions after edits",()=>{
   expect(mapCodePosition("abcXYZdef","abcdef",2)).toBe(2);
   expect(mapCodePosition("abcXYZdef","abcdef",8)).toBe(5);
+ });
+});
+
+
+describe("container code source mapping", () => {
+ for (const prefix of ["  ", "    ", "     ", ">     ", "    > "]) {
+  it(`preserves structure, literal indentation and fence growth for ${JSON.stringify(prefix)}`, () => {
+   const plain="```python title=demo\n    literal\n\nlast\n```";
+   const raw=plain.split("\n").map(line=>prefix+line).join("\n");
+   expect(unwrapCodeContainer(raw,prefix)).toBe(plain);
+   expect(writeContainerCode(raw,prefix,readCode(plain).body)).toBe(raw);
+   const next=writeContainerCode(raw,prefix,"    literal\n```\nlast", "json");
+   expect(next.split("\n").every(line=>line.startsWith(prefix))).toBe(true);
+   expect(readCode(unwrapCodeContainer(next,prefix)).body).toBe("    literal\n```\nlast");
+   expect(readCode(unwrapCodeContainer(next,prefix)).language).toBe("json");
+  });
+ }
+ it("preserves unprefixed blank lines on language-only edits", () => {
+  const raw="    ```python\n    a\n\n    b\n    ```";
+  expect(writeContainerCode(raw,"    ","a\n\nb","swift")).toBe(raw.replace("python","swift"));
  });
 });

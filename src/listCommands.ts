@@ -227,7 +227,7 @@ export function deleteListSelection(view: EditorView): boolean {
       changes.push({from: pos, to: pos + raw.length, insert: ' '.repeat(Math.max(0, countColumn(raw, 4) + delta)), expected: raw});
     }
   }
-  dispatchSourcePatches(view, changes, {selection: {anchor: a}, isolateHistory: true, scrollIntoView: true, preserveSelection: true});
+  dispatchSourcePatches(view, changes, {selection: {anchor: a}, isolateHistory: true, scrollIntoView: true, userEvent: "delete", preserveSelection: true});
   return true;
 }
 
@@ -246,6 +246,6 @@ export function deleteListContinuation(view: EditorView): boolean {
   const previous = state.doc.line(line.number - 1);
   if (!previous.text.trim() || /^\s*>\s*$/.test(previous.text)) return false;
   dispatchSourcePatches(view, [{from: previous.to, to: head, insert: '', expected: state.sliceDoc(previous.to, head)}],
-    {selection: {anchor: previous.to}, isolateHistory: true, scrollIntoView: true});
+    {selection: {anchor: previous.to}, isolateHistory: true, scrollIntoView: true, userEvent: "delete"});
   return true;
 }

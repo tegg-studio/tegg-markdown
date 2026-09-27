@@ -40,7 +40,7 @@ test('Reliable package ignores completed uploads after cancel and document switc
 });
 test('Reliable package search replacement and table rectangle are each one undo transaction',async({page})=>{
   await load(page,'cat cat\n\ndog');await page.getByRole('button',{name:'Find and replace',exact:true}).click();await page.getByLabel('Find',{exact:true}).fill('cat');await page.getByLabel('Replace with',{exact:true}).fill('fox');await page.getByRole('button',{name:'Replace all',exact:true}).click();expect(await source(page)).toBe('fox fox\n\ndog');await page.getByRole('button',{name:'Cancel',exact:true}).click();await page.getByRole('button',{name:'Undo',exact:true}).click();expect(await source(page)).toBe('cat cat\n\ndog');
-  const table='| A | B |\n| --- | --- |\n| old | 2 |\n\nend';await page.evaluate(value=>(window as any).host.load(value),table);await page.getByRole('button',{name:'Edit table cell: old',exact:true}).click();const input=page.locator('.cm-live-table-cell input:not([hidden])');await input.evaluate(element=>{const data=new DataTransfer();data.setData('text/plain','x\ty');const event=new ClipboardEvent('paste',{bubbles:true,cancelable:true});Object.defineProperty(event,'clipboardData',{value:data});element.dispatchEvent(event);});
+  const table='| A | B |\n| --- | --- |\n| old | 2 |\n\nend';await page.evaluate(value=>(window as any).host.load(value),table);await page.getByRole('button',{name:'Edit table cell: old',exact:true}).click();const input=page.locator('.md-table-inline-editor .cm-content');await input.evaluate(element=>{const data=new DataTransfer();data.setData('text/plain','x\ty');const event=new ClipboardEvent('paste',{bubbles:true,cancelable:true});Object.defineProperty(event,'clipboardData',{value:data});element.dispatchEvent(event);});
   expect(await source(page)).toBe(table.replace('| old | 2 |','| x | y |'));await page.getByRole('button',{name:'Undo',exact:true}).click();expect(await source(page)).toBe(table);
 });
 test('Reliable package accessible controls remain operable with 200% text on a narrow viewport',async({page})=>{
@@ -56,7 +56,7 @@ test('Reliable package destroys UI, sessions and editor across repeated mounted 
 test('Reliable package stores clipboard images inside a table before committing the complete cell patch',async({page})=>{
   const original='| A | B |\n| --- | --- |\n| old | 2 |\n\nend';await load(page,original);
   await page.getByRole('button',{name:'Edit table cell: old',exact:true}).click();
-  await page.locator('.cm-live-table-cell input:not([hidden])').evaluate((element,bytes)=>{
+  await page.locator('.md-table-inline-editor .cm-content').evaluate((element,bytes)=>{
     const data=new DataTransfer();data.items.add(new File([new Uint8Array(bytes)],'table-image.png',{type:'image/png'}));data.setData('text/plain','photo');data.setData('text/html','<table><tr><td><img src="table-image.png" alt="table-image.png"></td></tr></table>');
     const event=new ClipboardEvent('paste',{bubbles:true,cancelable:true});Object.defineProperty(event,'clipboardData',{value:data});element.dispatchEvent(event);
   },[...pixel]);
@@ -71,9 +71,9 @@ test('Reliable package previews formula and diagram drafts and commits each as o
   ];
   for(const entry of entries){
     const original=entry.before+'\n\nend';await load(page,original);await page.evaluate(()=>(window as any).host.editor.view.dispatch({selection:{anchor:2}}));
-    await page.getByRole('button',{name:entry.button,exact:true}).click();await page.getByLabel('Object Markdown',{exact:true}).fill(entry.after);expect(await source(page)).toBe(original);
+    await page.getByRole('button',{name:entry.button,exact:true}).click();await expect(page.getByLabel('Object Markdown',{exact:true})).not.toBeVisible();await page.getByLabel(entry.button==='Formula'?'Formula source':'Diagram source',{exact:true}).fill(entry.after.split('\n').slice(1,-1).join('\n'));expect(await source(page)).toBe(original);
     await expect(page.locator('.tegg-object-preview '+entry.preview)).toBeVisible();await page.getByRole('button',{name:'Cancel',exact:true}).click();expect(await source(page)).toBe(original);
-    await page.getByRole('button',{name:entry.button,exact:true}).click();await page.getByLabel('Object Markdown',{exact:true}).fill(entry.after);await page.getByRole('button',{name:'Apply',exact:true}).click();expect(await source(page)).toBe(entry.after+'\n\nend');
+    await page.getByRole('button',{name:entry.button,exact:true}).click();await expect(page.getByLabel('Object Markdown',{exact:true})).not.toBeVisible();await page.getByLabel(entry.button==='Formula'?'Formula source':'Diagram source',{exact:true}).fill(entry.after.split('\n').slice(1,-1).join('\n'));await page.getByRole('button',{name:'Apply',exact:true}).click();expect(await source(page)).toBe(entry.after+'\n\nend');
     await page.getByRole('button',{name:'Undo',exact:true}).click();expect(await source(page)).toBe(original);
   }
 });
@@ -86,4 +86,26 @@ test('Reliable package extensions prepare a local draft for explicit review, can
   await page.getByRole('button',{name:'Prepare revised link',exact:true}).click();await expect(page.getByRole('button',{name:'Apply',exact:true})).toBeEnabled();
   await page.getByLabel('Object Markdown',{exact:true}).fill('[approved](approved.md)');expect(await source(page)).toBe(original);await page.getByRole('button',{name:'Apply',exact:true}).click();
   expect(await source(page)).toBe('[approved](approved.md)\n\nUnchanged paragraph');await page.getByRole('button',{name:'Undo',exact:true}).click();expect(await source(page)).toBe(original);
+});
+
+test('Reliable code insertion splits a paragraph, focuses code and restores the whole action',async({page})=>{
+  const original='before after\n\n- first\n- second';await load(page,original);
+  await page.evaluate(()=>{const {editor}=(window as any).host;editor.view.dispatch({selection:{anchor:7}});editor.view.focus();});
+  await page.getByRole('button',{name:'Code block',exact:true}).click();
+  const content=page.getByLabel('Code content',{exact:true});await expect(content).toBeFocused();
+  expect(await source(page)).toBe('before \n\n```text\n\n```\n\nafter\n\n- first\n- second');
+  await page.keyboard.press('Escape');await page.keyboard.press('ControlOrMeta+z');expect(await source(page)).toBe(original);
+});
+
+test('Reliable technical source disclosure keeps one draft and one undo',async({page})=>{
+  const original='$$\nx^2\n$$\n\nend';await load(page,original);
+  await page.evaluate(()=>(window as any).host.editor.view.dispatch({selection:{anchor:3}}));
+  await page.getByRole('button',{name:'Formula',exact:true}).click();
+  await page.getByLabel('Formula source',{exact:true}).fill('x^3');expect(await source(page)).toBe(original);
+  await page.getByText('Markdown source',{exact:true}).click();
+  await expect(page.getByLabel('Object Markdown',{exact:true})).toHaveValue('$$\nx^3\n$$');
+  await page.getByLabel('Object Markdown',{exact:true}).fill('$$\nx^4\n$$');
+  await expect(page.getByLabel('Formula source',{exact:true})).toHaveValue('x^4');
+  await page.getByRole('button',{name:'Apply',exact:true}).click();expect(await source(page)).toBe('$$\nx^4\n$$\n\nend');
+  await page.getByRole('button',{name:'Undo',exact:true}).click();expect(await source(page)).toBe(original);
 });
