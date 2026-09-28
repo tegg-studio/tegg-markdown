@@ -20,6 +20,8 @@ export type {ResourcePolicy} from "./resources";
 export type {ReadonlyRenderers, ReadonlyRenderer, RenderNode, RenderContext} from "./renderExtensions";
 export type {RenderEngines} from "./renderEngines";
 export type {Locale, UIMessages, UIOptions} from "./uiContext";
+/** Bind locale to a custom Host editor root; destroy the binding with that surface. */
+export {bindUI} from "./uiContext";
 
 export * from "./editingController";
 export * from "./objectDraft";
