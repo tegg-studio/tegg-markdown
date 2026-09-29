@@ -31,6 +31,41 @@ export function action(label: string, run: () => void) {
   button.addEventListener("click", event => {event.stopPropagation(); run();});
   return button;
 }
+// Shared compact chrome for rendered objects. Labels remain available to AT.
+export function objectIcon(button: HTMLButtonElement, name: "edit" | "view" | "more" | "close") {
+  const paths = {edit:'<path d="m16 3 5 5L8 21H3v-5Z M14 5l5 5"/>',view:'<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/>',more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>'};
+  const label = button.dataset.teggUiText ?? button.textContent ?? "";
+  delete button.dataset.teggUiText;
+  setUILabel(button,label); button.title=button.getAttribute("aria-label")!;
+  button.classList.add("md-object-icon");
+  button.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
+  const text=document.createElement("span");text.className="md-object-label";setUIText(text,label);button.append(text);
+  return button;
+}
+export function objectActions(options:{edit?:()=>void;editLabel?:string;view?:()=>void;viewLabel?:string;more?:Array<{label:string;run:()=>void}>}) {
+  const bar=document.createElement("div");bar.className="md-object-actions md-object-toolbar";
+  setUILabel(bar,"Object actions");bar.setAttribute("role","group");
+  if(options.edit)bar.append(objectIcon(action(options.editLabel??"Edit object",options.edit),"edit"));
+  if(options.view)bar.append(objectIcon(action(options.viewLabel??"View diagram",options.view),"view"));
+  if(options.more?.length){
+    const menu=document.createElement("details");menu.className="md-object-more";
+    const summary=document.createElement("summary");setUILabel(summary,"More actions");summary.title="More actions";
+    const icon=objectIcon(action("More actions",()=>{}),"more");summary.innerHTML=icon.innerHTML;
+    const list=document.createElement("div");list.className="md-object-menu";
+    for(const item of options.more)list.append(action(item.label,()=>{menu.open=false;item.run();}));
+    menu.append(summary,list);bar.append(menu);
+    menu.addEventListener("keydown",event=>{if(event.key==="Escape"){event.preventDefault();event.stopPropagation();menu.open=false;summary.focus();}});
+    menu.addEventListener("focusout",()=>queueMicrotask(()=>{if(!menu.contains(document.activeElement))menu.open=false;}));
+    summary.addEventListener("click",event=>event.stopPropagation());
+  }
+  bar.addEventListener("click",event=>event.stopPropagation());
+  return bar;
+}
+export function imagePlaceholder(alt:string, blocked=false){
+  const note=document.createElement("span");note.className="md-image-unavailable";note.setAttribute("role","status");
+  const title=document.createElement("strong");setUIText(title,blocked?"Image not loaded":"Image unavailable");
+  const detail=document.createElement("span");detail.textContent=alt;note.append(title,detail);return note;
+}
 const panels = new Set<{owner: HTMLElement; trigger: HTMLElement; dialog: HTMLElement; close: (restore?: boolean) => void}>();
 export function disposeInteractions(root: HTMLElement) {
   for (const panel of [...panels]) if (panel.owner === root || root.contains(panel.owner) || root === panel.trigger || root.contains(panel.trigger)) panel.close(false);
@@ -56,7 +91,7 @@ export function openPanel(trigger: HTMLElement, title: string, modal = false) {
     }
   };
   const record = {owner: returnContainer ?? (modal ? owner : trigger), trigger, dialog, close}; panels.add(record);
-  head.append(heading, action("Close", () => close())); dialog.append(head, body); unmountOverlay = mountOverlay(owner, dialog);
+  head.append(heading, objectIcon(action("Close", () => close()),"close")); dialog.append(head, body); unmountOverlay = mountOverlay(owner, dialog);
   dialog.addEventListener("cancel", event => {event.preventDefault(); close();});
   dialog.addEventListener("keydown", event => {event.stopPropagation(); if (event.key === "Escape") {event.preventDefault(); close();}});
   dialog.addEventListener("click", event => event.stopPropagation());
@@ -155,17 +190,17 @@ export function openObjectViewer(trigger: HTMLElement, visual: HTMLElement, sour
 }
 
 export function enhanceFigures(root: ParentNode) {
-  for (const figure of root.querySelectorAll<HTMLElement>("figure:has(figcaption)")) {
-    figure.classList.add("md-explicit-figure");
-    for (const image of figure.querySelectorAll("img")) {
-      const failed = () => {
-        if (figure.querySelector(".md-image-unavailable")) return;
-        const note = document.createElement("span"); note.className = "md-image-unavailable"; note.setAttribute("role", "status");
-        note.textContent = `Image unavailable · ${image.alt || "Image"}`; image.hidden = true; image.after(note);
-      };
-      image.addEventListener("error", failed, {once:true});
-      if (image.complete && image.naturalWidth === 0) failed();
-    }
+  for (const figure of root.querySelectorAll<HTMLElement>("figure:has(figcaption)")) figure.classList.add("md-explicit-figure");
+  for (const image of root.querySelectorAll("img")) {
+    let placeholder: HTMLElement | undefined;
+    const failed = () => {
+      if (placeholder) return;
+      placeholder = imagePlaceholder(image.alt || "", !image.getAttribute("src"));
+      image.hidden = true; image.after(placeholder);
+    };
+    image.addEventListener("error", failed);
+    image.addEventListener("load", () => {image.hidden = false; placeholder?.remove(); placeholder = undefined;});
+    if (image.complete && image.naturalWidth === 0) failed();
   }
 }
 

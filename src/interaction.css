@@ -70,3 +70,53 @@
 .tegg-surface .cm-live-callout-source{position:relative}.tegg-surface .callout-source-action{position:absolute;inset-inline-end:6px;top:0;min-width:24px;line-height:inherit;font-size:16px;background:var(--background,#fff);border-radius:4px}.tegg-surface .cm-live-callout-source .callout-type-button{line-height:inherit}
 
 .tegg-surface .cm-live-math-inline{position:relative}.tegg-surface .cm-live-math-actions{position:fixed;z-index:80;width:max-content;max-width:calc(100vw - 16px);margin-top:0;gap:4px;padding:4px;border:1px solid var(--border,#d9d9dd);border-radius:7px;background:var(--background,#fff);box-shadow:0 4px 16px #0002}.tegg-surface .cm-live-math-actions button{font:13px/1.4 -apple-system,system-ui,sans-serif;min-height:28px;padding:4px 8px;color:var(--text,#24292f);background:transparent;border:0;border-radius:4px}.tegg-surface .cm-live-math-actions button:hover{background:color-mix(in srgb,var(--text,#24292f) 8%,transparent)}
+
+
+/* One quiet action row per object, shared by Reader and Live Edit. */
+.tegg-surface .md-object-block {position:relative;overflow:visible;box-sizing:border-box;padding-top:38px;}
+.tegg-surface .md-object-block > .md-render-canvas {padding-top:8px;}
+.tegg-surface .md-object-toolbar {position:absolute;inset:4px 6px auto auto;z-index:20;display:flex;flex-wrap:nowrap;align-items:center;gap:2px;margin:0;padding:2px;border:1px solid var(--border);border-radius:7px;background:var(--background);opacity:0;pointer-events:none;transition:opacity 100ms;}
+.tegg-surface .md-object-block:hover > .md-object-toolbar,.tegg-surface .md-object-block:focus-within > .md-object-toolbar,.tegg-surface .md-object-toolbar:has(details[open]) {opacity:1;pointer-events:auto;}
+.tegg-surface .md-object-toolbar button,.tegg-surface .md-object-toolbar summary {display:flex;align-items:center;justify-content:center;box-sizing:border-box;min-width:28px;min-height:28px;padding:5px;border:0;border-radius:4px;color:var(--text);background:transparent;font:13px/1.4 -apple-system,system-ui,sans-serif;cursor:pointer;text-transform:none;letter-spacing:normal;}
+.tegg-surface .md-object-toolbar button:hover,.tegg-surface .md-object-toolbar summary:hover {background:var(--code,var(--surface));}
+.md-object-icon svg,.md-object-more summary svg {display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+.tegg-surface .md-object-more {position:relative;margin:0;border:0;padding:0;}
+.md-object-more summary {list-style:none;}.md-object-more summary::-webkit-details-marker{display:none;}
+.tegg-surface .md-object-menu {position:absolute;top:calc(100% + 6px);right:0;z-index:30;min-width:150px;max-width:calc(100vw - 32px);padding:4px;border:1px solid var(--border);border-radius:8px;background:var(--background);box-shadow:0 6px 20px #0002;}
+.tegg-surface .md-object-menu button {width:100%;justify-content:flex-start;white-space:nowrap;padding:6px 10px;}
+.tegg-surface .cm-live-image.md-object-block {width:fit-content;min-width:min(240px,100%);max-width:100%;border:0;border-radius:8px;}
+.tegg-surface .cm-live-image:hover {outline:none;}
+.tegg-surface .cm-live-image:focus-visible {outline:2px solid var(--focus,var(--accent));outline-offset:3px;}
+.tegg-surface .cm-live-image img[hidden],.tegg-surface .cm-live-image-fallback[hidden],.tegg-surface .md-image-unavailable[hidden] {display:none!important;}
+.tegg-surface .md-image-unavailable {display:flex;flex-direction:column;justify-content:center;gap:4px;box-sizing:border-box;min-height:80px;padding:14px 18px;border:1px solid var(--border);border-radius:8px;background:var(--code,var(--surface));color:var(--muted);font:13px/1.5 -apple-system,system-ui,sans-serif;white-space:normal;overflow-wrap:anywhere;}
+.tegg-surface .md-image-unavailable strong {font-weight:500;color:var(--text);}
+.tegg-surface .md-image-unavailable span:empty {display:none;}
+.tegg-surface .md-object-panel {font:14px/1.5 -apple-system,system-ui,sans-serif;}
+.tegg-surface .md-object-panel button {font-size:13px;min-height:30px;padding:5px 9px;}
+.tegg-surface .md-object-panel > header {flex-wrap:nowrap;}
+.tegg-surface .md-object-panel > header .md-object-icon {margin-left:auto;min-width:30px;flex:none;}
+.tegg-surface .md-object-viewer {max-height:calc(100dvh - 32px);}
+.tegg-surface .md-object-content .md-object-toolbar {display:none;}
+
+/* Semantic content uses quiet surfaces; color lives primarily in the icon. */
+.tegg-surface .callout,.tegg-surface .cm-live-callout-source {--md-callout-bg:color-mix(in srgb,var(--md-callout-accent) 4%,var(--background));border-color:transparent;border-left:0;border-right:0;}
+.tegg-surface .callout {border-radius:9px;padding:12px 14px;}
+.tegg-surface .cm-live-callout-source {padding-left:14px;padding-right:14px;}
+.tegg-surface .cm-live-callout-source-first {border-top:0;border-radius:9px 9px 0 0;padding-top:12px;}
+.tegg-surface .cm-live-callout-source-last {border-bottom:0;border-radius:0 0 9px 9px;padding-bottom:12px;}
+.tegg-surface .cm-live-callout-source-first.cm-live-callout-source-last {border-radius:9px;}
+.tegg-surface .callout .callout {background:color-mix(in srgb,var(--md-callout-accent) 2%,var(--background));border:1px solid var(--border);}
+.tegg-surface .callout-source-action {background:transparent;}
+@media(hover:none),(pointer:coarse){
+ .tegg-surface .md-object-toolbar {opacity:1;pointer-events:auto;}
+ .tegg-surface .md-object-toolbar button,.tegg-surface .md-object-toolbar summary {min-width:44px;min-height:44px;}
+ .tegg-surface .md-object-block {padding-top:54px;}
+}
+@media(prefers-reduced-motion:reduce){.tegg-surface .md-object-toolbar{transition:none;}}
+@media(prefers-contrast:more){.tegg-surface .callout,.tegg-surface .cm-live-callout-source{border:1px solid var(--muted);}}
+
+.md-object-label{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%);white-space:nowrap;border:0!important;}
+
+.tegg-surface .md-object-block > .katex-display{max-width:100%;overflow-x:auto;overflow-y:hidden;padding-block:4px;}
+.tegg-surface .md-object-viewer:not(.md-formula-viewer){width:900px;height:min(620px,calc(100dvh - 32px));}
+.tegg-surface img[hidden]{display:none!important;}

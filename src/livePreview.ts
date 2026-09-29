@@ -18,7 +18,7 @@ import { createMetadataPanel, disposeMetadataPanel } from "./metadata";
 
 import {observeSurfaceAppearance} from "./appearance";
 import {inlineMathAt} from "./mathSyntax";
-import {action, openPanel, openObjectViewer, disposeInteractions} from "./renderInteraction";
+import {action, copySource, objectActions, imagePlaceholder, openPanel, openObjectViewer, disposeInteractions} from "./renderInteraction";
 import {renderMarkdown} from "./markdown";
 import { makeHorizontalScrollRegion } from "./localScroll";
 import { syntaxTree } from "@codemirror/language";
@@ -83,14 +83,18 @@ class BlockWidget extends WidgetType {
     if (this.kind !== "math") wrapper.classList.add(renderClassNames.diagram);
     wrapper.setAttribute("aria-label", this.kind === "math" ? "Math formula" : `${this.kind} diagram`);
 
-    const blockToolbar = toolbar(this.kind === "math" ? "Formula" : this.kind === "mermaid" ? "Mermaid" : "GraphViz", () => {
-      view.dispatch({ selection: { anchor: this.from + (this.kind === "math" ? 2 : 3) }, scrollIntoView: true });
-      view.focus();
-    });
-
-    blockToolbar.append(action("Edit object",()=>editObject(view,this.from,this.kind==="dot"?"graphviz":this.kind)));
     const canvas = document.createElement("div");
     canvas.className = `diagram-canvas ${renderClassNames.canvas}`;
+    canvas.dataset.enhancements="false";
+    const edit=()=>editObject(view,this.from,this.kind==="dot"?"graphviz":this.kind);
+    const blockToolbar=objectActions({
+      edit:view.state.readOnly?undefined:edit, editLabel:this.kind==="math"?"Edit formula":"Edit diagram",
+      view:()=>openObjectViewer(blockToolbar.querySelector<HTMLButtonElement>('button[data-tegg-ui-label="'+(this.kind==="math"?"View formula":"View diagram")+'"]')!,canvas,this.source,this.kind==="math"?"Formula":"Diagram",view.state.readOnly?undefined:edit),
+      viewLabel:this.kind==="math"?"View formula":"View diagram",
+      more:[{label:this.kind==="math"?"Copy TeX":"Copy source",run:()=>{void copySource(this.source,wrapper);}},
+        ...(!view.state.readOnly?[{label:"Edit Source",run:()=>editSource(view,this.from+(this.kind==="math"?2:3))}]:[])]
+    });
+    wrapper.classList.add("md-object-block");
     wrapper.append(blockToolbar, canvas);
 
     if (this.kind === "math") {
@@ -355,15 +359,15 @@ class ImageWidget extends WidgetType {
     if (this.title) figure.title = this.title;
 
     const image = document.createElement("img");
-    image.src = this.src;
+    if(this.src)image.src = this.src;
     image.alt = this.alt;
     image.loading = "lazy";
     image.draggable = false;
 
-    const fallback = document.createElement("div");
-    fallback.className = "cm-live-image-fallback";
-    fallback.hidden = true;
-    setUIText(fallback,"Could not display image · {value}",{value:this.alt || this.src});
+    const fallback = imagePlaceholder(this.alt || this.src,!this.src);
+    fallback.classList.add("cm-live-image-fallback");
+    fallback.hidden = !!this.src;
+    image.hidden = !this.src;
     image.addEventListener("error", () => {
       image.hidden = true;
       fallback.hidden = false;
@@ -375,13 +379,14 @@ class ImageWidget extends WidgetType {
     };
     figure.addEventListener("click", edit);
     figure.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
+      if (event.target===figure && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
         edit();
       }
     });
-    const editButton=action("Edit image",()=>editObject(view,this.from,"image"));editButton.addEventListener("click",event=>event.stopPropagation());
-    figure.append(image, fallback,editButton);
+    const controls=objectActions({edit:view.state.readOnly?undefined:()=>editObject(view,this.from,"image"),editLabel:"Edit image"});
+    figure.classList.add("md-object-block");
+    figure.append(controls,image,fallback);
     return figure;
   }
 

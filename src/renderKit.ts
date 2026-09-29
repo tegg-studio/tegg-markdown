@@ -1,5 +1,5 @@
 import {setUIText, setUILabel} from "./uiContext";
-import {copySource, action, openObjectViewer, scopeIds, enhanceFigures} from "./renderInteraction";
+import {objectActions, copySource, action, openObjectViewer, scopeIds, enhanceFigures} from "./renderInteraction";
 import { makeHorizontalScrollRegion } from "./localScroll";
 import DOMPurify from "dompurify";
 import {enginesFor, type RenderEngines} from "./renderEngines";
@@ -188,9 +188,8 @@ export function renderMathInto(
     target.replaceChildren(message, source);
   }
   if (model.display === "block" && !target.closest('[data-enhancements="false"]')) {
-    const controls = document.createElement("div"); controls.className = "md-object-actions";
-    const view = action("View formula", () => openObjectViewer(view, target, model.source, "Formula"));
-    controls.append(view, action("Copy TeX", () => {void copySource(model.source, target);})); target.append(controls);
+    const controls = objectActions({view:()=>openObjectViewer(controls.querySelector("button")!,target,model.source,"Formula"),viewLabel:"View formula",more:[{label:"Copy TeX",run:()=>{void copySource(model.source,target);}}]});
+    target.classList.add("md-object-block");target.append(controls);
   }
 }
 
@@ -292,9 +291,8 @@ export function renderDiagram(model: Extract<RenderModel, {kind: "diagram"}>, ta
         target.removeAttribute("role"); target.removeAttribute("aria-label");
       }
       if (!target.closest('[data-enhancements="false"]')) {
-        const controls = document.createElement("div"); controls.className = "md-object-actions";
-        const view = action("View diagram", () => openObjectViewer(view, target, model.source, "Diagram"));
-        controls.append(view); target.append(controls);
+        const controls = objectActions({view:()=>openObjectViewer(controls.querySelector("button")!,target,model.source,"Diagram"),viewLabel:"View diagram",more:[{label:"Copy source",run:()=>{void copySource(model.source,target);}}]});
+        target.classList.add("md-object-block");target.append(controls);
       }
     } catch (error) {
       if (!current() || expired) return;
@@ -313,6 +311,9 @@ export function renderDiagram(model: Extract<RenderModel, {kind: "diagram"}>, ta
     mermaidPending++;
     result = diagramQueue.then(run).finally(() => {mermaidPending--;});
     diagramQueue = result.catch(() => {});
-  } else result = run();
+  } else {
+    // CodeMirror attaches newly created widgets before this microtask runs.
+    result = Promise.resolve().then(run);
+  }
   return Promise.race([result, waitingBudget]);
 }

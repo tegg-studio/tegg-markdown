@@ -1,3 +1,62 @@
 .tegg-editing-ui{color:var(--text,#24292f);font:inherit}.tegg-editing-toolbar{display:flex;flex-wrap:wrap;gap:4px;padding:8px;border-bottom:1px solid var(--border,#d0d7de)}.tegg-editing-ui button,.tegg-editing-ui input,.tegg-editing-ui textarea{font:inherit;color:inherit}.tegg-editing-ui button{min-height:36px;padding:6px 10px;background:var(--background,#fff);border:1px solid var(--border,#d0d7de);border-radius:6px;cursor:pointer}.tegg-editing-ui button:disabled{opacity:.5;cursor:default}.tegg-editing-ui :focus-visible{outline:2px solid var(--accent,#0969da);outline-offset:2px}.tegg-editing-panel{position:fixed;z-index:1000;inset:8vh max(12px,calc((100vw - 720px)/2)) auto;max-height:80vh;overflow:auto;overscroll-behavior:contain;padding:20px;background:var(--background,#fff);border:1px solid var(--border,#d0d7de);border-radius:12px;box-shadow:0 12px 48px #0003;display:flex;flex-wrap:wrap;gap:10px}.tegg-editing-panel[hidden]{display:none}.tegg-editing-panel h2,.tegg-editing-panel label,.tegg-editing-panel pre,.tegg-object-preview{flex-basis:100%;min-width:0}.tegg-editing-panel h2{margin:0;font-size:1.2em}.tegg-editing-panel label{display:flex;flex-direction:column;gap:4px}.tegg-editing-panel input:not([type=checkbox]),.tegg-editing-panel textarea{box-sizing:border-box;width:100%;padding:8px;border:1px solid var(--border,#d0d7de);border-radius:6px;background:var(--background,#fff)}.tegg-editing-panel textarea{resize:vertical;min-height:120px;font-family:ui-monospace,monospace;white-space:pre-wrap}.tegg-editing-panel input[type=checkbox]{align-self:flex-start}.tegg-editing-panel pre{white-space:pre-wrap;overflow-wrap:anywhere}.tegg-object-preview{max-height:260px;overflow:auto;border-top:1px solid var(--border,#d0d7de);padding-top:10px}.tegg-object-preview svg,.tegg-object-preview img{max-width:100%}.tegg-editing-ui>[role=status]{margin:0;padding:4px 12px;overflow-wrap:anywhere}.tegg-editing-ui>[role=status]:empty{padding:0}@media(max-width:600px){.tegg-editing-toolbar button,.tegg-editing-panel button{min-height:44px}.tegg-editing-panel{inset:4vh 8px auto;max-height:86dvh;padding:12px}}
 
 .tegg-editing-panel h2{font-size:18px;font-weight:600;margin:0 0 4px}.tegg-editing-panel label{display:flex;flex-direction:column;gap:6px}.tegg-editing-panel label>span,.tegg-object-source summary{font-size:13px;color:var(--muted,#6b7280)}.tegg-object-source{width:100%}.tegg-object-source summary{cursor:pointer;padding:4px 0}.tegg-object-source label{margin-top:8px}.tegg-object-body{resize:vertical;line-height:1.5;min-height:144px}.tegg-editing-panel textarea,.tegg-editing-panel input{box-sizing:border-box;border:1px solid var(--border,#d9d9dd);border-radius:7px;background:color-mix(in srgb,var(--text,#24292f) 3%,var(--background,#fff));color:inherit;padding:9px 11px}.tegg-editing-panel textarea:focus-visible,.tegg-editing-panel input:focus-visible{outline:1px solid var(--muted,#9398a1);outline-offset:0;border-color:var(--muted,#9398a1)}.tegg-preview-error{font-size:13px;color:var(--tegg-danger,#b42318)}
+
+
+/* Bounded object sheets: persistent exits and actions, only the body scrolls. */
+.tegg-editing-ui {font:14px/1.5 -apple-system,system-ui,sans-serif;}
+.tegg-editing-panel {inset:24px 16px auto;top:calc(var(--toolbar-inset,0px) + 20px);width:560px;max-width:calc(100vw - 32px);max-height:calc(100dvh - var(--toolbar-inset,0px) - 40px);margin-inline:auto;padding:0;display:flex;flex-direction:column;flex-wrap:nowrap;gap:0;overflow:hidden;border-radius:12px;box-shadow:0 12px 36px #0002;box-sizing:border-box;text-align:left;}
+.tegg-editing-panel[data-kind=image],.tegg-editing-panel[data-kind=link]{width:440px;}
+.tegg-editing-panel[data-kind=mermaid],.tegg-editing-panel[data-kind=graphviz]{width:840px;}
+.tegg-editing-panel > header {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 10px;flex:none;}
+.tegg-editing-panel h2 {font:600 15px/1.4 -apple-system,system-ui,sans-serif;flex-basis:auto;margin:0;}
+.tegg-editing-panel > header button {min-width:28px;min-height:28px;padding:5px;border:0;background:transparent;}
+.tegg-editing-content {display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto;overscroll-behavior:contain;padding:4px 16px 16px;}
+.tegg-editing-content > label {flex-basis:auto;flex-shrink:0;margin:0;}
+.tegg-editing-panel input:not([type=checkbox]) {min-height:32px;padding:6px 9px;font-size:13px;}
+.tegg-editing-panel textarea {font:13px/1.5 ui-monospace,monospace;min-height:80px;max-height:220px;padding:9px;}
+.tegg-editing-panel .tegg-object-body {min-height:96px;}
+.tegg-editing-panel label>span,.tegg-editing-panel summary {font-size:12px;}
+.tegg-editing-panel details {flex:none;}.tegg-editing-panel details>label{margin-top:8px;}
+.tegg-editing-content > button {align-self:flex-start;}
+.tegg-editing-panel button {font:13px/1.4 -apple-system,system-ui,sans-serif;min-height:30px;}
+.tegg-editing-footer {display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;flex:none;padding:10px 16px;border-top:1px solid var(--border);background:var(--background);}
+.tegg-editing-footer button[data-label="Copy draft"] {margin-right:auto;background:transparent;border:0;color:var(--muted);}
+.tegg-editing-footer .tegg-primary-action {background:var(--accent-soft,#e8eef8);color:var(--text);border-color:var(--control-border,var(--border));font-weight:600;}
+.tegg-editing-panel > [role=status] {padding:0 16px 8px;margin:0;font-size:12px;overflow-wrap:anywhere;}
+.tegg-editing-panel > [role=status]:empty{display:none;}
+.tegg-discard-draft {display:flex;flex-wrap:wrap;align-items:center;gap:6px;flex-basis:100%;padding:8px;border-radius:6px;background:var(--code,var(--surface));}
+.tegg-discard-draft span {flex:1;min-width:100px;}
+.tegg-object-preview {flex:none;max-height:250px;min-width:0;overflow:auto;padding:12px 0 0;margin:0;border-top:1px solid var(--border);}
+.tegg-object-preview svg {display:block;max-width:100%;max-height:240px;width:auto;height:auto;margin:auto;}
+.tegg-object-preview figure,.tegg-object-preview p {margin:0;}
+.tegg-object-preview figure img {display:block;max-width:100%;max-height:140px;width:auto;height:auto;object-fit:contain;margin:auto;}
+.tegg-object-preview figcaption:empty{display:none;}
+.tegg-object-preview .md-object-actions{display:none;}
+.tegg-object-preview .katex-display {margin:.5em 0;}
+/* The same Source / Preview workspace for every rendered object. */
+.tegg-editing-panel[data-layout=split] {width:840px;}
+.tegg-editing-panel[data-layout=split] .tegg-editing-content {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch;gap:0;padding-top:4px;}
+.tegg-source-pane,.tegg-preview-pane {min-width:0;display:flex;flex-direction:column;gap:12px;}
+.tegg-source-pane {padding-right:16px;}
+.tegg-preview-pane {padding-left:16px;border-left:1px solid var(--border);}
+.tegg-editing-panel h3 {margin:0;font:600 12px/1.5 -apple-system,system-ui,sans-serif;color:var(--muted);}
+.tegg-source-pane > label {flex-basis:auto;margin:0;}
+.tegg-source-pane > button {align-self:flex-start;}
+.tegg-editing-panel[data-layout=split] .tegg-object-preview {border:0;padding:0;max-height:400px;min-height:180px;}
+.tegg-editing-panel[data-layout=split] .tegg-object-preview svg {max-height:380px;}
+.tegg-editing-panel[data-layout=split] .tegg-object-preview img {max-height:280px;}
+.tegg-editing-panel[data-layout=split] .tegg-object-body {min-height:200px;max-height:380px;}
+@media(max-width:599px){
+ .tegg-editing-panel[data-layout=split] .tegg-editing-content {grid-template-columns:minmax(0,1fr);gap:16px;}
+ .tegg-source-pane {padding-right:0;}
+ .tegg-preview-pane {padding:12px 0 0;border-left:0;border-top:1px solid var(--border);}
+ .tegg-editing-panel[data-layout=split] .tegg-object-body {min-height:120px;}
+ .tegg-editing-panel[data-layout=split] .tegg-object-preview {min-height:80px;max-height:240px;}
+}
+@media(pointer:coarse){.tegg-editing-panel button,.tegg-editing-panel > header button{min-height:44px;min-width:44px;}}
+@media(max-height:500px){.tegg-editing-panel{top:8px!important;max-height:calc(100dvh - 16px)!important;}.tegg-editing-panel > header{padding-block:8px;}}
+
+.md-object-label{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%);white-space:nowrap;border:0!important;}
+
+.tegg-editing-panel .md-object-icon svg{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}

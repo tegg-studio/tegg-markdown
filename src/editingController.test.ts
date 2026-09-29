@@ -5,6 +5,7 @@ import {EditingController,objectAt} from "./editingController";
 import {attachEditingUI} from "./editingUI";
 import {ResourceTask,assertPersistentReference} from "./resourceTasks";
 import {preparePaste} from "./clipboard";
+import {katexEngine} from "./engines/katex";
 import {bindEngines} from "./renderEngines";
 import {readLinkDraft,serializeLinkDraft,serializeImageReference,unwrapLinkDraft} from "./objectDraft";
 const cleanup:Array<()=>void>=[];
@@ -112,5 +113,38 @@ describe("literal editing UI input policy",()=>{
  });
  it.each(['[alpha](target "omega")','```mermaid\ngraph LR; alpha-->omega\n```','---\nname: omega\n---'])('keeps object fields literal and cancellation source-faithful: %s',source=>{
   const {root,editor,controller}=make(source);const ui=attachEditingUI(controller,root);cleanup.push(()=>ui.destroy());editor.view.dispatch({selection:{anchor:Math.min(4,source.length)}});ui.openObject();check(root);ui.close();expect(editor.source).toBe(source);
+ });
+});
+
+
+describe("compact object panel transactions",()=>{
+ const press=(root:HTMLElement,label:string)=>[...root.querySelectorAll<HTMLButtonElement>("button")].find(b=>b.textContent===label)!.click();
+ it("guards Escape and close while a draft is dirty, then discards without writing",async()=>{
+  const {root,controller,editor}=make("![cat](old.png)");const ui=attachEditingUI(controller,root);cleanup.push(()=>ui.destroy());
+  ui.openObject("image",{from:0,to:editor.source.length});await Promise.resolve();
+  const raw=root.querySelector("textarea")!;raw.value="![cat](new.png)";raw.dispatchEvent(new Event("input"));
+  raw.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));
+  expect(root.querySelector('.tegg-discard-draft')).not.toBeNull();expect(editor.source).toBe("![cat](old.png)");
+  press(root,"Keep editing");expect(raw.value).toBe("![cat](new.png)");press(root,"Close");press(root,"Discard changes");
+  expect(root.querySelector<HTMLElement>('.tegg-editing-panel')!.hidden).toBe(true);expect(editor.source).toBe("![cat](old.png)");
+ });
+ it("cancel is non-writing and apply is a single undoable transaction",()=>{
+  const {root,controller,editor}=make("$$\nx+y\n$$");const ui=attachEditingUI(controller,root);cleanup.push(()=>ui.destroy());
+  const change=()=>{ui.openObject("math",{from:0,to:editor.source.length});const body=root.querySelector<HTMLTextAreaElement>('.tegg-object-body')!;body.value="x-y";body.dispatchEvent(new Event("input"));};
+  change();press(root,"Cancel");expect(editor.source).toContain("x+y");change();press(root,"Apply");expect(editor.source).toContain("x-y");
+  controller.command("undo");expect(editor.source).toContain("x+y");controller.command("redo");expect(editor.source).toContain("x-y");
+ });
+ it("retains trusted matrix positioning in the formula draft preview",async()=>{
+  const {root,controller,editor}=make(String.raw`$$
+\begin{bmatrix}1&2\\3&4\end{bmatrix}
+$$`);cleanup.push(bindEngines(editor.view.dom,{math:katexEngine}));
+  const ui=attachEditingUI(controller,root);cleanup.push(()=>ui.destroy());ui.openObject("math",{from:0,to:editor.source.length});await new Promise(r=>setTimeout(r,300));
+  expect(root.querySelector('.tegg-object-preview .katex .vlist [style*="top"]')).not.toBeNull();expect(root.querySelector('.tegg-object-preview .md-object-actions')).toBeNull();
+ });
+ it("cycles keyboard focus between visible shell controls without entering collapsed source",async()=>{
+  const {root,controller,editor}=make("![cat](old.png)");const ui=attachEditingUI(controller,root);cleanup.push(()=>ui.destroy());ui.openObject("image",{from:0,to:editor.source.length});await Promise.resolve();
+  const panel=root.querySelector<HTMLElement>('.tegg-editing-panel')!,close=panel.querySelector<HTMLButtonElement>('header button')!,apply=panel.querySelector<HTMLButtonElement>('[data-label="Apply"]')!;
+  apply.focus();apply.dispatchEvent(new KeyboardEvent("keydown",{key:"Tab",bubbles:true,cancelable:true}));expect(document.activeElement).toBe(close);
+  close.dispatchEvent(new KeyboardEvent("keydown",{key:"Tab",shiftKey:true,bubbles:true,cancelable:true}));expect(document.activeElement).toBe(apply);
  });
 });

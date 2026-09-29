@@ -15,7 +15,7 @@ test('optional local engines and geometry under explicit CSP',async({page},info)
 
  expect(await page.evaluate(()=>(window as any).full.errors)).toEqual([]);expect(external).toEqual([]);expect(await page.evaluate(()=>(window as any).violations)).toEqual([]);
  const first=page.locator('[data-tegg-slot="code"]').first();const before=await first.locator('svg g').getAttribute('transform');await first.getByRole('button',{name:'Zoom in',exact:true}).click();expect(await first.locator('svg g').getAttribute('transform')).not.toBe(before);
- await page.getByRole('button',{name:'View diagram',exact:true}).first().click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
+ await page.locator('.diagram-canvas[data-engine="mermaid"]').hover();await page.getByRole('button',{name:'View diagram',exact:true}).first().click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
  await info.attach("engine-preview",{body:await page.screenshot({fullPage:true}),contentType:"image/png"});
  expect(workerStarts).toBeGreaterThan(0);
  await expect.poll(()=>workers.size,{timeout:15000}).toBe(0);

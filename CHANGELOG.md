@@ -2,6 +2,12 @@
 
 ## 0.3.0-preview.1 — development candidate, not published
 
+- Unify rendered object actions at the top right; add bounded Source/Preview
+  editing panels with persistent close/apply controls and draft protection.
+- Use neutral missing-image placeholders and quieter semantic callouts.
+- Preserve formula matrix layout in draft previews and start Graphviz after
+  widget attachment. See [rendered object UI](docs/rendered-object-ui.md).
+
 - Disable native text correction, capitalization and autofill in literal search and
   object draft fields so WebKit blur cannot silently change Markdown or replacements.
 

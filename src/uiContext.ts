@@ -2,6 +2,15 @@ export type Locale = "en-US" | "zh-CN";
 export type UIMessages = Readonly<Record<string, string>>;
 export type UIOptions = {locale?: Locale; messages?: UIMessages; overlayContainer?: HTMLElement};
 const chinese: UIMessages = {
+"Object actions":"模块操作",
+"More actions":"更多操作",
+"Image details":"图片详情",
+"Image not loaded":"图片未加载",
+"Image unavailable":"图片暂不可用",
+"Unsaved changes":"未应用的修改",
+"Discard these changes?":"放弃这些修改？",
+"Keep editing":"继续编辑",
+"Discard changes":"放弃修改",
 "No commands":"无可用命令",
 "Move down":"下移",
 "Move up":"上移",
@@ -57,6 +66,7 @@ const chinese: UIMessages = {
 "Replace image":"替换图片",
 "Object Markdown":"对象 Markdown",
 "Draft preview":"草稿预览",
+"Preview":"预览",
 "Copy draft":"复制草稿",
 "Find":"查找",
 "Replace with":"替换为",

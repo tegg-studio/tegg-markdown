@@ -10,8 +10,9 @@ import {focusedTableCell,tableWidgetOwnsFocus,executeFocusedTableCommand} from "
 import {focusCodeAtSelection} from "./codeEditing";
 import {technicalDraft} from "./technicalDraft";
 import {readLinkDraft,serializeLinkDraft,serializeImageReference} from "./objectDraft";
-import {enginesFor} from "./renderEngines";
-import {sanitizeRenderedHtml,sanitizeDiagramSvg} from "./renderKit";
+import {objectIcon,enhanceFigures} from "./renderInteraction";
+import {bindEngines,enginesFor} from "./renderEngines";
+import {renderMathInto,sanitizeRenderedHtml,sanitizeDiagramSvg} from "./renderKit";
 import {parserFor} from "./markdownParser";
 import {resourceContext} from "./editorHost";
 import {setUIText,setUILabel,bindUI,contextFor,type UIOptions} from "./uiContext";
@@ -41,6 +42,10 @@ export class EditingUI {
   readonly element=document.createElement("section");
   private panel=document.createElement("div");
   private status=document.createElement("p");
+  private content=document.createElement("div");
+  private footer=document.createElement("footer");
+  private initialDraft="";
+  private closeNotice?:HTMLElement;
   private stop:()=>void;
   private effects=new Compartment();
   private task?:ResourceTask;
@@ -85,7 +90,7 @@ export class EditingUI {
   private safe(run:()=>unknown){try{Promise.resolve(run()).catch(error=>this.error(error));}catch(error){this.error(error);}}
   private button(label:string,run:()=>unknown){const button=document.createElement("button");button.type="button";setUIText(button,label);button.dataset.label=label;button.addEventListener("mousedown",event=>{if(!this.element.querySelector(".tegg-editing-panel:not([hidden])"))event.preventDefault();});button.addEventListener("click",()=>{if(this.alive)this.safe(run);});return button;}
   private label(text:string,control:HTMLElement){const label=document.createElement("label");const span=document.createElement("span");setUIText(span,text);label.append(span,control);return label;}
-  private input(label:string,value="",type="text"){const input=document.createElement("input");input.type=type;if(type==="text")literalControl(input);input.value=value;this.panel.append(this.label(label,input));return input;}
+  private input(label:string,value="",type="text"){const input=document.createElement("input");input.type=type;if(type==="text")literalControl(input);input.value=value;this.content.append(this.label(label,input));return input;}
   private message(text:string){if(this.alive)setUIText(this.status,text);}
   private error(error:unknown){if(!this.alive)return;this.message(error instanceof Error?error.message:String(error));try{this.host.onError?.(error);}catch{/* diagnostic observers cannot break UI cleanup */}}
   private sync(){const reason=this.controller.unavailableReason,extensions=this.extensions.list(),cell=!!focusedTableCell(this.controller.view),preview=tableWidgetOwnsFocus(this.controller.view)&&!cell;for(const button of this.element.querySelectorAll<HTMLButtonElement>(".tegg-editing-toolbar button"))button.disabled=(preview&&!["Undo","Redo","Find and replace"].includes(button.dataset.label??""))||(cell&&!["Undo","Redo","Bold","Italic","Link","Find and replace"].includes(button.dataset.label??""))||(button.dataset.extension?!extensions.find(item=>item.id===button.dataset.extension)?.enabled:button.dataset.label==="Find and replace"?reason==="composing"||reason==="destroyed":!!reason);for(const button of this.panel.querySelectorAll<HTMLButtonElement>('button[data-mutation="true"]'))button.disabled=!!reason||this.controller.session?.status==="stale";}
@@ -118,29 +123,53 @@ export class EditingUI {
   };
   private panelKey=(event:KeyboardEvent)=>{
     if(event.isComposing)return;
-    if(event.key==="Escape"){event.preventDefault();this.close();}
-    if(event.key==="Tab"&&!this.panel.hidden){const controls=[...this.panel.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),[tabindex="0"]')].filter(el=>!el.hidden);const first=controls[0],last=controls.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}
+    if(event.key==="Escape"&&!this.panel.hidden){event.preventDefault();event.stopPropagation();this.requestClose();}
+    if(event.key==="Tab"&&!this.panel.hidden){const controls=[...this.panel.querySelectorAll<HTMLElement>(':is(button,input,textarea,select,summary,[tabindex="0"]):not(:disabled)')].filter(el=>!el.closest('[hidden]')&&![...this.panel.querySelectorAll('details:not([open])')].some(detail=>detail.contains(el)&&detail.firstElementChild!==el));const first=controls[0],last=controls.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}
   };
   private startPanel(title:string){
     this.panelEpoch++;this.previewEpoch++;clearTimeout(this.previewTimer);
     if(this.panel.hidden)this.returnFocus=document.activeElement instanceof HTMLElement?document.activeElement:undefined;
     this.panel.replaceChildren();this.panel.hidden=false;this.panel.setAttribute("role","dialog");setUILabel(this.panel,title);this.apply=undefined;this.textarea=undefined;this.message("");
-    const heading=document.createElement("h2");setUIText(heading,title);this.panel.append(heading);
+    delete this.panel.dataset.kind;delete this.panel.dataset.layout;this.closeNotice=undefined;
+    this.content=document.createElement("div");this.content.className="tegg-editing-content";
+    this.footer=document.createElement("footer");this.footer.className="tegg-editing-footer";
+    const header=document.createElement("header"),heading=document.createElement("h2");setUIText(heading,title);
+    header.append(heading,objectIcon(this.button("Close",()=>this.requestClose()),"close"));
+    this.panel.append(header,this.content,this.status,this.footer);
   }
-  private endPanel(){this.panel.append(this.button("Cancel",()=>this.close()));const epoch=this.panelEpoch;this.sync();queueMicrotask(()=>{if(this.alive&&!this.panel.hidden&&epoch===this.panelEpoch)this.panel.querySelector<HTMLElement>('input:not(:disabled),textarea:not(:disabled),button:not(:disabled)')?.focus();});}
-  close(restoreFocus=true){const wasOpen=!this.panel.hidden;this.panelEpoch++;this.previewEpoch++;clearTimeout(this.previewTimer);this.extensions.cancel();this.picker?.abort();this.filePicker?.remove();this.filePicker=undefined;this.stopTask?.();this.stopTask=undefined;this.task?.destroy();this.task=undefined;const session=this.controller.session;if(session&&["editing","stale"].includes(session.status))this.controller.cancel(session.token);this.panel.hidden=true;this.panel.replaceChildren();this.apply=undefined;this.textarea=undefined;if(restoreFocus&&wasOpen){if(this.returnFocus?.isConnected)this.returnFocus.focus();else this.controller.view.focus();}}
+  private requestClose(){
+    if(this.textarea&&this.textarea.value!==this.initialDraft){
+      if(this.closeNotice){this.closeNotice.querySelector<HTMLElement>("button")?.focus();return;}
+      const note=document.createElement("div");note.className="tegg-discard-draft";note.setAttribute("role","group");setUILabel(note,"Unsaved changes");
+      const text=document.createElement("span");setUIText(text,"Discard these changes?");
+      note.append(text,this.button("Keep editing",()=>{note.remove();this.closeNotice=undefined;this.content.querySelector<HTMLElement>('input:not(:disabled),textarea:not(:disabled)')?.focus();}),this.button("Discard changes",()=>this.close()));
+      this.closeNotice=note;this.footer.prepend(note);note.querySelector<HTMLElement>("button")?.focus();return;
+    }
+    this.close();
+  }
+  private endPanel(){
+    for(const button of this.content.querySelectorAll<HTMLButtonElement>(":scope > button"))if(button.dataset.label!=="Replace image")this.footer.append(button);
+    const cancel=this.button("Cancel",()=>this.close());this.footer.append(cancel);
+    if(this.apply){this.apply.classList.add("tegg-primary-action");this.footer.append(this.apply);}
+    this.initialDraft=this.textarea?.value??"";
+    const epoch=this.panelEpoch;this.sync();queueMicrotask(()=>{if(this.alive&&!this.panel.hidden&&epoch===this.panelEpoch){
+      const controls=[...this.content.querySelectorAll<HTMLElement>('input:not(:disabled),textarea:not(:disabled),button:not(:disabled)')];
+      (controls.find(el=>!el.closest('details:not([open])'))??cancel).focus({preventScroll:true});
+    }});
+  }
+  close(restoreFocus=true){const wasOpen=!this.panel.hidden;this.panelEpoch++;this.previewEpoch++;clearTimeout(this.previewTimer);this.extensions.cancel();this.picker?.abort();this.filePicker?.remove();this.filePicker=undefined;this.stopTask?.();this.stopTask=undefined;this.task?.destroy();this.task=undefined;const session=this.controller.session;if(session&&["editing","stale"].includes(session.status))this.controller.cancel(session.token);this.panel.hidden=true;this.element.append(this.status);this.panel.replaceChildren();this.apply=undefined;this.textarea=undefined;if(restoreFocus&&wasOpen){if(this.returnFocus?.isConnected)this.returnFocus.focus();else this.controller.view.focus();}}
   async openExtension(id:string){
     if(!this.alive)throw new Error("destroyed");
     const extension=this.extensions.list().find(item=>item.id===id);if(!extension?.enabled)throw new Error(extension?.reason??"unknown-extension");
     const session=this.controller.begin();this.startPanel("Review extension draft");const epoch=this.panelEpoch;
-    const raw=this.textarea=literalControl(document.createElement("textarea"));raw.rows=10;raw.readOnly=true;raw.value=session.draft;this.panel.append(this.label("Object Markdown",raw),this.button("Copy draft",()=>this.copy(raw.value)));this.endPanel();this.message("Preparing draft…");
+    const raw=this.textarea=literalControl(document.createElement("textarea"));raw.rows=10;raw.readOnly=true;raw.value=session.draft;this.content.append(this.label("Object Markdown",raw),this.button("Copy draft",()=>this.copy(raw.value)));this.endPanel();this.message("Preparing draft…");
     const prepared=await this.extensions.prepare(id,session.token);
     if(!this.alive||epoch!==this.panelEpoch)return;
     if(prepared.status!=="ready"){this.message(prepared.reason);return;}
     raw.readOnly=false;raw.value=prepared.draft;this.controller.updateDraft(session.token,raw.value);
     raw.addEventListener("input",()=>{this.controller.updateDraft(session.token,raw.value);});
     this.apply=this.button("Apply",()=>{const result=this.extensions.commit(prepared,raw.value);if(!result.ok)throw new Error(result.reason);this.close();});this.apply.dataset.mutation="true";
-    this.panel.insertBefore(this.apply,this.panel.lastChild);this.sync();this.message("Review the draft before applying.");raw.focus();
+    this.footer.prepend(this.apply);this.sync();this.message("Review the draft before applying.");raw.focus();
   }
   openObject(kind?:ObjectKind,range?:SourceRange,position?:number,create=false){
     if(!this.alive)throw new Error("destroyed");const reason=this.controller.unavailableReason;if(reason)throw new Error(reason);
@@ -161,8 +190,8 @@ export class EditingUI {
     }
     const session=this.controller.begin(kind,range);
     const title=({math:"Edit formula",mermaid:"Edit diagram",graphviz:"Edit diagram",code:"Edit code",image:"Edit image",link:"Edit link"} as Partial<Record<ObjectKind,string>>)[session.kind]??"Edit object";
-    this.startPanel(title);
-    const raw=literalControl(document.createElement("textarea"));raw.rows=10;raw.value=create?this.template(session.kind):session.original||this.template(session.kind);this.textarea=raw;setUILabel(raw,"Object Markdown");
+    this.startPanel(title);this.panel.dataset.kind=session.kind;
+    const raw=literalControl(document.createElement("textarea"));raw.rows=4;raw.value=create?this.template(session.kind):session.original||this.template(session.kind);this.textarea=raw;setUILabel(raw,"Object Markdown");
     const parsed=readLinkDraft(session.original);
     if((session.kind==="link"||session.kind==="image")&&(!session.original||parsed)){
       const label=this.input(session.kind==="image"?"Alternative text":"Text",parsed?.label??"");const url=this.input("Target",parsed?.url??""),title=this.input("Title",parsed?.title??"");
@@ -179,19 +208,33 @@ export class EditingUI {
       }catch(error){if(this.apply)this.apply.disabled=true;this.message((error as Error).message);}};
       for(const input of [label,url,title])input.addEventListener("input",update);
       raw.addEventListener("input",()=>{const fields=readLinkDraft(raw.value);for(const input of [label,url,title])input.disabled=!fields;if(fields){label.value=fields.label;url.value=fields.url;title.value=fields.title??"";}});
-      if(session.kind==="image")this.panel.append(this.button("Replace image",()=>this.chooseResource(session)));
+      if(session.kind==="image"){
+        const advanced=document.createElement("details"),summary=document.createElement("summary");setUIText(summary,"Image details");advanced.className="tegg-image-details";advanced.append(summary,title.closest("label")!);this.content.append(advanced);
+        this.content.append(this.button("Replace image",()=>this.chooseResource(session)));
+      }
     }
     let projection=technicalDraft(session.kind,raw.value);
     if(projection){
-      const body=literalControl(document.createElement("textarea"));body.rows=6;body.value=projection.body;setUILabel(body,projection.label);
-      body.className="tegg-object-body";this.panel.append(this.label(projection.label,body));
+      const body=literalControl(document.createElement("textarea"));body.rows=session.kind==="math"?3:8;body.value=projection.body;setUILabel(body,projection.label);
+      body.className="tegg-object-body";this.content.append(this.label(projection.label,body));
       const source=document.createElement("details"),summary=document.createElement("summary");setUIText(summary,"Markdown source");
-      source.className="tegg-object-source";source.append(summary,this.label("Object Markdown",raw));this.panel.append(source);
+      source.className="tegg-object-source";source.append(summary,this.label("Object Markdown",raw));this.content.append(source);
       let writing=false;
       body.addEventListener("input",()=>{if(!projection)return;writing=true;raw.value=projection.serialize(body.value);raw.dispatchEvent(new Event("input"));writing=false;});
       raw.addEventListener("input",()=>{projection=technicalDraft(session.kind,raw.value);body.disabled=!projection;if(projection&&!writing)body.value=projection.body;});
-    }else this.panel.append(this.label("Object Markdown",raw));
-    const preview=document.createElement("div");preview.className="tegg-object-preview";setUILabel(preview,"Draft preview");this.panel.append(preview);
+    }else if(session.kind==="image"&&parsed){
+      const source=document.createElement("details"),summary=document.createElement("summary");setUIText(summary,"Markdown source");source.className="tegg-object-source";source.append(summary,this.label("Object Markdown",raw));this.content.append(source);
+    }else this.content.append(this.label("Object Markdown",raw));
+    const preview=document.createElement("div");preview.className="tegg-object-preview";setUILabel(preview,"Draft preview");
+    if(session.kind!=="link"){
+      this.panel.dataset.layout="split";
+      const sourcePane=document.createElement("section"),previewPane=document.createElement("section");
+      sourcePane.className="tegg-source-pane";previewPane.className="tegg-preview-pane";
+      const sourceHeading=document.createElement("h3"),previewHeading=document.createElement("h3");
+      setUIText(sourceHeading,"Source");setUIText(previewHeading,"Preview");
+      sourcePane.append(sourceHeading,...Array.from(this.content.childNodes));previewPane.append(previewHeading,preview);
+      this.content.append(sourcePane,previewPane);
+    }else this.content.append(preview);
     raw.addEventListener("input",()=>{this.controller.updateDraft(session.token,raw.value);this.schedulePreview(session.kind,raw.value,preview);});
     this.controller.updateDraft(session.token,raw.value);
     this.apply=this.button("Apply",()=>{
@@ -199,7 +242,7 @@ export class EditingUI {
       const result=this.controller.commit(session.token,raw.value);if(!result.ok)throw new Error(result.reason);this.close();
     });
     this.apply.dataset.mutation="true";
-    this.panel.append(this.apply,this.button("Copy draft",()=>this.copy(raw.value)));this.endPanel();this.schedulePreview(session.kind,raw.value,preview);
+    this.content.append(this.apply,this.button("Copy draft",()=>this.copy(raw.value)));this.endPanel();this.schedulePreview(session.kind,raw.value,preview);
   }
   private template(kind:ObjectKind){return ({link:"[text](https://)",image:"![description](assets/image.png)",code:"```text\n\n```",math:"$$\n\n$$",mermaid:"```mermaid\nflowchart TD\n  A --> B\n```",graphviz:"```graphviz\ndigraph { a -> b }\n```",footnote:"[^note]: ",callout:"> [!note]\n> ",metadata:"---\ntitle: \n---\n",table:"| A | B |\n| --- | --- |\n|  |  |",selection:""})[kind];}
   private schedulePreview(kind:ObjectKind,source:string,target:HTMLElement){
@@ -215,12 +258,24 @@ export class EditingUI {
     // Bound synchronous engines before invocation: cancellation must stay responsive.
     const tooLarge=source.length>editingBudgets.draftPreviewUnits||((kind==="mermaid"||kind==="graphviz")&&(source.length>editingBudgets.diagramDraftUnits||source.split('\n').length>editingBudgets.diagramDraftLines));
     if(tooLarge){setUIText(target,"Draft is too large for automatic preview. Source is retained.");return;}
+    delete target.dataset.teggUiText;
     const engines=enginesFor(this.controller.view.dom),current=()=>this.alive&&epoch===this.previewEpoch&&target.isConnected;
     const body=source.replace(/^\s*(`{3,}|~{3,})[^\n]*\n/,"").replace(/\n\s*(`{3,}|~{3,})\s*$/,"");
     let html:string;
-    if(kind==="math"&&engines.math)html=engines.math(source.replace(/^\$\$\s*|\s*\$\$$/g,"").replace(/^\$|\$$/g,""),source.trim().startsWith("$$")?"block":"inline");
+    if(kind==="math"&&engines.math){
+      // Use the same trusted engine path as the document; the Markdown HTML
+      // sanitizer strips KaTeX's required positioning styles from matrices.
+      target.dataset.enhancements="false";
+      const unbind=bindEngines(target,engines);
+      try{renderMathInto(target,{kind:"math",source:source.replace(/^\$\$\s*|\s*\$\$$/g,"").replace(/^\$|\$$/g,""),display:source.trim().startsWith("$$")?"block":"inline"});}finally{unbind();}
+      return;
+    }
     else if((kind==="mermaid"||kind==="graphviz")&&engines[kind])html=await engines[kind]!(body,target,current);
-    else {const context=this.controller.view.state.facet(resourceContext);html=parserFor(this.controller.identity.profile).render(source);if(current())target.innerHTML=sanitizeRenderedHtml(html,context.documentPath,context.resolveImage);return;}
+    else {const context=this.controller.view.state.facet(resourceContext);html=parserFor(this.controller.identity.profile).render(source);if(current()){
+      target.innerHTML=sanitizeRenderedHtml(html,context.documentPath,context.resolveImage);
+      for(const image of target.querySelectorAll("img")){const figure=document.createElement("figure");const caption=document.createElement("figcaption");image.replaceWith(figure);figure.append(image,caption);}
+      enhanceFigures(target);
+    }return;}
     if(current()){
       if(kind==="mermaid"||kind==="graphviz")target.replaceChildren(sanitizeDiagramSvg(html));
       else target.innerHTML=sanitizeRenderedHtml(html);
@@ -236,22 +291,22 @@ export class EditingUI {
     const range={from:this.controller.view.state.selection.main.from,to:this.controller.view.state.selection.main.to};selected.disabled=range.from===range.to;
     const options=():FindOptions=>({caseSensitive:sensitive.checked,wholeWord:word.checked,...(selected.checked?{range}: {})});
     const guard=()=>{if(!sameEditingIdentity(identity,this.controller.identity))throw new Error("The document changed. Reopen search.");if(this.controller.view.composing)throw new Error("composing");if(selected.checked&&this.controller.view.state.doc!==rangeDoc)throw new Error("The search selection changed. Reopen search.");};
-    const context=document.createElement("pre");context.setAttribute("role","region");setUILabel(context,"Match source context");this.panel.append(context);
+    const context=document.createElement("pre");context.setAttribute("role","region");setUILabel(context,"Match source context");this.content.append(context);
     const replace=(all:boolean)=>{guard();const oldLength=this.controller.view.state.doc.length;const result=this.controller.replace(query.value,replacement.value,{...options(),all});if(!result.ok)throw new Error(result.reason);if(selected.checked)range.to+=this.controller.view.state.doc.length-oldLength;rangeDoc=this.controller.view.state.doc;this.message(result.changed?"Replaced":"No matches");};
     const find=(backward:boolean)=>{guard();const found=this.controller.find(query.value,options()),selection=this.controller.view.state.selection.main;const next=backward?[...found].reverse().find(item=>item.to<=selection.from)??found.at(-1):found.find(item=>item.from>=selection.to)??found[0];if(next){this.controller.view.dispatch({selection:{anchor:next.from,head:next.to},scrollIntoView:true});context.textContent=this.controller.view.state.doc.sliceString(Math.max(0,next.from-80),Math.min(this.controller.view.state.doc.length,next.to+80));this.message(String(found.length)+" matches");}else{context.textContent="";this.message("No matches");}};
     const once=this.button("Replace",()=>replace(false)),all=this.button("Replace all",()=>replace(true));once.dataset.mutation=all.dataset.mutation="true";
-    this.panel.append(this.button("Find next",()=>find(false)),this.button("Find previous",()=>find(true)),once,all);this.endPanel();
+    this.content.append(this.button("Find next",()=>find(false)),this.button("Find previous",()=>find(true)),once,all);this.endPanel();
   }
   async paste(input:ClipboardInput,range?:SourceRange){
     let node=syntaxTree(this.controller.view.state).resolveInner(range?.from??this.controller.view.state.selection.main.from,1),code=false;
     for(;;){if(["FencedCode","CodeBlock","InlineCode"].includes(node.name)){code=true;break;}if(!node.parent)break;node=node.parent;}
     const prepared=preparePaste(input,{target:code?"code":"document"});const session=this.controller.begin("selection",range??this.controller.view.state.selection.main);
     if(prepared.status!=="ready"){
-      this.startPanel("Review paste");const original=literalControl(document.createElement("textarea"));original.readOnly=true;original.value=prepared.plainText||input.html||input.markdown||"";this.panel.append(this.label("Original input",original));
-      const preview=document.createElement("pre");preview.textContent=prepared.markdown;this.panel.append(preview);
-      const issues=document.createElement("p");issues.textContent=prepared.issues.map(item=>item.message).join('\n');this.panel.append(issues);
-      if(prepared.status!=="rejected")this.panel.append(this.button("Insert converted Markdown",()=>this.applyPaste(session,preparePaste(input,{acceptSimplification:true}))));
-      this.panel.append(this.button("Paste plain text",()=>this.applyPaste(session,preparePaste(input,{plainText:true}))),this.button("Copy original",()=>this.copy(original.value)));this.endPanel();return;
+      this.startPanel("Review paste");const original=literalControl(document.createElement("textarea"));original.readOnly=true;original.value=prepared.plainText||input.html||input.markdown||"";this.content.append(this.label("Original input",original));
+      const preview=document.createElement("pre");preview.textContent=prepared.markdown;this.content.append(preview);
+      const issues=document.createElement("p");issues.textContent=prepared.issues.map(item=>item.message).join('\n');this.content.append(issues);
+      if(prepared.status!=="rejected")this.content.append(this.button("Insert converted Markdown",()=>this.applyPaste(session,preparePaste(input,{acceptSimplification:true}))));
+      this.content.append(this.button("Paste plain text",()=>this.applyPaste(session,preparePaste(input,{plainText:true}))),this.button("Copy original",()=>this.copy(original.value)));this.endPanel();return;
     }
     await this.applyPaste(session,prepared);
   }
@@ -264,7 +319,7 @@ export class EditingUI {
     const complete=()=>{if(stageOnly&&this.textarea){this.textarea.value=this.controller.session?.draft??"";this.textarea.dispatchEvent(new Event("input"));this.message("Attachment ready. Apply to update the document.");}else this.close();};
     if(result.ok){complete();return;}
     if(this.panel.hidden)this.startPanel("Attachments");
-    this.message(result.reason);this.panel.append(this.button("Retry",async()=>{const result=await task.run();if(!this.alive||task!==this.task)return;if(result.ok)complete();else this.message(result.reason);}),this.button("Copy original",()=>this.copy(prepared.plainText)));this.endPanel();
+    this.message(result.reason);this.content.append(this.button("Retry",async()=>{const result=await task.run();if(!this.alive||task!==this.task)return;if(result.ok)complete();else this.message(result.reason);}),this.button("Copy original",()=>this.copy(prepared.plainText)));this.endPanel();
   }
   async chooseResource(existing?:EditSession){
     const session=existing??this.controller.begin("image",this.controller.view.state.selection.main);

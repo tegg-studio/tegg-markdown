@@ -92,6 +92,7 @@ describe("extension rendering contracts", () => {
   const r=root(); await renderMarkdown('<figure><img src="missing.png" alt="Alt"><figcaption>Caption</figcaption></figure>\n\n![Ordinary](x.png "Title")\n\nParagraph',r);
   expect(r.querySelectorAll('figcaption')).toHaveLength(1);expect(r.querySelector('figcaption')?.textContent).toBe('Caption');
   r.querySelector('figure img')!.dispatchEvent(new Event('error'));expect(r.querySelector('.md-image-unavailable')?.textContent).toContain('Alt');expect(r.textContent).toContain('Caption');
+  const ordinary=r.querySelector<HTMLImageElement>('p img')!;ordinary.dispatchEvent(new Event('error'));expect(ordinary.hidden).toBe(true);expect(ordinary.nextElementSibling?.textContent).toContain('Ordinary');ordinary.dispatchEvent(new Event('load'));expect(ordinary.hidden).toBe(false);expect(ordinary.nextElementSibling?.classList.contains('md-image-unavailable')).not.toBe(true);
  });
  it("marks oversized diagrams explicitly and retains their source elsewhere", async () => {
   const r=root();await renderDiagram({kind:'diagram',engine:'mermaid',source:'中'.repeat(21846)},r);expect(r.dataset.renderState).toBe('over-budget');
