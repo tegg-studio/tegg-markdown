@@ -80,6 +80,7 @@ class BlockWidget extends WidgetType {
   toDOM(view: EditorView) {
     const wrapper = document.createElement("section");
     wrapper.className = `cm-preview-widget ${renderClassNames.block}`;
+    wrapper.dataset.teggBlockFrom=String(this.from);
     if (this.kind !== "math") wrapper.classList.add(renderClassNames.diagram);
     wrapper.setAttribute("aria-label", this.kind === "math" ? "Math formula" : `${this.kind} diagram`);
 
@@ -272,6 +273,7 @@ class HtmlPreviewWidget extends WidgetType {
       display: this.block ? "block" : "inline",
     }, renderedSource, view.state.facet(resourceContext));
     wrapper.classList.add(this.block ? "cm-live-html-block" : "cm-live-html-inline");
+    if(this.block)wrapper.dataset.teggBlockFrom=String(this.from);
     wrapper.tabIndex = 0;
     wrapper.addEventListener("click", event => {
       if ((event.target as Element).closest("summary")) return;
@@ -354,6 +356,7 @@ class ImageWidget extends WidgetType {
   toDOM(view: EditorView) {
     const figure = document.createElement("figure");
     figure.className = `cm-live-image ${renderClassNames.image}`;
+    figure.dataset.teggBlockFrom=String(this.from);
     figure.tabIndex = 0;
     figure.setAttribute("aria-label", this.alt || "Markdown image");
     if (this.title) figure.title = this.title;

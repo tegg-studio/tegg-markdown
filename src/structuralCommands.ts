@@ -82,24 +82,36 @@ export function planHeadingTransform(state: EditorState, range: SourceRange, lev
   return {patches, selection: {anchor: map(selected.anchor), head: map(selected.head)}, focus: "body"};
 }
 
-/** Move one parsed logical block among siblings, including its nested content. */
-export function planMoveBlock(state: EditorState, position: number, direction: "up" | "down"): StructuralPlan | null {
+/** The same parsed scope is used by both menu labels and the mutation plan. */
+export function moveBlockTarget(state: EditorState, position: number): SyntaxNode | null {
   const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
   const nodes: SyntaxNode[] = [];
   for (let node: SyntaxNode | null = tree.resolveInner(Math.max(0, Math.min(position, state.doc.length)), -1); node; node = node.parent) nodes.push(node);
   const item = nodes.find(node => node.name === "ListItem");
-  const block = item ?? nodes.find(node => node.parent?.name === "Document" && node.name !== "Document");
+  return item ?? nodes.find(node => node.parent?.name === "Document" && node.name !== "Document") ?? null;
+}
+
+/** Move one parsed logical block among siblings, including its nested content. */
+export function planMoveBlock(state: EditorState, position: number, direction: "up" | "down"): StructuralPlan | null {
+  const block = moveBlockTarget(state, position);
   if (!block) return null;
   const sibling = direction === "up" ? block.prevSibling : block.nextSibling;
   if (!sibling || sibling.parent?.name !== block.parent?.name) return null;
-  const first = direction === "up" ? sibling : block;
-  const second = direction === "up" ? block : sibling;
+  // ListItem nodes inside a quote omit the enclosing quote prefix on their
+  // first line, but include it on continuation lines. Move complete source lines
+  // so swapping siblings never strands or duplicates those container markers.
+  const lines = (node: SyntaxNode) => ({from: state.doc.lineAt(node.from).from,
+    to: state.doc.lineAt(Math.max(node.from, node.to - 1)).to});
+  const current = lines(block), adjacent = lines(sibling);
+  const first = direction === "up" ? adjacent : current;
+  const second = direction === "up" ? current : adjacent;
+  if (first.to > second.from) return null;
   const middle = state.sliceDoc(first.to, second.from);
   const expected = state.sliceDoc(first.from, second.to);
   const insert = state.sliceDoc(second.from, second.to) + middle + state.sliceDoc(first.from, first.to);
   const selected = state.selection.main;
   const movedTo = direction === "up" ? first.from : first.from + state.sliceDoc(second.from, second.to).length + middle.length;
-  const anchor = movedTo + Math.max(0, Math.min(selected.anchor - block.from, block.to - block.from));
+  const anchor = movedTo + Math.max(0, Math.min(selected.anchor - current.from, current.to - current.from));
   return {patches: [{from: first.from, to: second.to, expected, insert}], selection: {anchor}, focus: "body"};
 }
 

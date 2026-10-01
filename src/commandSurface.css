@@ -2,43 +2,71 @@
 .tegg-command-plus, .tegg-command-more {
   appearance: none; box-sizing: border-box;
   display: inline-flex; align-items: center; justify-content: center;
-  position: absolute; z-index: 8; width: 22px; height: 22px;
-  margin: 0; padding: 0; border: 0; border-radius: 5px; background: transparent;
-  color: var(--muted, #777); cursor: pointer; line-height: 1;
-  font: 600 11px/1 var(--font-body, system-ui, sans-serif);
+  position: absolute; z-index: 8; width: 28px; height: 28px;
+  margin: 0; padding: 0; border: 0; border-radius: 6px; background: transparent;
+  color: var(--muted, #62666d); cursor: pointer; line-height: 1;
   white-space: nowrap; overflow-wrap: normal; word-break: normal;
+  box-shadow: none;
 }
-.tegg-command-glyph {width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round;}
-.tegg-command-type-glyph {flex: none; font: 650 11px/1 var(--font-body, system-ui, sans-serif); white-space: nowrap; overflow-wrap: normal; word-break: normal;}
-.tegg-command-plus:hover, .tegg-command-more:hover,
-.tegg-command-plus:focus-visible, .tegg-command-more:focus-visible {
-  background: color-mix(in srgb, var(--text, #222) 7%, var(--background, #fff));
-  outline: 1px solid var(--muted, #777);
+.tegg-command-glyph {
+  width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.tegg-command-plus:hover, .tegg-command-more:hover {
+  background: var(--secondary-surface, var(--code, #f4f4f7)); color: var(--text, #222);
+}
+.tegg-command-plus[aria-expanded="true"], .tegg-command-more[aria-expanded="true"] {
+  background: var(--selection, var(--accent-soft, #e8eef8)); color: var(--text, #222);
+}
+.tegg-command-plus:active, .tegg-command-more:active {
+  box-shadow: inset 0 0 0 28px color-mix(in srgb, var(--text, #222) 8%, transparent);
+}
+.tegg-surface :is(.tegg-command-plus, .tegg-command-more):focus:not(:focus-visible) {outline:none;}
+.tegg-surface :is(.tegg-command-plus, .tegg-command-more):focus-visible {
+  outline: 2px solid var(--focus, var(--accent, #376bd8)); outline-offset: 2px;
 }
 .tegg-command-menu {
-  position: absolute; z-index: 20; min-width: 194px; max-height: 280px; overflow: auto;
-  padding: 5px; border: 1px solid var(--border, #d5d5d5); border-radius: 8px;
-  background: var(--background, #fff); color: var(--text, #222);
-  box-shadow: 0 8px 24px #0002; font: 13px/1.35 var(--font-body, system-ui, sans-serif);
+  position: absolute; z-index: 20; box-sizing: border-box;
+  width: 242px; max-width: calc(100vw - 16px); max-height: 460px; overflow: auto;
+  padding: 6px; border: 1px solid color-mix(in srgb, var(--border, #d5d5d5) 70%, transparent); border-radius: 10px;
+  background: var(--command-menu-surface, var(--surface, #fff)); color: var(--text, #222);
+  box-shadow: 0 4px 10px #00000017, 0 1px 2px #0000000d;
+  font: 13px/1.35 var(--font-body, system-ui, sans-serif);
+  overscroll-behavior: contain;
 }
 .tegg-command-group {
-  padding: 7px 9px 3px; color: var(--muted, #777);
-  font-size: 11px; font-weight: 600;
+  padding: 7px 10px 3px; color: var(--muted, #62666d); font-size: 11px; font-weight: 600;
 }
 .tegg-command-group:not(:first-child) {margin-top: 4px; border-top: 1px solid var(--border, #d5d5d5);}
 .tegg-command-option {
-  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 30px; padding: 4px 8px;
-  border: 0; border-radius: 5px; background: transparent; color: inherit;
+  box-sizing: border-box; display: flex; align-items: center; gap: 10px; width: 100%; min-height: 34px; padding: 6px 10px;
+  border: 0; border-radius: 6px; background: transparent; color: inherit;
   text-align: start; font: inherit; cursor: pointer;
 }
-.tegg-command-option-icon {
-  display: inline-flex; flex: 0 0 24px; align-items: center; justify-content: center;
-  color: var(--muted, #777); font-size: 11px; font-weight: 650;
+.tegg-command-option-icon {display:inline-flex;flex:0 0 20px;align-items:center;justify-content:center;color:inherit;}
+.tegg-command-option-icon .tegg-command-glyph {width:18px;height:18px;}
+.tegg-command-option-label {flex:1;min-width:0;}
+.tegg-command-option-current {display:inline-flex;flex:none;color:inherit;}
+.tegg-command-option:hover,
+.tegg-command-menu[data-keyboard="true"] .tegg-command-option[aria-selected="true"] {
+  background: var(--secondary-surface, var(--code, #f4f4f7));
 }
-.tegg-command-option-label {flex: 1;}
-.tegg-command-option-current {color: var(--muted, #777); font-size: 12px;}
-.tegg-command-option[aria-selected="true"], .tegg-command-option:hover {
-  background: color-mix(in srgb, var(--text, #222) 6%, var(--background, #fff));
+.tegg-command-menu[data-keyboard] .tegg-command-option[data-current="true"] {background:var(--quiet-selection, var(--accent-soft, #e8eef8));}
+.tegg-command-menu[data-keyboard="true"] .tegg-command-option[aria-selected="true"],
+.tegg-surface .tegg-command-option:focus-visible {
+  outline:1px solid var(--focus, var(--accent, #376bd8));outline-offset:-1px;
 }
-.tegg-command-option:focus-visible {outline: 1px solid var(--muted, #777); outline-offset: -1px;}
-.tegg-command-plus[hidden], .tegg-command-more[hidden], .tegg-command-menu[hidden] {display: none;}
+.tegg-command-plus[hidden], .tegg-command-more[hidden], .tegg-command-menu[hidden] {display:none;}
+/* Reserve the lane symmetrically; changing visibility never changes text layout.
+   Match the narrow Host rule's specificity so the lane cannot collapse to 28px. */
+.tegg-surface .cm-editor.tegg-block-surface > .cm-scroller > .cm-content {
+  padding-inline:max(40px,var(--md-gutter,24px)) !important;
+  max-width:calc(var(--reader-content-width,672px) + max(40px,var(--md-gutter,24px)) * 2);
+}
+@media (pointer:coarse) {
+  .tegg-command-plus,.tegg-command-more {width:44px;height:44px;}
+  .tegg-surface .cm-editor.tegg-block-surface > .cm-scroller > .cm-content {
+    padding-inline:max(56px,var(--md-gutter,24px)) !important;
+    max-width:calc(var(--reader-content-width,672px) + max(56px,var(--md-gutter,24px)) * 2);
+  }
+}

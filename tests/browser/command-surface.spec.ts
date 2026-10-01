@@ -155,7 +155,8 @@ test('block type entry opens by pointer or focused activation and keeps the care
     editor.view.dispatch({selection: {anchor: 5}}); editor.view.focus();
   });
   const trigger = page.locator('.tegg-command-more');
-  await expect(trigger).toHaveText('H2');
+  await page.keyboard.press('Alt+Shift+KeyB');
+  await expect(trigger.locator('svg')).toHaveAttribute('data-icon','heading-2');
   await trigger.click();
   const menu = page.locator('.tegg-command-menu');
   await expect(menu).toBeVisible();
@@ -191,9 +192,10 @@ test('gutter type marks stay centered on one line with inherited wrapping and bu
       host.editor.view.dispatch({selection: {anchor: value.length}});
       host.editor.view.focus();
     }, source);
-    await expect(trigger).toHaveText(`H${level}`);
+    await page.keyboard.press('Alt+Shift+KeyB');
+    await expect(trigger.locator('svg')).toHaveAttribute('data-icon',`heading-${level}`);
     const geometry = await trigger.evaluate(button => {
-      const glyph = button.querySelector<HTMLElement>('.tegg-command-type-glyph')!;
+      const glyph = button.querySelector<SVGSVGElement>('svg.tegg-command-glyph')!;
       const outer = button.getBoundingClientRect(), inner = glyph.getBoundingClientRect();
       const style = getComputedStyle(button);
       return {width: outer.width, height: outer.height, glyphHeight: inner.height,
@@ -201,8 +203,8 @@ test('gutter type marks stay centered on one line with inherited wrapping and bu
         dy: Math.abs((outer.top + outer.bottom - inner.top - inner.bottom) / 2),
         padding: style.paddingLeft, wrap: style.overflowWrap, whiteSpace: style.whiteSpace};
     });
-    expect(geometry).toMatchObject({width: 22, height: 22, padding: '0px', wrap: 'normal', whiteSpace: 'nowrap'});
-    expect(geometry.glyphHeight).toBeLessThan(16);
+    expect(geometry).toMatchObject({width: 28, height: 28, padding: '0px', wrap: 'normal', whiteSpace: 'nowrap'});
+    expect(geometry.glyphHeight).toBe(16);
     expect(geometry.dx).toBeLessThan(1);
     expect(geometry.dy).toBeLessThan(1);
   }
@@ -212,6 +214,7 @@ test('gutter type marks stay centered on one line with inherited wrapping and bu
     host.editor.view.dispatch({selection: {anchor: 5}});
     host.editor.view.focus();
   });
+  await page.keyboard.press('Alt+Shift+KeyB');
   await expect(trigger.locator('svg.tegg-command-glyph')).toBeVisible();
   const svg = await trigger.evaluate(button => {
     const outer = button.getBoundingClientRect(), inner = button.querySelector('svg')!.getBoundingClientRect();
@@ -231,7 +234,8 @@ test('mixed list heading keeps separate current styles and quotes the whole list
     editor.view.dispatch({selection: {anchor: editor.source.indexOf('title') + 2}}); editor.view.focus();
   });
   const trigger = page.locator('.tegg-command-more');
-  await expect(trigger).toHaveText('H2');
+  await page.keyboard.press('Alt+Shift+KeyB');
+  await expect(trigger.locator('svg')).toHaveAttribute('data-icon','heading-2');
   await trigger.click();
   const menu = page.locator('.tegg-command-menu');
   await expect(menu.getByRole('option', {name: 'Heading 2'})).toHaveAttribute('aria-current', 'true');
@@ -268,7 +272,9 @@ test('narrow bottom block menu keeps keyboard movement visible and conversion un
     editor.view.focus(); editor.view.scrollDOM.scrollTop = editor.view.scrollDOM.scrollHeight;
   });
   const trigger = page.locator('.tegg-command-more');
+  await page.keyboard.press('Alt+Shift+KeyB');
   await expect(trigger).toBeVisible();
+  await expect(trigger).toBeFocused();
   await trigger.click();
   const menu = page.locator('.tegg-command-menu');
   await expect(menu).toBeVisible();

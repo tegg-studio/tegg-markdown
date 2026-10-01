@@ -2,6 +2,12 @@
 
 ## 0.3.0-preview.1 — development candidate, not published
 
+- Make block controls follow Hover independently of the caret, with stable gutter
+  geometry, source-safe paragraph conversion and semantic object menus.
+- Use pinned Lucide vectors, distinct pointer/keyboard/current states and bounded
+  menus. Name container movement explicitly and preserve enclosing quote markers
+  when moving nested list items. See [block controls](docs/block-hover-controls.md).
+
 - Unify rendered object actions at the top right; add bounded Source/Preview
   editing panels with persistent close/apply controls and draft protection.
 - Use neutral missing-image placeholders and quieter semantic callouts.

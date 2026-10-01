@@ -14,6 +14,8 @@ function make(source: string, mode: "live" | "source" = "live", profile: "tegg" 
   editors.push(editor);
   editor.view.dispatch({effects: StateEffect.appendConfig.of(createCommandSurface(editor.editing))});
   editor.view.focus();
+  editor.view.dom.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyB',key:'B',altKey:true,shiftKey:true,bubbles:true,cancelable:true}));
+  editor.view.focus();
   return {editor, root};
 }
 function option(root: HTMLElement, label: string) {
@@ -64,7 +66,7 @@ describe("shared block command surface", () => {
     const {editor, root} = make("## Current\nNext");
     editor.view.dispatch({selection: {anchor: 5}});
     const trigger = root.querySelector<HTMLButtonElement>(".tegg-command-more")!;
-    expect(trigger.textContent).toBe("H2");
+    expect(trigger.querySelector("svg")?.getAttribute("data-icon")).toBe("heading-2");
     expect(trigger.getAttribute("aria-label")).toContain("Heading 2");
     trigger.click();
     expect(option(root, "Heading 2").dataset.current).toBe("true");
@@ -117,7 +119,7 @@ describe("shared block command surface", () => {
     const {editor, root} = make(source);
     editor.view.dispatch({selection: {anchor: source.indexOf("title") + 2}});
     const trigger = root.querySelector<HTMLButtonElement>(".tegg-command-more")!;
-    expect(trigger.textContent).toBe("H2");
+    expect(trigger.querySelector("svg")?.getAttribute("data-icon")).toBe("heading-2");
     const before = undoDepth(editor.view.state);
     trigger.click();
     expect(option(root, "Heading 2").getAttribute("aria-current")).toBe("true");
@@ -263,6 +265,33 @@ describe("shared block command surface", () => {
     expect(editor.source).toBe("two\n\none");
     editor.command("undo"); expect(editor.source).toBe("one\n\ntwo");
   });
+  it("names the enclosing quote before moving a quoted heading and restores its whole source", () => {
+    const source = "before\n\n> ## title\n> description\n\nafter";
+    const {editor, root} = make(source);
+    editor.view.dispatch({selection: {anchor: source.indexOf("title") + 1}});
+    root.querySelector<HTMLButtonElement>(".tegg-command-more")!.click();
+    expect(option(root, "Move up")).toBeUndefined();
+    option(root, "Move entire quote down").click();
+    expect(editor.source).toBe("before\n\nafter\n\n> ## title\n> description");
+    editor.command("undo"); expect(editor.source).toBe(source);
+    editor.command("redo"); expect(editor.source).toBe("before\n\nafter\n\n> ## title\n> description");
+  });
+  it("names the nearest list item and moves its nested children without moving the quote", () => {
+    const source = "> - ## first\n>   - child\n> - second\n\noutside";
+    const {editor, root} = make(source);
+    editor.view.dispatch({selection: {anchor: source.indexOf("first") + 1}});
+    root.querySelector<HTMLButtonElement>(".tegg-command-more")!.click();
+    option(root, "Move list item down").click();
+    expect(editor.source).toBe("> - second\n> - ## first\n>   - child\n\noutside");
+    editor.command("undo"); expect(editor.source).toBe(source);
+  });
+  it("localizes the explicit quoted-heading movement scope", () => {
+    const source = "> ## title\n> body\n\nnext";
+    const {editor, root} = make(source, "live", "tegg", "zh-CN");
+    editor.view.dispatch({selection: {anchor: source.indexOf("title") + 1}});
+    root.querySelector<HTMLButtonElement>(".tegg-command-more")!.click();
+    expect(option(root, "下移整段引用")).toBeDefined();
+  });
   it("leaves source mode, IME and code input alone", () => {
     const source = make("/", "source");
     source.editor.view.dispatch({selection: {anchor: 1}});
@@ -333,9 +362,9 @@ describe("shared block command surface", () => {
       editor.view.dispatch({selection: {anchor: source.indexOf("part") + 2}});
       const more = root.querySelector<HTMLButtonElement>(".tegg-command-more")!;
       expect(more.hidden).toBe(false);
-      expect(more.style.left).toBe("-6px");
-      expect(more.style.top).toBe("20px");
-      expect(Number.parseInt(more.style.left) + 22).toBeLessThan(18);
+      expect(more.style.left).toBe("4px");
+      expect(more.style.top).toBe("11px");
+      expect(Number.parseInt(more.style.left) + 28).toBeLessThan(40);
     } finally {vi.restoreAllMocks();}
   });
 });
