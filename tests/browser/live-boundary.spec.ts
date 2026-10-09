@@ -5,6 +5,14 @@ const source = ["# Document", "", ...Array.from({length: 14}, (_, index) =>
   `Paragraph ${index} with enough ordinary words to occupy a line.\n`),
 "```text", "code block", "```", "", "| A | B |", "|---|---|", "| cell | data |", "", "## Callout", "", callout].join("\n");
 
+// Send the host platform's real line-boundary binding. Cmd is Mac-only;
+// Home/End exercise the same semantic boundary command on non-Mac hosts.
+async function lineKey(page: Page, edge: "start" | "end", shift = false, rtl = false) {
+  const mac = await page.evaluate(() => /Mac|iPhone|iPad|iPod/.test(navigator.platform));
+  const arrow = edge === "end" ? (rtl ? "ArrowLeft" : "ArrowRight") : (rtl ? "ArrowRight" : "ArrowLeft");
+  await page.keyboard.press(mac ? `Meta+${shift ? "Shift+" : ""}${arrow}` : `${shift ? "Shift+" : ""}${edge === "end" ? "End" : "Home"}`);
+}
+
 async function openLive(page: Page, markdown = source) {
   await page.goto("http://127.0.0.1:18915/react.html");
   await page.setViewportSize({width: 1600, height: 800});
@@ -51,7 +59,7 @@ test("line-end keys stay in a long document's visible Callout row", async ({page
   await openLive(page);
   await clickInsideStable(page);
   await page.keyboard.type("!");
-  await page.keyboard.press("Meta+ArrowRight");
+  await lineKey(page, "end");
   const atEnd = await page.evaluate(() => {
     const view = (window as any).host.instance.view;
     const body = view.state.doc.lineAt(view.state.doc.toString().indexOf("Sta!ble"));
@@ -60,7 +68,7 @@ test("line-end keys stay in a long document's visible Callout row", async ({page
   expect(atEnd.head).toBe(atEnd.end);
   await page.keyboard.type("X");
   expect(await page.evaluate(() => (window as any).host.instance.view.state.doc.toString())).toContain("Sta!bleX\n>\n> - First OK");
-  await page.keyboard.press("Meta+ArrowRight");
+  await lineKey(page, "end");
   expect(await page.evaluate(() => {
     const view = (window as any).host.instance.view;
     return view.state.selection.main.head === view.state.doc.lineAt(view.state.doc.toString().indexOf("Sta!bleX")).to;
@@ -86,7 +94,7 @@ test("line-end keys stay in a long document's visible Callout row", async ({page
     view.dispatch({selection: {anchor: view.state.doc.toString().indexOf("Sta!bleX") + 3}});
     view.focus();
   });
-  await page.keyboard.press("Meta+Shift+ArrowLeft");
+  await lineKey(page, "start", true);
   const left = await page.evaluate(() => {
     const view = (window as any).host.instance.view;
     return {head: view.state.selection.main.head,
@@ -112,7 +120,7 @@ test("visual line boundaries retain soft wraps and Shift selection", async ({pag
     view.dispatch({selection: {anchor: line.from + 9}, scrollIntoView: true});
     view.focus();
   });
-  await page.keyboard.press("Meta+Shift+ArrowRight");
+  await lineKey(page, "end", true);
   const result = await page.evaluate(() => {
     const view = (window as any).host.instance.view;
     const selection = view.state.selection.main;
@@ -124,7 +132,7 @@ test("visual line boundaries retain soft wraps and Shift selection", async ({pag
   expect(result.head).toBeGreaterThan(result.anchor);
   expect(result.head).toBeLessThan(result.lineEnd);
   expect(Math.abs(result.endY! - result.startY!)).toBeLessThan(2);
-  await page.keyboard.press("Meta+Shift+ArrowRight");
+  await lineKey(page, "end", true);
   expect(await page.evaluate(() => {
     const view = (window as any).host.instance.view;
     const selection = view.state.selection.main;
@@ -144,14 +152,14 @@ test("RTL Cmd+Right keeps the Callout cursor on its own source line", async ({pa
     const view = (window as any).host.instance.view;
     return view.textDirectionAt(view.state.selection.main.head);
   })).toBe(1);
-  await page.keyboard.press("Meta+ArrowRight");
+  await lineKey(page, "start", false, true);
   const edge = await page.evaluate(() => {
     const view = (window as any).host.instance.view;
     const line = view.state.doc.lineAt(view.state.doc.toString().indexOf("Stable"));
     return {head: view.state.selection.main.head, firstVisible: line.from + 2};
   });
   expect(edge.head).toBe(edge.firstVisible);
-  await page.keyboard.press("Meta+ArrowRight");
+  await lineKey(page, "start", false, true);
   expect(await page.evaluate(() => (window as any).host.instance.view.state.selection.main.head)).toBe(edge.firstVisible);
   await page.keyboard.type("Z");
   expect(await page.evaluate(() => (window as any).host.instance.view.state.doc.toString()))
@@ -162,7 +170,7 @@ test("RTL Cmd+Right keeps the Callout cursor on its own source line", async ({pa
     view.dispatch({selection: {anchor: view.state.doc.toString().indexOf("Stable") + 3}});
     view.focus();
   });
-  await page.keyboard.press("Meta+Shift+ArrowRight");
+  await lineKey(page, "start", true, true);
   expect(await page.evaluate(() => {
     const view = (window as any).host.instance.view;
     const selection = view.state.selection.main;

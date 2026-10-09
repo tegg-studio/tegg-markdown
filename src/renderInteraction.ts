@@ -1,3 +1,4 @@
+import {restoreViewerAnchor} from "./objectViewerScroll";
 import {bindAuthoredImageGeometry,imageGeometryUnavailable} from "./imageGeometry";
 import {contextFor,setUIText, setUILabel, mountOverlay} from "./uiContext";
 import {bindImageSelection} from "./imageObjectSelection";
@@ -162,7 +163,8 @@ export function openObjectViewer(trigger: HTMLElement, visual: HTMLElement, sour
   const recomputeFit=()=>{const padding=insets();fitScale=viewerFit(extent,Math.max(1,stage.clientWidth-padding.x),Math.max(1,stage.clientHeight-padding.y));return fitScale;};
   let center:{x:number;y:number}|undefined;
   const rememberCenter=()=>{if(stage.clientWidth!==lastWidth||stage.clientHeight!==lastHeight)return;const rect=graphic.getBoundingClientRect(),viewport=stage.getBoundingClientRect();center={x:(viewport.left+stage.clientLeft+stage.clientWidth/2-rect.left)/scale,y:(viewport.top+stage.clientTop+stage.clientHeight/2-rect.top)/scale};};
-  const restorePoint=(point:{x:number;y:number},clientX:number,clientY:number)=>{const rect=graphic.getBoundingClientRect();stage.scrollLeft+=rect.left+point.x*scale-clientX;stage.scrollTop+=rect.top+point.y*scale-clientY;rememberCenter();};
+  const scrollOffset={x:0,y:0};
+  const restorePoint=(point:{x:number;y:number},clientX:number,clientY:number)=>{restoreViewerAnchor(stage,graphic,point,scale,{x:clientX,y:clientY},scrollOffset);rememberCenter();};
   const applyScale=(value:number)=>{
     scale=viewerScale(value,recomputeFit());const padding=insets(),width=extent.width*scale,height=extent.height*scale;
     content.style.boxSizing="border-box";content.style.width=`${width+padding.x}px`;content.style.height=`${Math.max(stage.clientHeight,height+padding.y)}px`;
@@ -173,7 +175,7 @@ export function openObjectViewer(trigger: HTMLElement, visual: HTMLElement, sour
   function zoom(value:number,anchor?:{x:number;y:number}){
     fitting=false;const rect=graphic.getBoundingClientRect(),viewport=stage.getBoundingClientRect();const at=anchor??{x:viewport.left+stage.clientLeft+stage.clientWidth/2,y:viewport.top+stage.clientTop+stage.clientHeight/2};const point={x:(at.x-rect.left)/scale,y:(at.y-rect.top)/scale};applyScale(value);restorePoint(point,at.x,at.y);
   }
-  const fit=()=>{fitting=true;applyScale(recomputeFit());stage.scrollLeft=0;stage.scrollTop=0;rememberCenter();};
+  const fit=()=>{fitting=true;scrollOffset.x=scrollOffset.y=0;graphic.style.translate="";applyScale(recomputeFit());stage.scrollLeft=0;stage.scrollTop=0;rememberCenter();};
   controls.append(action("Fit",fit),actual,action("−",()=>zoom(scale/1.25)),label,action("+",()=>zoom(scale*1.25)));
   if(title==="Diagram"||image){
     const background=document.createElement("select");setUILabel(background,"Viewing background");

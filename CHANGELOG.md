@@ -2,6 +2,10 @@
 
 ## 0.3.0-preview.1 — development candidate, not published
 
+- Keep the visible viewer center stable when WebKit quantizes scroll offsets.
+- Dismiss outside touch command menus on pointer input without requiring a
+  synthetic mouse event. Retain platform-appropriate line-boundary key coverage.
+
 - Normalize third-party worker source-map references to package paths and reject
   build-machine path metadata during package validation. Retain mappings and
   embedded source content; runtime code and existing releases are unchanged.

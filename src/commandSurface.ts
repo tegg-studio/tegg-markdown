@@ -74,6 +74,7 @@ class Surface {
     document.addEventListener("mousedown", this.outside, true);
     document.addEventListener("focusin", this.focusCheck, true);
     const signal=this.lifetime.signal;
+    document.addEventListener("pointerdown", this.outside, {signal, capture:true});
     document.addEventListener('pointermove',event=>{
       this.movedPointerEvent=!this.lastPointer||Math.abs(event.clientX-this.lastPointer.x)>=1||Math.abs(event.clientY-this.lastPointer.y)>=1?event:null;
       this.lastPointer={x:event.clientX,y:event.clientY};

@@ -24,6 +24,14 @@ function option(root: HTMLElement, label: string) {
 }
 
 describe("shared block command surface", () => {
+  it("dismisses a menu on an outside touch pointer without a synthetic mouse event", () => {
+    const {editor, root}=make("/");editor.view.dispatch({selection:{anchor:1}});
+    const menu=root.querySelector<HTMLElement>(".tegg-command-menu")!;expect(menu.hidden).toBe(false);
+    const outside=document.body.appendChild(document.createElement("h1"));
+    outside.dispatchEvent(new MouseEvent("pointerdown",{bubbles:true}));
+    expect(menu.hidden).toBe(true);expect(editor.source).toBe("/");expect(undoDepth(editor.view.state)).toBe(0);
+  });
+
   it("replaces only an empty-line slash query and undoes it in one step", () => {
     const {editor, root} = make("/head");
     editor.view.dispatch({selection: {anchor: 5}});
