@@ -5,17 +5,17 @@ on a server is supported; creating an instance or rendering requires a browser D
 Install the published preview with an exact version and retain your lockfile:
 
 ```sh
-npm install --save-exact @tegg/markdown@0.2.0-preview.2
+npm install --save-exact @tegg/markdown@0.3.0-preview.1
 ```
 
 Use an ES-module browser bundler with CSS and worker support (the examples use
 Vite). Building this repository requires Node.js 22.12 or later.
 See [registry release status](npm-release.md) for package identity and preview limits.
 
-The unpublished `0.3.0-preview.1` development line must be consumed as an exact
-reviewed archive, with its integrity and your lockfile retained. Its image
-presentation fixes and parser dependency pin are separate from the published
-preview above; see [development validation](validation.md#image-presentation-development-follow-up).
+The published `0.3.0-preview.1` archive is immutable. Verify its integrity against
+[the publication record](npm-release.md), and keep the exact consumer lockfile.
+Hosts retain responsibility for document storage, permissions and conflicts;
+package validation is separate from native product acceptance.
 
 ```ts
 import {TeggMarkdownReader} from "@tegg/markdown/reader";

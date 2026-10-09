@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0-preview.1 — development candidate, not published
+## 0.3.0-preview.1 — 2026-10-09
 
 - Keep the visible viewer center stable when WebKit quantizes scroll offsets.
 - Dismiss outside touch command menus on pointer input without requiring a
