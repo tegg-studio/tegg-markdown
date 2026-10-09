@@ -2,6 +2,7 @@
 import {it,expect} from 'vitest';
 import {sanitizeDiagramSvg} from './renderKit';
 import {getSupportedCommands,TeggMarkdownEditor} from './editor';
+import {getCommandStatus} from './commandRegistry';
 import {bindUI,setUIText} from './uiContext';
 it('retains local SVG animation CSS while rejecting other at-rules and resource channels',()=>{
  const svg=(css:string)=>sanitizeDiagramSvg(`<svg xmlns="http://www.w3.org/2000/svg"><style>${css}</style><rect class="node" width="10" height="10"/></svg>`);
@@ -24,4 +25,15 @@ it('exposes profile support separately from transient editing state without chan
 it('updates table quantity translations with the instance language',()=>{
  const root=document.body.appendChild(document.createElement('div')), label=root.appendChild(document.createElement('span'));const ui=bindUI(root,{locale:'en-US'});
  setUIText(label,'{rows} row × {columns} columns',{rows:'1',columns:'2'});expect(label.textContent).toBe('1 row × 2 columns');ui.update({locale:'zh-CN'});expect(label.textContent).toBe('1 行 × 2 列');ui.update({locale:'en-US'});expect(label.textContent).toBe('1 row × 2 columns');ui.destroy();root.remove();
+});
+it('keeps history available in a table-preview toolbar snapshot without enabling retained prose formatting',()=>{
+ const root=document.body.appendChild(document.createElement('div'));
+ const editor=new TeggMarkdownEditor(root,{documentId:'d',revision:'1',source:'prose',profile:'tegg'},{engines:{}},'live');
+ try{
+  const state={...editor.state,tablePreviewFocused:true,toolbarEnabled:false,canUndo:true,canRedo:false};
+  expect(getCommandStatus('bold',state)).toEqual({supported:true,enabled:false,reason:'selection-disabled'});
+  expect(getCommandStatus('heading2',state)).toEqual({supported:true,enabled:false,reason:'selection-disabled'});
+  expect(getCommandStatus('undo',state)).toEqual({supported:true,enabled:true,reason:undefined});
+  expect(getCommandStatus('redo',state)).toEqual({supported:true,enabled:false,reason:'empty-history'});
+ }finally{editor.destroy();root.remove();}
 });

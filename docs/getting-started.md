@@ -12,6 +12,11 @@ Use an ES-module browser bundler with CSS and worker support (the examples use
 Vite). Building this repository requires Node.js 22.12 or later.
 See [registry release status](npm-release.md) for package identity and preview limits.
 
+The unpublished `0.3.0-preview.1` development line must be consumed as an exact
+reviewed archive, with its integrity and your lockfile retained. Its image
+presentation fixes and parser dependency pin are separate from the published
+preview above; see [development validation](validation.md#image-presentation-development-follow-up).
+
 ```ts
 import {TeggMarkdownReader} from "@tegg/markdown/reader";
 import "@tegg/markdown/reader.css";

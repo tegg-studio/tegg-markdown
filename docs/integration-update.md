@@ -1,5 +1,18 @@
 # Integration update — 0.2.0-preview.2
 
+## Unpublished image presentation follow-up
+
+The `0.3.0-preview.1` development candidate removes a stale loading translation
+binding once image dimensions arrive. Zoom labels then reflect the actual scale
+and remain numeric after locale changes. Reader distinguishes authored text
+beside an image from image-only paragraphs; inline, linked and multiple images
+retain their source positions. Existing image-only alignment and actions remain.
+The parser dependency is pinned to the tested `@codemirror/language@6.12.4`.
+Consume the exact reviewed archive and retain the Host lockfile. These changes
+are not a registry publication or native application acceptance; see
+[development validation](validation.md#image-presentation-development-follow-up).
+
+
 The npm preview is published. Install the exact version and retain your lockfile:
 
 ```sh

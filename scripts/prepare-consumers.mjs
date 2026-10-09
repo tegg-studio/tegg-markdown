@@ -10,7 +10,7 @@ const consumerRoot=resolve(tmpdir(),"tegg-markdown-consumers"); mkdirSync(consum
 writeFileSync(resolve(output,"consumer-root.txt"),consumerRoot);
 writeFileSync(resolve(output,"package-evidence.json"),JSON.stringify({sdkCommit:execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(), dirty:!!execFileSync("git",["status","--porcelain"],{encoding:"utf8"}).trim(), version:pkg.version, integrity:pack.integrity, shasum:pack.shasum, filename:pack.filename},null,2));
 for (const version of ["vanilla","18","19","full","reliable"]) {
-  const dir=resolve(consumerRoot,`consumer-${version}`); rmSync(resolve(dir,"node_modules/@tegg"),{recursive:true,force:true}); rmSync(resolve(dir,"package-lock.json"),{force:true}); mkdirSync(dir,{recursive:true});
+  const dir=resolve(consumerRoot,`consumer-${version}`); rmSync(resolve(dir,"node_modules"),{recursive:true,force:true}); rmSync(resolve(dir,"package-lock.json"),{force:true}); mkdirSync(dir,{recursive:true});
   const dependencies={"@tegg/markdown":`file:${tarball}`};
   if(version === "18" || version === "19") Object.assign(dependencies,{react:`^${version}.0.0`,"react-dom":`^${version}.0.0`});
   if(version === "full" || version === "reliable") for(const name of ["katex","highlight.js","mermaid","@viz-js/viz","topojson-client"]) dependencies[name]=pkg.peerDependencies[name];

@@ -25,14 +25,14 @@ export class ResourceTask {
   private value:ResourceTaskState={status:"pending",progress:0,indeterminate:true,references:{}};
   private listeners=new Set<(state:ResourceTaskState)=>void>();
   readonly prepared:Readonly<PastePreparation>;
-  constructor(readonly controller:EditingController,readonly token:string,prepared:PastePreparation,readonly host:ResourceHost,readonly options:{commit?:boolean}={}){
+  constructor(readonly controller:EditingController,readonly token:string,prepared:PastePreparation,readonly host:ResourceHost,readonly options:{commit?:boolean;current?:()=>boolean}={}){
     this.prepared=Object.freeze({...prepared,resources:Object.freeze(prepared.resources.map(resource=>Object.freeze({...resource}))),
       issues:Object.freeze(prepared.issues.map(issue=>Object.freeze({...issue})))} as unknown as PastePreparation);
   }
   get state():ResourceTaskState{return {...this.value,references:{...this.value.references}};}
   subscribe(fn:(state:ResourceTaskState)=>void){if(this.dead)return ()=>{};this.listeners.add(fn);return ()=>{this.listeners.delete(fn);};}
   private set(state:Partial<ResourceTaskState>){this.value={...this.value,...state};for(const fn of this.listeners){try{fn(this.state);}catch(error){try{this.host.onError?.(error);}catch{/* observers do not control resource commits */}}}}
-  private validate():EditResult{return this.dead?{ok:false,reason:"destroyed"}:this.controller.validateSession(this.token);}
+  private validate():EditResult{return this.dead?{ok:false,reason:"destroyed"}:this.options.current?.()===false?{ok:false,reason:"target-changed"}:this.controller.validateSession(this.token);}
   async run():Promise<EditResult>{
     if(this.value.status==="applied")return this.dead?{ok:false,reason:"destroyed"}:{ok:true,changed:false};
     if(this.value.status==="cancelled"||this.value.status==="stale")return {ok:false,reason:this.value.status};

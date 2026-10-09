@@ -11,6 +11,7 @@ Retain this file and the complete licenses/ directory when redistributing.
 This product includes color specifications and designs developed by Cynthia Brewer (http://colorbrewer.org/). Graphviz supplemental terms are retained in licenses/graphviz-colorbrewer.txt and licenses/graphviz-rbtree.txt.
 
 - Lucide/Feather callout SVGs: licenses/lucide.txt (ISC/MIT).
+- Lucide 1.17.0 block controls: licenses/lucide-block-icons.txt (ISC/MIT); pinned provenance in docs/block-icons.json.
 - Viz.js 3.29.0: MIT, licenses/viz-js.txt. Published source commit:
   https://github.com/mdaines/viz-js/tree/96be4ed32789125f00cffa3ae390bd8809fc9c03
 - Graphviz 15.1.1: EPL-2.0. Its unmodified corresponding source is available

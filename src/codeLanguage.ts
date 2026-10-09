@@ -1,0 +1,2 @@
+export const codeLanguageNames: Record<string,string> = {swift:"Swift", json:"JSON", python:"Python", javascript:"JavaScript", typescript:"TypeScript", html:"HTML", css:"CSS", text:"Plain Text", markdown:"Markdown", bash:"Shell", sql:"SQL", yaml:"YAML", xml:"XML", go:"Go", rust:"Rust", java:"Java", kotlin:"Kotlin", c:"C", cpp:"C++", csharp:"C#", ruby:"Ruby", php:"PHP"};
+export function codeLanguageLabel(language:string){return codeLanguageNames[language.toLowerCase()]??(language||"Plain Text");}

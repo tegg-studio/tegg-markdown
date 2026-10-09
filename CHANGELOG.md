@@ -2,6 +2,52 @@
 
 ## 0.3.0-preview.1 — development candidate, not published
 
+- Keep the visible viewer center stable when WebKit quantizes scroll offsets.
+- Dismiss outside touch command menus on pointer input without requiring a
+  synthetic mouse event. Retain platform-appropriate line-boundary key coverage.
+
+- Normalize third-party worker source-map references to package paths and reject
+  build-machine path metadata during package validation. Retain mappings and
+  embedded source content; runtime code and existing releases are unchanged.
+
+- Report failed images truthfully while preserving authored alternative text;
+  never substitute a resource URL for empty alternative text in Live Edit.
+- Replace the image viewer's loading translation binding when dimensions become
+  available, so the actual zoom remains visible during locale changes.
+- Classify image-only Reader paragraphs from authored nodes, preserving inline
+  images beside text and multiple images without changing linked-image actions.
+- Pin `@codemirror/language` to the tested lockfile version `6.12.4` so fresh
+  packed installations retain the verified parser dependency graph.
+
+- Keep cell text, rich HTML and attachment input in cancellable local drafts with
+  independent history; completion creates one parent operation. Preserve source-
+  mapped HTML tables, spans and untouched attributes during supported operations.
+- Preserve literal HTML code input, selected-line indentation and backward
+  selection through widget replacement and Undo. Keep complete Tegg pre
+  containers across authored blank lines in Reader and Live Edit.
+- Share code wrapping, container expansion and horizontal scrolling across Reader
+  and Live Edit. Project source-bound footnotes with child editing and inherited
+  Host resource callbacks.
+- Synchronize already mounted Details, Callouts and code wrapping with shared
+  display changes. Rebind retained Reader blocks through stable object IDs and
+  locate scoped footnote content without duplicating the definition projection.
+- Add shared leave preflight, nested pending-choice state and explicit cancellation
+  events so rejected composition and cancelled choices cannot replay navigation.
+- Supply source-free temporary Callout/details body carets, direct metadata values,
+  semantic empty paragraphs, stable list metadata and opt-in diagram layout defaults.
+
+- Make block controls follow Hover independently of the caret, with stable gutter
+  geometry, source-safe paragraph conversion and semantic object menus.
+- Use pinned Lucide vectors, distinct pointer/keyboard/current states and bounded
+  menus. Name container movement explicitly and preserve enclosing quote markers
+  when moving nested list items. See [block controls](docs/block-hover-controls.md).
+
+- Unify rendered object actions at the top right; add bounded Source/Preview
+  editing panels with persistent close/apply controls and draft protection.
+- Use neutral missing-image placeholders and quieter semantic callouts.
+- Preserve formula matrix layout in draft previews and start Graphviz after
+  widget attachment. See [rendered object UI](docs/rendered-object-ui.md).
+
 - Disable native text correction, capitalization and autofill in literal search and
   object draft fields so WebKit blur cannot silently change Markdown or replacements.
 

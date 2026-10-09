@@ -40,15 +40,16 @@ function removeAtBoundary(view: EditorView) {
     if (kind[node.name] && node.node.firstChild?.to === pos) command = kind[node.name];
   }});
   if (!command) return false;
-  executeEditorCommand(view, command); return true;
+  // Boundary removal acts on the existing wrapper, not a future input style.
+  executeEditorCommand(view, command, "source"); return true;
 }
 
 export const mobileNaturalExtensions = [
   mobileNatural.of(true),
   EditorView.atomicRanges.of(view => Decoration.set(naturalMarkerRanges(view).map(range => Decoration.replace({}).range(range.from, range.to)), true)),
   Prec.high(keymap.of([
-    {key:"Mod-b", run:view => {if(view.state.readOnly || view.composing) return false; executeEditorCommand(view,"bold"); return true;}},
-    {key:"Mod-i", run:view => {if(view.state.readOnly || view.composing) return false; executeEditorCommand(view,"italic"); return true;}},
+    {key:"Mod-b", run:view => {if(view.state.readOnly || view.composing) return false; executeEditorCommand(view,"bold","live"); return true;}},
+    {key:"Mod-i", run:view => {if(view.state.readOnly || view.composing) return false; executeEditorCommand(view,"italic","live"); return true;}},
     {key:"Backspace", run:removeAtBoundary},
   ])),
   ViewPlugin.fromClass(class {

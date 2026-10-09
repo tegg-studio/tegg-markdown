@@ -1,3 +1,4 @@
+import {indentList} from "./listCommands";
 import { describe, expect, it } from "vitest";
 import { EditorState, Transaction, type TransactionSpec } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
@@ -245,5 +246,55 @@ it.each(['bold', 'italic', 'underline', 'strike', 'highlight'])('keeps multiple 
   const view = editor(source, 0, source.length);
   expect(editorToolbarState(view.state).inlineFormattingEnabled).toBe(false);
   executeEditorCommand(view, command);
+  expect(view.state.doc.toString()).toBe(source);
+});
+
+
+describe("list command structure", () => {
+  it.each([
+    ["list", "1. [x] one\n2. [ ] two", "- one\n- two"],
+    ["task", "one\n\ntwo", "- [ ] one\n\n- [ ] two"],
+    ["task", "- [x] one\n- two", "- [x] one\n- [ ] two"],
+    ["orderedList", "- parent\n  - child", "1. parent\n   1. child"],
+    ["list", "100. parent\n     1. child", "- parent\n  - child"],
+    ["orderedList", "> - parent\n>   - child", "> 1. parent\n>    1. child"],
+    ["list", "first\n\n```md\n- literal\n```\n\nlast", "- first\n\n```md\n- literal\n```\n\n- last"],
+  ])("%s preserves the structure of %j", (command,source,expected) => {
+    const view=editor(source,0,source.length);
+    executeEditorCommand(view,command);
+    expect(view.state.doc.toString()).toBe(expected);
+    expect(undo({state:view.state,dispatch:t=>view.dispatch(t)})).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+  });
+  it("changing only the parent preserves unselected descendants and continuation",()=>{
+    const view=editor("- parent\n  - child\n    continuation\n- next",2,8);
+    executeEditorCommand(view,"orderedList");
+    expect(view.state.doc.toString()).toBe("1. parent\n   - child\n     continuation\n- next");
+  });
+});
+
+
+it.each([
+  ["100. parent\n1. child", "100. parent\n     1. child"],
+  ["- parent\n- child\n  - grandchild", "- parent\n  - child\n    - grandchild"],
+  ["> 100. parent\n> 1. child", "> 100. parent\n>      1. child"],
+  ["- [ ] parent\n- [x] child", "- [ ] parent\n  - [x] child"],
+])("indents a subtree and restores its depth: %j",(source,expected)=>{
+  const view=editor(source,source.indexOf("child"));
+  expect(indentList(view)).toBe(true);
+  expect(view.state.doc.toString()).toBe(expected);
+  expect(indentList(view,true)).toBe(true);
+  expect(view.state.doc.toString()).toBe(source);
+});
+it("does not indent the first item into code",()=>{
+  const view=editor("- first",3);
+  expect(indentList(view)).toBe(true);
+  expect(view.state.doc.toString()).toBe("- first");
+});
+
+it("retains an existing ordered start when selecting its current list type",()=>{
+  const source="100. first\n101. next";
+  const view=editor(source,0,source.length);
+  executeEditorCommand(view,"orderedList");
   expect(view.state.doc.toString()).toBe(source);
 });

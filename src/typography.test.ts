@@ -13,13 +13,14 @@ describe("typography host contract",()=>{
   it("responds independently to allocated canvas widths, including breakpoint edges",()=>{
     let callback: ResizeObserverCallback | undefined;
     const disconnect=vi.fn();
+    const frames:Array<FrameRequestCallback>=[];vi.stubGlobal("requestAnimationFrame",(cb:FrameRequestCallback)=>{frames.push(cb);return frames.length;});vi.stubGlobal("cancelAnimationFrame",vi.fn());
     vi.stubGlobal("ResizeObserver",class {constructor(cb:ResizeObserverCallback){callback=cb;} observe(){} disconnect=disconnect;});
     const a=document.createElement("div"),b=document.createElement("div");
     let width=479;Object.defineProperty(a,"clientWidth",{get:()=>width});
     Object.defineProperty(b,"clientWidth",{get:()=>1024});
     const stop=observeTypography(a); const first=callback!;observeTypography(b);
     expect(a.dataset.layout).toBe("compact");expect(b.dataset.layout).toBe("wide");
-    for(const [w,layout] of [[480,"regular"],[959,"regular"],[960,"wide"]] as const){width=w;first([{target:a} as unknown as ResizeObserverEntry],{} as ResizeObserver);expect(a.dataset.layout).toBe(layout);expect(b.dataset.layout).toBe("wide");}
+    for(const [w,layout] of [[480,"regular"],[959,"regular"],[960,"wide"]] as const){width=w;first([{target:a} as unknown as ResizeObserverEntry],{} as ResizeObserver);frames.shift()!(0);expect(a.dataset.layout).toBe(layout);expect(b.dataset.layout).toBe("wide");}
     stop();expect(disconnect).toHaveBeenCalledOnce();vi.unstubAllGlobals();
   });
   it("keeps source, code bytes and table alignment while adding a keyboard scroll region",async()=>{
@@ -29,7 +30,8 @@ describe("typography host contract",()=>{
     const source='中文 **正文**\n\n```text\n  原文  \n```\n\n| A | B |\n| :--- | ---: |\n| 中文 | 100 |';
     await reader.render({source,fontScale:2,contentWidth:920});await second.render({source,fontScale:1});
     expect(root.style.getPropertyValue("--reader-font-scale")).toBe("2");expect(other.style.getPropertyValue("--reader-font-scale")).toBe("1");
-    expect(root.querySelector("pre code")?.textContent).toBe('  原文  \n');
+    // The closing-fence separator is outside the literal code field.
+    expect(root.querySelector("pre code")?.textContent).toBe('  原文  ');
     const region=root.querySelector<HTMLElement>('.md-table-scroll')!;
     expect(region.tabIndex).toBe(0);expect(region.getAttribute('role')).toBe('region');
     expect(root.querySelector('td.align-right')?.textContent).toBe('100');

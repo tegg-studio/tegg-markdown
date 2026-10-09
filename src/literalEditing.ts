@@ -1,5 +1,8 @@
+import emojiMap from "markdown-it-emoji/lib/data/full.mjs";
+import {footnoteDocument} from './footnoteModel';
+import {resourceContext} from "./editorHost";
 import {syntaxTree} from "@codemirror/language";
-import type {EditorState} from "@codemirror/state";
+import {EditorSelection, type EditorState, type Text} from "@codemirror/state";
 import {WidgetType} from "@codemirror/view";
 import {unescapeAll} from "markdown-it/lib/common/utils.mjs";
 import {markdownParser} from "./markdownParser";
@@ -45,4 +48,36 @@ export function literalClipboardText(text: string, state: EditorState) {
     return result + state.sliceDoc(cursor, selection.to);
   }).join(state.lineBreak);
   return output;
+}
+
+/** Visible entities, escapes, shortcode emoji and extended graphemes are indivisible. */
+const literalModels=new WeakMap<Text,{tree:ReturnType<typeof syntaxTree>;profile:string;cell:boolean;atoms:{from:number;to:number}[]}>();
+export function literalSemanticAtoms(state: EditorState): {from:number;to:number}[] {
+  const tree=syntaxTree(state),context=state.facet(resourceContext),profile=context.profile??'tegg',cell=context.editingContext==='table-cell',cached=literalModels.get(state.doc);
+  if(cached&&cached.tree===tree&&cached.profile===profile&&cached.cell===cell)return cached.atoms;
+  const source=state.doc.toString(),atoms:{from:number;to:number}[]=[],excluded:{from:number;to:number}[]=[];
+  tree.iterate({enter(node){
+    if(cell&&node.name==='HTMLBlock')return false;
+    if(['FencedCode','CodeBlock','HTMLBlock','Table','InlineCode','URL','LinkTitle'].includes(node.name)){excluded.push({from:node.from,to:node.to});return false;}
+    if(node.name==='Entity'||node.name==='Escape')atoms.push({from:node.from,to:node.to});
+  }});
+  if(cell){for(const match of source.matchAll(/&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);|\\[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/gi)){const from=match.index!,to=from+match[0].length;if(!excluded.some(item=>item.from<to&&item.to>from)&&(match[0].startsWith('\\')||decodeEntity(match[0])!==match[0]))atoms.push({from,to});}}
+  if(profile!=='gfm')for(const match of source.matchAll(/:([+\-\w]+):/g)){
+    const from=match.index!,to=from+match[0].length;let escapes=0;for(let n=from-1;n>=0&&source[n]==='\\';n--)escapes++;
+    if((emojiMap as Record<string,string>)[match[1]]&&escapes%2===0&&!excluded.some(item=>item.from<to&&item.to>from))atoms.push({from,to});
+  }
+  if(profile!=='gfm')atoms.push(...footnoteDocument(source,excluded).references.map(({from,to})=>({from,to})));
+  for(const unit of new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(source))if(unit.segment.length>1)atoms.push({from:unit.index,to:unit.index+unit.segment.length});
+  atoms.sort((a,b)=>a.from-b.from||b.to-a.to);literalModels.set(state.doc,{tree,profile,cell,atoms});return atoms;
+}
+export function snapLiteralSelection(state:EditorState,selection:EditorSelection):EditorSelection {
+  const atoms=literalSemanticAtoms(state);
+  return EditorSelection.create(selection.ranges.map(range=>{
+    let from=range.from,to=range.to;
+    for(const atom of atoms){
+      if(range.empty){if(from>atom.from&&from<atom.to)from=to=range.assoc>0?atom.to:atom.from;}
+      else if(from<atom.to&&to>atom.from){from=Math.min(from,atom.from);to=Math.max(to,atom.to);}
+    }
+    return range.empty?EditorSelection.cursor(from,range.assoc):range.anchor<=range.head?EditorSelection.range(from,to):EditorSelection.range(to,from);
+  }),selection.mainIndex);
 }

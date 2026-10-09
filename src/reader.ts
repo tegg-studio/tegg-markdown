@@ -1,3 +1,4 @@
+import type {ContentDisplaySession} from "./contentDisplaySession";
 import {bindEngines, type RenderEngines} from "./renderEngines";
 import {bindUI, type UIOptions} from "./uiContext";
 import {mountRenderers, disposeRenderers, type ReadonlyRenderers} from "./renderExtensions";
@@ -6,8 +7,8 @@ import {resolveProfile, type MarkdownProfile} from "./syntaxProfiles";
 import {disposeMetadataPanel} from "./metadata";
 import {observeSurfaceAppearance} from "./appearance";
 import {renderDiagram} from "./renderKit";
-import {disposeInteractions} from "./renderInteraction";
-import { renderMarkdown, type ReaderContentState, type ReaderEvent, type RenderMarkdownOptions } from "./markdown";
+import {disposeInteractions,type TextCopyEvent} from "./renderInteraction";
+import { renderMarkdown, locateRenderedSourceRange, type ReaderContentState, type ReaderEvent, type RenderMarkdownOptions } from "./markdown";
 import { appearanceScale, appearanceWidth, observeTypography } from "./typography";
 import { technicalMarkdownProfile } from "./syntaxContract";
 
@@ -36,6 +37,7 @@ export type NormalizedReaderInput = {
 
 export type SelectionReference = {documentId: string; revision: string; text: string; generation?: string; sequence?: number; range?: {from: number; to: number}};
 export type ReaderHost = UIOptions & {
+  displaySession?:ContentDisplaySession;
   copyText?(text: string): void | Promise<void>;
   onSelection?(selection: SelectionReference): void;
   scrollBehavior?: "preserve" | "follow" | "host";
@@ -69,6 +71,8 @@ export function normalizeReaderInput(input: ReaderInput): NormalizedReaderInput 
 }
 
 export class TechnicalMarkdownReader {
+  /** Focus and scroll the actual visible owner without changing source or mode. */
+  locateSourceRange(range:{from:number;to:number}):HTMLElement|null {return this.destroyed?null:locateRenderedSourceRange(this.root,range);}
   private stopEngines: () => void;
   private ui: ReturnType<typeof bindUI>;
   private destroyed = false;
@@ -89,7 +93,9 @@ export class TechnicalMarkdownReader {
     root.ownerDocument.addEventListener("selectionchange",this.selectionChanged,{signal:this.life.signal});
     root.addEventListener("tegg-copy-text",event=>{
       if(!this.host.copyText) return; event.preventDefault();event.stopPropagation();
-      Promise.resolve().then(()=>this.host.copyText!((event as CustomEvent<string>).detail)).catch(error=>{if(!this.destroyed)this.host.onError?.(error);});
+      const epoch=this.queued,target=event.target as Node|null,request=event as TextCopyEvent;
+      let completion:Promise<void>;try{completion=Promise.resolve(this.host.copyText(request.detail));}catch(error){completion=Promise.reject(error);}request.completion=completion;
+      void completion.catch(error=>{if(!this.destroyed&&epoch===this.queued&&target?.isConnected)this.host.onError?.(error);});
     },{signal:this.life.signal});
     this.ui = bindUI(root, host);
     this.stopEngines = bindEngines(root, host.engines);
@@ -146,7 +152,7 @@ export class TechnicalMarkdownReader {
     this.root.style.setProperty("--reader-content-width", `${normalized.contentWidth}px`);
     this.root.dataset.contentState = normalized.contentState;
     await renderMarkdown(normalized.source, this.root, {
-      profile, signal, interactionSignal: this.life.signal,
+      profile, displaySession:this.host.displaySession, signal, interactionSignal: this.life.signal,
       reuseKey: !this.host.renderers && !this.host.resolveResource ? `${normalized.documentId}:${normalized.documentPath}` : undefined,
       enhancedInteractions: this.host.enhancedInteractions,
       documentPath: normalized.documentPath,

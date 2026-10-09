@@ -1,3 +1,4 @@
+import {changeListType, selectedTasks} from "./listCommands";
 import {scriptFormatting} from "./scriptFormatting";
 import {codeSelectionState, formatCodeSelection} from "./codeFormatting";
 import {selectionFormats, selectionFormatting, formatSelection} from "./selectionFormatting";
@@ -11,6 +12,9 @@ import type { EditorView } from "@codemirror/view";
 import { dispatchSourcePatches as dispatchPatches } from "./editorPatches";
 import { calloutContext, calloutContextKey, setCalloutType } from "./calloutEditing";
 import { resolveCallout, isKnownCallout } from "./callouts";
+import {blockContext} from "./blockContext";
+import {planHeadingTransform, planMoveBlock, planStructuralInsert, planWrapQuote} from "./structuralCommands";
+import {pendingInlineStyles, suppressedInlineStyles, togglePendingInlineStyle} from "./pendingInlineStyle";
 
 function dispatchSourcePatches(...args: Parameters<typeof dispatchPatches>) {
   dispatchPatches(args[0], args[1], { ...args[2], isolateHistory: true });
@@ -110,19 +114,21 @@ function computeToolbarState(state: EditorState): EditorToolbarState {
     }
   });
   const codeState = codeSelectionState(state);
+  const armed = pendingInlineStyles(state);
+  const suppressed = suppressedInlineStyles(state);
   const coverage = state.selection.main.empty ? null : selectionFormatting(state);
   return {
     inlineFormattingEnabled: codeState !== "on",
     mixed: [...(coverage ? selectionFormats.filter(format => coverage.status(format) === "mixed") : []), ...(codeState === "mixed" ? ["code"] : [])],
-    bold: coverage ? coverage.status("bold") === "on" : inlineRange(state, "bold") !== null,
-    italic: coverage ? coverage.status("italic") === "on" : inlineRange(state, "italic") !== null,
-    code: codeState === "on",
-    underline: coverage ? coverage.status("underline") === "on" : inlineRange(state, "underline") !== null,
-    strike: coverage ? coverage.status("strike") === "on" : inlineRange(state, "strike") !== null,
-    highlight: coverage ? coverage.status("highlight") === "on" : inlineRange(state, "highlight") !== null,
-    subscript: coverage ? coverage.status("subscript") === "on" : inlineRange(state, "subscript") !== null,
-    superscript: coverage ? coverage.status("superscript") === "on" : inlineRange(state, "superscript") !== null,
-    task: lines.every(line => /^\s*[-*+]\s+\[[ xX]\]\s/.test(line.text)),
+    bold: !suppressed.includes("bold") && (armed.includes("bold") || (coverage ? coverage.status("bold") === "on" : inlineRange(state, "bold") !== null)),
+    italic: !suppressed.includes("italic") && (armed.includes("italic") || (coverage ? coverage.status("italic") === "on" : inlineRange(state, "italic") !== null)),
+    code: !suppressed.includes("code") && (armed.includes("code") || codeState === "on"),
+    underline: !suppressed.includes("underline") && (armed.includes("underline") || (coverage ? coverage.status("underline") === "on" : inlineRange(state, "underline") !== null)),
+    strike: !suppressed.includes("strike") && (armed.includes("strike") || (coverage ? coverage.status("strike") === "on" : inlineRange(state, "strike") !== null)),
+    highlight: !suppressed.includes("highlight") && (armed.includes("highlight") || (coverage ? coverage.status("highlight") === "on" : inlineRange(state, "highlight") !== null)),
+    subscript: !suppressed.includes("subscript") && (armed.includes("subscript") || (coverage ? coverage.status("subscript") === "on" : inlineRange(state, "subscript") !== null)),
+    superscript: !suppressed.includes("superscript") && (armed.includes("superscript") || (coverage ? coverage.status("superscript") === "on" : inlineRange(state, "superscript") !== null)),
+    task: selectedTasks(state),
     heading: levels.every(level => level === levels[0]) ? levels[0] : null,
     callout: context.target ? (isKnownCallout(context.target.type) ? resolveCallout(context.target.type).id : context.target.type) : null,
     calloutEnabled: context.enabled,
@@ -130,10 +136,15 @@ function computeToolbarState(state: EditorState): EditorToolbarState {
   };
 }
 
-function removeInlineFormat(editor: EditorView, command: string) {
+function removeInlineFormat(editor: EditorView, command: string, mode: "live" | "source") {
   const range = inlineRange(editor.state, command);
   if (!range) return false;
   const selected = editor.state.selection.main;
+  if (mode === "live" && selected.empty) {
+    togglePendingInlineStyle(editor, command, "", "", range);
+    editor.focus();
+    return true;
+  }
   const patches = [
     { from: range.from, to: range.start, insert: "", expected: editor.state.sliceDoc(range.from, range.start) },
     { from: range.end, to: range.to, insert: "", expected: editor.state.sliceDoc(range.end, range.to) },
@@ -146,7 +157,20 @@ function removeInlineFormat(editor: EditorView, command: string) {
   return true;
 }
 
-export function executeEditorCommand(editor: EditorView, command: string) {
+export function executeEditorCommand(editor: EditorView, command: string, mode: "live" | "source" = "source") {
+  const current = editor.state.selection.main;
+  if (mode === "live" && blockContext(editor.state, current.from).protectedBlock && command !== "code") return;
+  if (mode === "live" && (command === "moveBlockUp" || command === "moveBlockDown")) {
+    const plan = planMoveBlock(editor.state, current.from, command === "moveBlockUp" ? "up" : "down");
+    if (plan) dispatchSourcePatches(editor, plan.patches, {selection: plan.selection, scrollIntoView: true});
+    editor.focus(); return;
+  }
+  if (mode === "live" && command === "quote") {
+    const plan = planWrapQuote(editor.state, current.from);
+    if (plan) dispatchSourcePatches(editor, plan.patches, {selection: plan.selection, scrollIntoView: true});
+    editor.focus(); return;
+  }
+  if (["list", "orderedList", "task"].includes(command)) {changeListType(editor, command); return;}
   if (command === "callout" || command.startsWith("callout:")) {
     setCalloutType(editor, command === "callout" ? "note" : command.slice(8));
     return;
@@ -164,7 +188,7 @@ export function executeEditorCommand(editor: EditorView, command: string) {
     const opposite = inlineRange(editor.state, command === "subscript" ? "superscript" : "subscript");
     if (opposite && opposite.start < opposite.end) {
       editor.dispatch({selection: {anchor: opposite.start, head: opposite.end}});
-      executeEditorCommand(editor, command);
+      executeEditorCommand(editor, command, mode);
       return;
     }
   }
@@ -182,7 +206,7 @@ export function executeEditorCommand(editor: EditorView, command: string) {
       return;
     }
   }
-  if ((inlineNodes[command] || command === "highlight" || command === "underline" || command === "subscript" || command === "superscript") && removeInlineFormat(editor, command)) return;
+  if ((inlineNodes[command] || command === "highlight" || command === "underline" || command === "subscript" || command === "superscript") && removeInlineFormat(editor, command, mode)) return;
   const selection = editor.state.selection.main;
   const selected = editor.state.sliceDoc(selection.from, selection.to);
   const wrappers: Record<string, [string, string, string]> = {
@@ -200,6 +224,11 @@ export function executeEditorCommand(editor: EditorView, command: string) {
   };
   if (wrappers[command]) {
     const [before, after, placeholder] = wrappers[command];
+    if (mode === "live" && selection.empty && ["bold","italic","underline","strike","highlight","subscript","superscript","code"].includes(command)) {
+      togglePendingInlineStyle(editor, command, before, after);
+      editor.focus();
+      return;
+    }
     const content = selected || placeholder;
     dispatchSourcePatches(editor, [{
       from: selection.from,
@@ -217,13 +246,21 @@ export function executeEditorCommand(editor: EditorView, command: string) {
   const insertions: Record<string, string> = {
     table: "| Column 1 | Column 2 |\n| --- | --- |\n|  |  |",
     divider: "---",
-    codeBlock: `\`\`\`text\n${selected || "code"}\n\`\`\``,
+    codeBlock: `\`\`\`text\n${selected || (mode === "live" ? "" : "code")}\n\`\`\``,
     mathBlock: `$$\n${selected || "formula"}\n$$`,
     mermaid: `\`\`\`mermaid\n${selected || "graph TD\n  A --> B"}\n\`\`\``,
     graphviz: `\`\`\`graphviz\n${selected || "digraph G { A -> B }"}\n\`\`\``,
     footnote: "[^1]\n\n[^1]: Footnote text",
   };
   if (insertions[command]) {
+    if (mode === "live") {
+      const plan = planStructuralInsert(editor.state, {from: selection.from, to: selection.to}, insertions[command],
+        ["codeBlock", "mermaid", "graphviz"].includes(command) ? "code" : "block");
+      if (!plan) return;
+      dispatchSourcePatches(editor, plan.patches, {selection: plan.selection, scrollIntoView: true});
+      editor.focus();
+      return;
+    }
     const before = editor.state.sliceDoc(0, selection.from);
     const after = editor.state.sliceDoc(selection.to);
     const leading = before.length === 0 || before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
@@ -249,6 +286,12 @@ export function executeEditorCommand(editor: EditorView, command: string) {
   if (command.startsWith("heading")) {
     const level = Number(command.slice("heading".length));
     if (!Number.isInteger(level) || level < 0 || level > 6) return;
+    if (mode === "live" && selectedLines(editor.state).some(line => blockContext(editor.state, line.to).containers.length)) {
+      const plan = planHeadingTransform(editor.state, {from: selection.from, to: selection.to}, level);
+      if (plan) dispatchSourcePatches(editor, plan.patches, {selection: plan.selection, scrollIntoView: true});
+      editor.focus();
+      return;
+    }
     const marker = level === 0 ? "" : `${"#".repeat(level)} `;
     const tree = ensureSyntaxTree(editor.state, endLine.to, 50) ?? syntaxTree(editor.state);
     const patches: SourcePatch[] = [];
@@ -286,7 +329,8 @@ export function executeEditorCommand(editor: EditorView, command: string) {
           }
         }
       } else if (marker) {
-        patch(line.from, line.from, marker);
+        patch(mode === "live" ? blockContext(editor.state, line.to).contentFrom : line.from,
+          mode === "live" ? blockContext(editor.state, line.to).contentFrom : line.from, marker);
       }
     }
     if (patches.length) dispatchSourcePatches(editor, patches, {scrollIntoView: true});
@@ -294,15 +338,8 @@ export function executeEditorCommand(editor: EditorView, command: string) {
     return;
   }
 
-  const prefixes: Record<string, string> = {
-    task: "- [ ] ",
-    list: "- ",
-    orderedList: "1. ",
-    quote: "> ",
-  };
-  const removingTask = command === "task" && editorToolbarState(editor.state).task;
-  const prefix = removingTask ? "" : prefixes[command];
-  if (prefix === undefined) return;
+  if (command !== "quote") return;
+  const prefix = "> ";
   const transformed = block.split("\n").map((line) => {
     const match = line.match(/^(\s*)(.*)$/);
     if (!match) return `${prefix}${line}`;

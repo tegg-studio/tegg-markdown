@@ -1,5 +1,8 @@
-.cm-live-table .md-table-actions {display:flex;flex-wrap:wrap;align-items:center;gap:4px;}
-.cm-live-table [role="gridcell"].is-selected,.cm-live-table [role="columnheader"].is-selected {background:var(--accent-soft,rgba(30,100,240,.09));box-shadow:inset 0 0 0 1px var(--accent, #376bd8);}
+.cm-live-table > .cm-preview-toolbar.md-table-toolbar {height:auto;min-height:34px;gap:8px;box-sizing:border-box;}
+.cm-live-table .md-table-dimensions {flex:none;white-space:nowrap;}
+.cm-live-table .md-table-actions {display:flex;flex-wrap:nowrap;align-items:center;justify-content:flex-end;min-width:0;max-width:100%;gap:4px;}
+.cm-live-table .md-table-actions :is(button,select) {flex:none;white-space:nowrap;}
+.cm-live-table:focus-within [role="gridcell"].is-selected,.cm-live-table:focus-within [role="columnheader"].is-selected {background:var(--accent-soft,rgba(30,100,240,.09));box-shadow:inset 0 0 0 1px var(--accent, #376bd8);}
 .md-table-status {font-size:.8em;color:var(--muted);padding:4px 8px;}
 .md-table-cell-panel,.md-table-paste-review {padding:12px;margin:8px 0;border:1px solid var(--border,#bbb);border-radius:8px;background:var(--background,#fff);}
 .md-table-cell-panel[hidden],.md-table-paste-review[hidden] {display:none;}
@@ -9,6 +12,29 @@
 .md-table-error {color:var(--error,#b3261e);font-size:.9em;padding:4px 8px;}
 .md-table-paste-preview {white-space:pre-wrap;max-height:200px;overflow:auto;font-size:.85em;}
 .cm-live-table [role="grid"] button:focus-visible {outline:2px solid var(--accent,#376bd8);outline-offset:-2px;}
-@media(max-width:639px){.md-table-cell-panel{position:sticky;bottom:0;z-index:3;}.md-table-actions button,.md-table-actions select,.md-table-cell-actions button{min-height:36px;}.cm-live-table .cm-preview-toolbar{align-items:flex-start;flex-wrap:wrap;}}
+@media(max-width:639px){.md-table-cell-panel{position:sticky;bottom:0;z-index:3;}.md-table-actions button,.md-table-actions select,.md-table-cell-actions button{min-height:36px;}.cm-live-table > .cm-preview-toolbar.md-table-toolbar{align-items:center;flex-wrap:wrap;}.cm-live-table .md-table-actions{flex-wrap:wrap;justify-content:flex-start;}}
 
 .cm-live-table .md-table-actions button,.cm-live-table .md-table-actions select {color:var(--text,#24292f);}
+
+.cm-live-table .md-table-source-input {display:none;}
+.cm-live-table .md-table-inline-mount:empty {display:none;}
+.cm-live-table .md-table-inline-editor {width:100%;min-width:0;box-sizing:border-box;border:0;background:transparent;color:inherit;font:inherit;}
+.cm-live-table .md-table-inline-editor .cm-scroller {font:inherit;overflow:visible;}
+.cm-live-table .md-table-inline-editor .cm-content {min-height:1em;padding:9px 12px;white-space:pre-wrap;overflow-wrap:anywhere;caret-color:currentColor;}
+.cm-live-table .md-table-inline-editor .cm-line {padding:0;}
+.cm-live-table .md-table-inline-editor .cm-gutters {display:none;}
+.cm-live-table .md-table-inline-editor.cm-focused {outline:1px solid color-mix(in srgb,var(--accent,#376bd8) 55%,var(--border,#bbb));outline-offset:-1px;}
+.cm-live-table .md-table-inline-editor .cm-live-strong {font-weight:700;}
+.cm-live-table .md-table-inline-editor .cm-live-emphasis {font-style:italic;}
+.cm-live-table .md-table-inline-editor .cm-live-strike {text-decoration:line-through;}
+.cm-live-table .md-table-inline-editor .cm-live-inline-code {font-family:var(--font-mono,monospace);background:var(--code,rgba(127,127,127,.12));border-radius:4px;}
+.cm-live-table .md-table-inline-editor .cm-live-link {color:var(--accent,#376bd8);text-decoration:underline;}
+.cm-live-table .md-table-inline-editor .cm-live-highlight {background:var(--highlight,rgba(255,221,0,.35));}
+.cm-live-table .md-table-inline-editor .cm-live-u {text-decoration:underline;}
+.cm-live-table .md-table-inline-editor .cm-live-sub {font-size:.8em;vertical-align:sub;}
+.cm-live-table .md-table-inline-editor .cm-live-sup {font-size:.8em;vertical-align:super;}
+
+.cm-live-table .cm-live-table-preview a {cursor:pointer;}
+
+/* A review action stays above the ordinary block toolbar. */
+.md-table-paste-review {position:relative;z-index:21;}

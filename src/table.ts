@@ -20,6 +20,9 @@ export function tableCellRanges(line: string): TableCellRange[] {
   if (separators.length && !line.slice(0, separators[0]).trim()) ranges.shift();
   if (separators.length && !line.slice(separators.at(-1)! + 1).trim()) ranges.pop();
   return ranges.map(({from, to}) => {
+    // The SDK's canonical empty field has one padding space on either side.
+    // Keep its insertion point between those spaces; other authored padding is unchanged.
+    if (line.slice(from, to) === "  ") return {from: from + 1, to: from + 1};
     while (from < to && /[ \t]/.test(line[from])) from++;
     while (to > from && /[ \t]/.test(line[to - 1])) to--;
     return {from, to};

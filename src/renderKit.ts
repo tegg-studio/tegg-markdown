@@ -1,5 +1,9 @@
+import {registerRenderedClipboardOpaque} from './renderedSourceClipboard';
+import {projectedSourceRange} from './projectedSource';
+import {codeLanguageLabel} from "./codeLanguage";
+import type {ContentDisplaySession} from "./contentDisplaySession";
 import {setUIText, setUILabel} from "./uiContext";
-import {copySource, action, openObjectViewer, scopeIds, enhanceFigures} from "./renderInteraction";
+import {objectActions, copySource, action, openObjectViewer, scopeIds, enhanceFigures} from "./renderInteraction";
 import { makeHorizontalScrollRegion } from "./localScroll";
 import DOMPurify from "dompurify";
 import {enginesFor, type RenderEngines} from "./renderEngines";
@@ -121,13 +125,46 @@ export function applySemanticClasses(root: ParentNode): void {
   for (const superscript of root.querySelectorAll("sup")) superscript.classList.add(renderClassNames.superscript);
 }
 
-export function enhanceCallouts(root: ParentNode): void {
+type CalloutDisplayRange={from:number;to:number};
+type CalloutDisplayBinding={sync:()=>void;rebind:(session:ContentDisplaySession|undefined,range:CalloutDisplayRange,painted?:()=>void)=>void;dispose:()=>void};
+const renderedCalloutPainters = new WeakMap<HTMLElement, CalloutDisplayBinding>();
+/** Rebase only a real renderer-created Callout, retaining its actual DOM and focus. */
+export function rebindRenderedCalloutDisplay(quote:HTMLElement,session:ContentDisplaySession|undefined,range:CalloutDisplayRange,painted?:()=>void){renderedCalloutPainters.get(quote)?.rebind(session,range,painted);}
+export function disposeRenderedCalloutDisplay(root:HTMLElement){
+  for(const quote of [root,...root.querySelectorAll<HTMLElement>('blockquote')]){const binding=renderedCalloutPainters.get(quote);binding?.dispose();renderedCalloutPainters.delete(quote);}
+}
+/** Refresh only real renderer-owned Callouts after display-session expansion, without rerendering their contents. */
+export function syncRenderedCalloutDisplay(root: ParentNode): void {
+  if (root instanceof HTMLElement) renderedCalloutPainters.get(root)?.sync();
+  for (const quote of root.querySelectorAll<HTMLElement>("blockquote")) renderedCalloutPainters.get(quote)?.sync();
+}
+
+export function enhanceCallouts(root: ParentNode,session?:ContentDisplaySession,source="",body=source): void {
+  source=source.replace(/\r\n/g,"\n");body=body.replace(/\r\n/g,"\n");
   for (const quote of root.querySelectorAll<HTMLElement>("blockquote.callout[data-callout]")) {
     const type = quote.dataset.callout!;
     applyCalloutAppearance(quote, type);
     quote.setAttribute("aria-label", `${type} callout`);
     const title = quote.querySelector<HTMLElement>(":scope > .callout-title");
-    if (title && !title.querySelector(":scope > .callout-icon")) title.prepend(calloutIcon(type));
+    if (title && !title.querySelector(":scope > .callout-icon")){const icon=calloutIcon(type);registerRenderedClipboardOpaque(icon);title.prepend(icon);}
+    if(!title)continue;
+    if(!title.querySelector(':scope > .callout-title-text')){const text=document.createElement('span');text.className='callout-title-text';for(const child of [...title.childNodes])if(!(child instanceof Element&&child.classList.contains('callout-icon')))text.append(child);title.append(text);}
+
+    const row=Number(quote.dataset.calloutSourceLine??0);const {from,to}=projectedSourceRange(quote,source,body,row,Number(quote.dataset.calloutSourceToLine??row+1));
+    quote.dataset.sourceFrom=String(from);quote.dataset.sourceTo=String(to);
+    const children=Array.from(quote.children).filter(node=>node!==title);
+    if(!children.length)continue;
+    const initial=quote.dataset.calloutFold!=="-";
+    let expanded=session?.expanded('callout',from,to,initial)??initial;
+    const fold=document.createElement('button');registerRenderedClipboardOpaque(fold);fold.type='button';fold.className='callout-fold';
+    fold.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const paint=()=>{quote.dataset.calloutExpanded=String(expanded);fold.setAttribute('aria-expanded',String(expanded));setUILabel(fold,expanded?'Collapse Callout':'Expand Callout');children.forEach(child=>{(child as HTMLElement).hidden=!expanded;});};
+    let currentSession=session,currentRange={from,to},objectId:string|undefined,alive=true,stop:(()=>void)|undefined,painted:(()=>void)|undefined;
+    const sync=()=>{if(!alive)return;const state=currentSession&&objectId?currentSession.expandedById(objectId):expanded;if(state===undefined)return;expanded=state;quote.dataset.sourceFrom=String(currentRange.from);quote.dataset.sourceTo=String(currentRange.to);paint();painted?.();};
+    const toggle=(event:Event)=>{if(!alive)return;event.stopPropagation();expanded=!expanded;if(currentSession&&objectId)currentSession.setExpandedById(objectId,expanded);paint();painted?.();};
+    const rebind=(nextSession:ContentDisplaySession|undefined,range:CalloutDisplayRange,onPaint?:()=>void)=>{stop?.();currentSession=nextSession;currentRange={...range};currentSession?.expanded('callout',range.from,range.to,initial);objectId=currentSession?.objectId('callout',range.from,range.to);if(onPaint)painted=onPaint;sync();stop=currentSession?.subscribe(sync);};
+    renderedCalloutPainters.set(quote,{sync,rebind,dispose:()=>{alive=false;stop?.();fold.removeEventListener('click',toggle);}});
+    fold.addEventListener('click',toggle);title.append(fold);rebind(session,{from,to});
   }
 }
 
@@ -136,7 +173,7 @@ export function highlightCode(source: string, language: string, engines: RenderE
 }
 
 export function createRenderToolbar(labelText: string, action: RenderAction): HTMLDivElement {
-  const toolbar = document.createElement("div");
+  const toolbar = document.createElement("div");registerRenderedClipboardOpaque(toolbar);
   toolbar.className = renderClassNames.toolbar;
   const label = document.createElement("span");
   label.textContent = labelText;
@@ -156,7 +193,13 @@ export function createCodeBlock(
   const wrapper = document.createElement("section");
   wrapper.className = `${renderClassNames.block} ${renderClassNames.code}`;
   const language = model.language.trim().toLowerCase() || "text";
-  wrapper.append(createRenderToolbar(language, action));
+  const bar=document.createElement('div');registerRenderedClipboardOpaque(bar);bar.className=renderClassNames.toolbar+' cm-preview-toolbar';
+  const label=document.createElement('span');label.className='md-code-language-label';label.textContent=codeLanguageLabel(model.language==='text'?'':model.language);
+  const actions=document.createElement('div');actions.className='md-code-actions';
+  const icon=(paths:string)=>'<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+paths+'</svg>';
+  const wrap=document.createElement('button');wrap.type='button';wrap.className='md-code-wrap-action';setUILabel(wrap,'Wrap lines');wrap.title='Wrap lines';wrap.setAttribute('aria-pressed','false');wrap.innerHTML=icon('<path d="M3 6h18M3 12h13a4 4 0 0 1 0 8h-4m3-3-3 3 3 3M3 18h4"/>');
+  const copy=document.createElement('button');copy.type='button';copy.className='md-code-copy';setUILabel(copy,'Copy code');copy.title='Copy code';copy.innerHTML=icon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/>');copy.addEventListener('click',action.run);
+  actions.append(wrap,copy);bar.append(label,actions);wrapper.append(bar);
 
   const pre = document.createElement("pre");
   makeHorizontalScrollRegion(pre, "Code. Scroll horizontally for long lines.");
@@ -165,6 +208,7 @@ export function createCodeBlock(
   code.innerHTML = highlightCode(model.source, language, engines);
   pre.append(code);
   wrapper.append(pre);
+  wrap.addEventListener('click',()=>{const enabled=wrap.getAttribute('aria-pressed')!=='true';wrap.setAttribute('aria-pressed',String(enabled));wrapper.classList.toggle('md-code-wrap',enabled);pre.style.whiteSpace=enabled?'pre-wrap':'pre';});
   return wrapper;
 }
 
@@ -188,9 +232,8 @@ export function renderMathInto(
     target.replaceChildren(message, source);
   }
   if (model.display === "block" && !target.closest('[data-enhancements="false"]')) {
-    const controls = document.createElement("div"); controls.className = "md-object-actions";
-    const view = action("View formula", () => openObjectViewer(view, target, model.source, "Formula"));
-    controls.append(view, action("Copy TeX", () => {void copySource(model.source, target);})); target.append(controls);
+    const controls = objectActions({view:()=>openObjectViewer(controls.querySelector("button")!,target,model.source,"Formula"),viewLabel:"View formula",more:[{label:"Copy TeX",run:()=>{void copySource(model.source,target);}}]});
+    target.classList.add("md-object-block");target.append(controls);
   }
 }
 
@@ -292,9 +335,8 @@ export function renderDiagram(model: Extract<RenderModel, {kind: "diagram"}>, ta
         target.removeAttribute("role"); target.removeAttribute("aria-label");
       }
       if (!target.closest('[data-enhancements="false"]')) {
-        const controls = document.createElement("div"); controls.className = "md-object-actions";
-        const view = action("View diagram", () => openObjectViewer(view, target, model.source, "Diagram"));
-        controls.append(view); target.append(controls);
+        const controls = objectActions({view:()=>openObjectViewer(controls.querySelector("button")!,target,model.source,"Diagram"),viewLabel:"View diagram",more:[{label:"Copy source",run:()=>{void copySource(model.source,target);}}]});
+        target.classList.add("md-object-block");target.append(controls);
       }
     } catch (error) {
       if (!current() || expired) return;
@@ -313,6 +355,9 @@ export function renderDiagram(model: Extract<RenderModel, {kind: "diagram"}>, ta
     mermaidPending++;
     result = diagramQueue.then(run).finally(() => {mermaidPending--;});
     diagramQueue = result.catch(() => {});
-  } else result = run();
+  } else {
+    // CodeMirror attaches newly created widgets before this microtask runs.
+    result = Promise.resolve().then(run);
+  }
   return Promise.race([result, waitingBudget]);
 }

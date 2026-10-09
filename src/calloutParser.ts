@@ -14,6 +14,7 @@ export function calloutPlugin(md: MarkdownIt) {
       if (!header) continue;
       if (state.env?.profile === "github" && (!/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/.test(newline < 0 ? inline.content : inline.content.slice(0, newline)) || quote.level !== 0)) continue;
       quote.attrSet("data-callout", header.type);
+      if(quote.map){quote.attrSet("data-callout-source-line",String(quote.map[0]));quote.attrSet("data-callout-source-to-line",String(quote.map[1]));}
       quote.attrJoin("class", `callout md-render-callout callout-${header.type}`);
       // This metadata is structural only. Folding interaction is intentionally separate.
       if (header.fold) quote.attrSet("data-callout-fold", header.fold);
@@ -25,6 +26,10 @@ export function calloutPlugin(md: MarkdownIt) {
       const titleClose = new state.Token("callout_title_close", "div", -1);
       const body = newline < 0 ? "" : inline.content.slice(newline + 1);
       inline.content = body;
+      // The first body paragraph no longer contains the Callout header line.
+      // Keep renderer source projections aligned with its actual visible content.
+      if(body.length&&paragraph.map)paragraph.map=[paragraph.map[0]+1,paragraph.map[1]];
+      if(body.length&&inline.map)inline.map=[inline.map[0]+1,inline.map[1]];
       const removeCount = body.length ? 0 : 3;
       state.tokens.splice(index + 1, removeCount, titleOpen, title, titleClose);
       index += 3;

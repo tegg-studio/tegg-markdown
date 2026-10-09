@@ -10,9 +10,9 @@ let instance: any = null;
 const errors: string[] = [], changes: any[] = [], conflicts: any[] = [];
 const host = {locale: "zh-CN" as const, engines: {}, onError(error: unknown) {errors.push(String(error));}, onChange(change: any) {changes.push(change);}, onConflict(incoming: any, local: any) {conflicts.push({incoming,local});}};
 function Code({node}: any) {return h("div", {"data-testid": "custom-code"}, useContext(Context), " ", node.text);}
-function show(mode: "reader" | "editor", source = "```text\noriginal code\n```", layout: "host" | "internal" = "internal") {
+function show(mode: "reader" | "editor", source = "```text\noriginal code\n```", layout: "host" | "internal" = "internal", profile: "github" | "tegg" = "github") {
   instance = null;
-  const props = {document: {documentId:"doc", revision:"r1", source, profile:"github" as const}, host, components:{code:Code}, onReady(value: any) {instance=value;}};
+  const props = {document: {documentId:"doc", revision:"r1", source, profile}, host, components:{code:Code}, onReady(value: any) {instance=value;}};
   function EditorWithToolbar(){
     const [state,setState]=useState<EditorUIState|null>(null);
     return h("div",{style:{height:"420px",display:"flex",flexDirection:"column",overflow:"hidden"}},h(MarkdownToolbar,{editor:instance,state}),h(MarkdownEditor,{...props,mode:"source",className:"integration-editor",host:{...host,layout,onStateChange:setState}}));

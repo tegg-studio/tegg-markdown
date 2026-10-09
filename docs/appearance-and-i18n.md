@@ -29,3 +29,10 @@ Table quantity labels use the message variants `{rows} row × {columns} column`,
 English selects singular/plural from each count; Chinese displays `{rows} 行 ×
 {columns} 列`. Custom messages and live locale switching use the same instance UI
 context. This is not a claim of general plural-rule support for other languages.
+
+Active GFM cell editor labels and the retained source input use the same UI
+context, including the localized empty-value fallback. Authored cell text is
+never translated. Callout type actions use `Change {value} callout type` for the
+accessible name and tooltip; the value remains the shared catalog display name
+or the exact unknown type identifier. Live locale updates keep the mounted cell
+editor, draft, selection and document history.

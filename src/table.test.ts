@@ -33,3 +33,50 @@ describe("natural table editing", () => {
     expect(serializeMarkdownTable(parsed!)).toContain("| :----- | :---: | -----: |");
   });
 });
+
+
+describe("canonical empty table field padding", () => {
+  it.each([
+    {value: "GammaXY", encoded: "GammaXY"},
+    {value: "A|B", encoded: "A\\|B"},
+    {value: "中文🐈", encoded: "中文🐈"},
+  ])("fills a two-space header and body without moving padding: $value", ({value, encoded}) => {
+    for (const newline of ["\n", "\r\n"]) {
+      const headerSource = ["|  | Keep  |", "| :----- | ---: |", "| old | A\\|B  |"].join(newline) + newline;
+      const header = parseMarkdownTable(headerSource)!;
+      header.headers[0] = value;
+      expect(serializeMarkdownTable(header)).toBe([`| ${encoded} | Keep  |`, "| :----- | ---: |", "| old | A\\|B  |"].join(newline) + newline);
+      const bodySource = ["| A | Keep  |", "| :----- | ---: |", "|  | A\\|B  |"].join(newline) + newline;
+      const body = parseMarkdownTable(bodySource)!;
+      body.rows[0][0] = value;
+      const result = serializeMarkdownTable(body);
+      expect(result).toBe(["| A | Keep  |", "| :----- | ---: |", `| ${encoded} | A\\|B  |`].join(newline) + newline);
+      expect(parseMarkdownTable(result)?.rows[0]).toEqual([value, "A|B"]);
+    }
+  });
+
+  it.each([
+    {before: "|| keep |", after: "|GammaXY| keep |"},
+    {before: "| | keep |", after: "| GammaXY| keep |"},
+    {before: "|   | keep |", after: "|   GammaXY| keep |"},
+    {before: "|    | keep |", after: "|    GammaXY| keep |"},
+    {before: "|\t| keep |", after: "|\tGammaXY| keep |"},
+    {before: "|\t\t| keep |", after: "|\t\tGammaXY| keep |"},
+    {before: "| \t| keep |", after: "| \tGammaXY| keep |"},
+    {before: "|\t | keep |", after: "|\t GammaXY| keep |"},
+  ])("retains the existing insertion behavior outside standard two-space padding: $before", ({before, after}) => {
+    const prefix = "| A | B |\n| --- | --- |\n";
+    const table = parseMarkdownTable(prefix + before)!;
+    expect(serializeMarkdownTable(table)).toBe(prefix + before);
+    table.rows[0][0] = "GammaXY";
+    expect(serializeMarkdownTable(table)).toBe(prefix + after);
+  });
+
+  it("keeps every source byte on an untouched mixed table", () => {
+    const source = "  |  | Keep  |\r\n| :----- | ---: |\r\n|  | A\\|B  |\r\n| \t| old |\r\n";
+    const table = parseMarkdownTable(source)!;
+    expect(serializeMarkdownTable(table)).toBe(source);
+    table.rows[0][0] = "";
+    expect(serializeMarkdownTable(table)).toBe(source);
+  });
+});

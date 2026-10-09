@@ -22,6 +22,7 @@ export class TeggMarkdownReader {
     if (this.destroyed) throw new Error("Reader has been destroyed");
     return this.reader.render(input);
   }
+  locateSourceRange(range:{from:number;to:number}):HTMLElement|null {return this.destroyed?null:this.reader.locateSourceRange(range);}
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true; disposeInteractions(this.frame); this.reader.destroy(); this.ui.destroy(); this.frame.remove();

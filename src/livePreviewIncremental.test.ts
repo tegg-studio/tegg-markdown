@@ -2,6 +2,7 @@
 import {afterEach,beforeAll,describe,expect,it,vi} from 'vitest';
 import {EditorState,EditorSelection} from '@codemirror/state';
 import {EditorView} from '@codemirror/view';
+import {forceParsing,syntaxTreeAvailable} from '@codemirror/language';
 import {history,undo,redo} from '@codemirror/commands';
 import {markdown} from '@codemirror/lang-markdown';
 import {GFM} from '@lezer/markdown';
@@ -14,9 +15,17 @@ beforeAll(()=>{
   if(!Range.prototype.getBoundingClientRect)Range.prototype.getBoundingClientRect=()=>new DOMRect();
 });
 const mounted:EditorView[]=[];
-function mount(source:string,selection:number|EditorSelection){const parent=document.createElement('div');document.body.append(parent);const view=new EditorView({parent,state:EditorState.create({doc:source,selection:typeof selection==='number'?{anchor:selection}:selection,extensions:[EditorState.allowMultipleSelections.of(true),history(),markdown({extensions:GFM}),resourceContext.of({profile:'tegg',documentPath:'',resolveImage:src=>src}),livePreview]})});mounted.push(view);return view;}
+function mount(source:string,selection:number|EditorSelection){const parent=document.createElement('div');document.body.append(parent);const view=new EditorView({parent,state:EditorState.create({doc:source,selection:typeof selection==='number'?{anchor:selection}:selection,extensions:[EditorState.allowMultipleSelections.of(true),history(),markdown({extensions:GFM}),resourceContext.of({profile:'tegg',documentPath:'',resolveImage:src=>src}),livePreview]})});mounted.push(view);expect(forceParsing(view,view.state.doc.length,1000)).toBe(true);expect(syntaxTreeAvailable(view.state,view.state.doc.length)).toBe(true);return view;}
 afterEach(()=>{mounted.splice(0).forEach(view=>view.destroy());document.body.replaceChildren();});
-function snapshot(view:EditorView){return view.contentDOM.innerHTML;}
+function snapshot(view:EditorView){
+  // Parser availability describes the parse context; forceParsing also brings
+  // the editor state's tree and its incremental decorations up to that context.
+  // Compare completed renders without changing the authored source or selection.
+  const source=view.state.doc.toString(),selection=view.state.selection;
+  expect(forceParsing(view,view.state.doc.length,1000)).toBe(true);
+  expect(view.state.doc.toString()).toBe(source);
+  expect(view.state.selection.eq(selection)).toBe(true);
+  expect(syntaxTreeAvailable(view.state,view.state.doc.length)).toBe(true);const copy=view.contentDOM.cloneNode(true) as HTMLElement;for(const element of copy.querySelectorAll('*')){const attributes=[...element.attributes].map(attr=>[attr.name,attr.value]).sort(([a],[b])=>a.localeCompare(b));for(const attr of [...element.attributes])element.removeAttribute(attr.name);for(const [name,value]of attributes)element.setAttribute(name,value);}return copy.innerHTML;}
 function fresh(view:EditorView){const focused=view.hasFocus,next=mount(view.state.doc.toString(),view.state.selection);if(focused){next.focus();next.dispatch({selection:next.state.selection});}return next;}
 function change(view:EditorView,from:number,to:number,insert:string){view.dispatch({changes:{from,to,insert},selection:{anchor:from+insert.length},userEvent:'input.type'});}
 describe('incremental Live Preview matches a fresh editor',()=>{
@@ -48,7 +57,8 @@ describe('incremental Live Preview matches a fresh editor',()=>{
     const broad=mode.includes('second')?multiple:crossLine,adding=mode.startsWith('add'),view=mount(source,adding?cursor:broad);view.focus();view.dispatch({selection:view.state.selection});
     view.dispatch({changes:{from:2,to:3,insert:'A'},selection:adding?broad:cursor,userEvent:'input.type'});
     expect(view.state.selection.ranges).toHaveLength(adding&&mode.includes('second')?2:1);
-    expect(view.dom.querySelectorAll('.cm-live-image')).toHaveLength(adding?0:1);
+    // A4: an external range covering the full object keeps its rendered projection.
+    expect(view.dom.querySelectorAll('.cm-live-image')).toHaveLength(1);
     expect(snapshot(view)).toBe(snapshot(fresh(view)));
   });
   it('keeps dense containment ranges literal while rendering syntax outside them',()=>{
