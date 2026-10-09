@@ -1,6 +1,47 @@
-# Integration update — 0.2.0-preview.2
+# Integration update — 0.3.0-preview.1
 
-## Unpublished image presentation follow-up
+## Current published preview — 0.3.0-preview.1 (2026-10-09)
+
+Install the exact preview version and retain your lockfile:
+
+```sh
+npm install --save-exact @tegg/markdown@0.3.0-preview.1
+```
+
+The official registry archive matches the original frozen package, SHA256
+`ed4a1ce3a314b326af8f25bd113b77d3b5595e11e7d15d29b79adb84eb98c768` and integrity
+`sha512-wMtRH4+AgQskXQS979fHO7tRrybYIl2l3Cc/5HFmHBFiMZXK1XQd/jyuYBExDmc8vHSkEe8ObwauTNa9d/WU8A==`. Source commit `a705a66437b55c4df7d967ce9447fbd1f885c43a` and merged main
+`646cbcdddfcd80a8ab5aefc03bc2020d8c993f83` have the same 437 input files. The official registry `preview` tag is `0.3.0-preview.1`; `latest` remains
+`0.2.0-preview.2`. The GitHub pre-release tag points to the original source commit
+and attaches this exact archive and its integrity manifest. The original archive is immutable;
+CI repacking and later documentation edits do not replace it. The archive's
+bundled documents retain their pre-publication status; this repository record
+is the current publication result.
+
+The candidate passed 121 unit files / 4,670 tests, full type/build/package gates,
+five packed consumers, 922 Chromium/Firefox/WebKit cases, 12 persistent recovery
+cases and one HTTP CAS case. Both actual Linux core runs passed all 922 browser
+and 12 recovery cases, with zero failures, skips or flaky outcomes, and their
+package integrity matches the frozen archive. Mermaid 11.9.0, 11.10.0 and 11.x
+compatibility checks also passed. Five fresh official-registry consumers passed
+modern/legacy TypeScript resolution, production builds and runtime imports;
+all 253 package files matched the frozen archive in every consumer. Their
+published-package builds passed the complete 922-browser suite.
+
+This developer preview adds shared natural editing, source-preserving table and
+HTML operations, image viewing, localized controls and recovery contracts.
+Image viewer zoom preserves center anchors across browser scroll rounding;
+outside touch closes block menus. Existing licenses, attribution terms, exact
+SDK lockfile and 157-component inventory remain unchanged. Hosts still own
+persistence, resource authorization and conflicts. These checks do not certify
+native applications, real OS IME, assistive technology or every browser product.
+
+See [registry identity](npm-release.md), [reliable editing](reliable-editing.md)
+and [recovery](recovery.md). Earlier results below remain historical evidence.
+
+## Historical integration update — 0.2.0-preview.2
+
+### Historical pre-publication image presentation follow-up
 
 The `0.3.0-preview.1` development candidate removes a stale loading translation
 binding once image dimensions arrive. Zoom labels then reflect the actual scale

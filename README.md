@@ -11,9 +11,9 @@ This project is not offered under Apache-2.0 and does not claim OSI approval.
 
 ## Status
 
-`@tegg/markdown@0.2.0-preview.2` is published on npm as a preview release.
-The published preview includes source, tests, types, styles and license materials.
-Future packages use a smaller runtime distribution; source and tests remain in Git.
+`@tegg/markdown@0.3.0-preview.1` is published on npm as a developer preview.
+The runtime archive includes built modules, types, styles, notices and selected
+documentation/examples; source and regression tests remain in Git.
 See [release status](docs/npm-release.md) for the exact artifact and validation.
 [GitHub releases](https://github.com/tegg-studio/tegg-markdown/releases) provide
 versioned release notes and the original package archive.
@@ -25,7 +25,7 @@ The Host owns document identity, persistence, resources, permissions and conflic
 ## Install the npm preview
 
 ```sh
-npm install --save-exact @tegg/markdown@0.2.0-preview.2
+npm install --save-exact @tegg/markdown@0.3.0-preview.1
 ```
 
 This is a pre-release, not a stable release. Retain the exact version and lockfile
@@ -54,7 +54,7 @@ a convenience check, not atomic multi-writer storage.
 In this repository run `npm pack`. In a separate project run:
 
 ```sh
-npm install /path/to/tegg-markdown-0.2.0-preview.2.tgz
+npm install /path/to/tegg-markdown-0.3.0-preview.1.tgz
 ```
 
 Use a browser bundler supporting ES modules, CSS and web workers (the example uses Vite):
@@ -125,17 +125,13 @@ fixtures; partner-specific documents are not an acceptance prerequisite.
 
 Contributor workflow and repository boundaries are documented in [the Git and release process](docs/releasing.md).
 
-### Reliable editing development line
+### Reliable editing preview
 
-The unpublished `0.3.0-preview.1` development candidate also corrects asynchronous
-image zoom labels and Reader image-only paragraph classification. It pins the
-tested parser dependency; use an exact packed artifact and retain the consumer
-lockfile. See [development validation](docs/validation.md#image-presentation-development-follow-up)
-for the separate package, browser and native verification boundaries.
-
-
-The current development branch adds a shared editing controller, optional `/ui`,
-clipboard review, persistent attachment tasks, table operations, recovery journals and
-three-version conflict review. See [the integration guide](docs/reliable-editing.md),
-[recovery contract](docs/recovery.md) and [vanilla/React examples](examples/reliable-editor).
-These changes are not a new npm publication until the release process explicitly runs.
+The published preview includes a shared editing controller, optional `/ui`,
+clipboard review, persistent attachment tasks, table operations, recovery journals
+and three-version conflict review. Hosts explicitly enable resources and own
+persistence and conflict resolution. Image labels and zoom anchors reflect the
+actual image state; authored inline and image-only paragraphs retain their source.
+See [reliable editing](docs/reliable-editing.md), [recovery](docs/recovery.md),
+[vanilla/React examples](examples/reliable-editor) and the exact
+[publication record](docs/npm-release.md).
