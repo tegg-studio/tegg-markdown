@@ -64,3 +64,29 @@ describe('bounded table transactions',()=>{
   });
 
 });
+
+
+describe('canonical empty field source patches',()=>{
+  it('fills only the chosen standard empty field in a multi-cell CRLF row',()=>{
+    const source='| A | B | C |\r\n| :----- | ---: | --- |\r\n|  |  | keep\\|pipe  |\r\n';
+    const result=applyTableOperation(source,{type:'cell',at:{row:1,column:1},value:'GammaXY'});
+    const expected='| A | B | C |\r\n| :----- | ---: | --- |\r\n|  | GammaXY | keep\\|pipe  |\r\n';
+    expect(result.source).toBe(expected);
+    expect(applySourcePatches(source,result.patches)).toBe(expected);
+    expect(result.patches).toHaveLength(1);
+    const patch=result.patches[0];
+    expect(patch.expected).toBe('');expect(patch.insert).toBe('GammaXY');expect(patch.from).toBe(patch.to);
+    expect(result.source.slice(0,patch.from)).toBe(source.slice(0,patch.from));
+    expect(result.source.slice(patch.from+patch.insert.length)).toBe(source.slice(patch.to));
+  });
+  it('clears and refills one existing cell while retaining its two padding bytes',()=>{
+    const source='| A | B |\n| --- | --- |\n| old | keep |\n';
+    const empty='| A | B |\n| --- | --- |\n|  | keep |\n';
+    const cleared=applyTableOperation(source,{type:'clear',rectangle:{from:{row:1,column:0},to:{row:1,column:0}}});
+    expect(cleared.source).toBe(empty);expect(applySourcePatches(source,cleared.patches)).toBe(empty);
+    expect(applyTableOperation(empty,{type:'cell',at:{row:1,column:0},value:''}).patches).toEqual([]);
+    const filled=applyTableOperation(empty,{type:'cell',at:{row:1,column:0},value:'GammaXY'});
+    expect(filled.source).toBe('| A | B |\n| --- | --- |\n| GammaXY | keep |\n');
+    expect(applySourcePatches(empty,filled.patches)).toBe(filled.source);
+  });
+});

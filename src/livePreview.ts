@@ -1,3 +1,18 @@
+import {imageSelectionAppearance} from "./imageSelectionAppearance";
+import {bindAuthoredImageGeometry,imageGeometryUnavailable} from "./imageGeometry";
+import {bindImageSelection} from './imageObjectSelection';
+import {semanticObjectBoundaries,deleteSemanticSelection,selectSemanticBoundary,leaveSemanticObjectSelection,mergeSemanticParagraphBoundary,semanticSelectionExtension,semanticSelectAll,moveSemanticWord,deleteSemanticWord} from './objectBoundary';
+import {installNestedInlineProjection} from './nestedEditingScope';
+import {semanticClipboardExtension} from './contentClipboard';
+import {htmlLiteralContainerEnd} from './htmlLiteralSource';
+import {footnoteDocument} from './footnoteModel';
+import {attachHtmlDirectEditing,htmlDirectEditingIsComposing} from './htmlDirectEditing';
+import {bindContentScroll} from './contentScroll';
+import {objectAt} from './editingController';
+import {emptyCalloutBodyState,EmptyCalloutBodyWidget,preserveEmptyCalloutTitle} from "./calloutInput";
+import {commitHtmlTableDrafts,attachHtmlTableEditing,htmlTableWidgetIsComposing,bindHtmlTableProjectionRefresh} from './htmlTableWidget';
+import {LiveFootnoteSection,focusFootnote,rememberFootnoteReference,mapFootnoteReferences} from './footnoteEditing';
+import {insertSemanticParagraph,editSemanticQuote} from './semanticEditing';
 import {preserveCodeStructure, selectCodeBoundary} from "./codeStructure";
 import {selectionHistory} from "./selectionHistory";
 import {undo, redo} from "./selectionHistory";
@@ -6,7 +21,7 @@ import {insertNewlineContinueMarkupCommand} from "@codemirror/lang-markdown";
 import {editingPerformancePolicy} from "./editingBudget";
 import {setUIText, setUILabel} from "./uiContext";
 import {bindEngines} from "./renderEngines";
-import {imageForView, resourceContext} from "./editorHost";
+import {imageForView, resourceContext,displaySessionFor} from "./editorHost";
 import {EditableCodeWidget, unwrapCodeContainer} from "./codeEditing";
 import {LiteralWidget, decodeEntity, literalClipboardText} from "./literalEditing";
 import {scriptFormatting} from "./scriptFormatting";
@@ -14,7 +29,7 @@ import {EmojiWidget} from "./emojiEditing";
 import {inlineHtmlFormatting} from "./inlineHtml";
 import {simpleBreakTag, trailingLiveBreak, InlineBreakWidget, deleteLiveBreak, insertLiveBreak} from "./liveBreaks";
 import { liveLinks } from "./liveLinks";
-import { createMetadataPanel, disposeMetadataPanel } from "./metadata";
+import { createMetadataPanel, disposeMetadataPanel,bindMetadataEditingLeave } from "./metadata";
 
 import {observeSurfaceAppearance} from "./appearance";
 import {inlineMathAt} from "./mathSyntax";
@@ -22,7 +37,7 @@ import {action, copySource, objectActions, imagePlaceholder, openPanel, openObje
 import {renderMarkdown} from "./markdown";
 import { makeHorizontalScrollRegion } from "./localScroll";
 import { syntaxTree } from "@codemirror/language";
-import { EditorSelection, Prec, Range, StateEffect, StateField } from "@codemirror/state";
+import { EditorSelection, Prec, Range, StateEffect, StateField, type EditorState } from "@codemirror/state";
 import { Decoration, DecorationSet, Direction, EditorView, keymap, ViewPlugin, ViewUpdate, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import emojiMap from "markdown-it-emoji/lib/data/full.mjs";
@@ -42,7 +57,7 @@ import {
   renderMathInto,
   sanitizeRenderedHtml,
 } from "./renderKit";
-import {EditableTableWidget} from "./tableWidget";
+import {EditableTableWidget,commitTableDrafts,tableSourceState,tableWidgetIsComposing} from "./tableWidget";
 import type { SourceRange } from "./sourcePatch";
 import { calloutRanges } from "./calloutEditing";
 import { resolveCallout, applyCalloutAppearance } from "./callouts";
@@ -97,16 +112,18 @@ class BlockWidget extends WidgetType {
     });
     wrapper.classList.add("md-object-block");
     wrapper.append(blockToolbar, canvas);
+    const objectRange=objectAt(view.state,Math.min(view.state.doc.length,this.from+1))??{from:this.from,to:this.from+this.source.length};
+    const stopScroll=bindContentScroll(canvas,displaySessionFor(view),this.kind==='math'?'math':'diagram',objectRange);
 
     if (this.kind === "math") {
       bindEngines(canvas, view.state.facet(resourceContext).engines);
-      renderMathInto(canvas, { kind: "math", source: this.source, display: "block" });
+      renderMathInto(canvas, { kind: "math", source: this.source, display: "block" });widgetCleanup.set(wrapper,stopScroll);
     } else {
       const model = {kind: "diagram" as const, engine: this.kind, source: this.source};
       bindEngines(canvas, view.state.facet(resourceContext).engines);
       const update = () => {void renderDiagram(model, canvas, () => view.dom.contains(wrapper));};
       update();
-      widgetCleanup.set(wrapper, observeSurfaceAppearance(view.dom.closest<HTMLElement>(".tegg-surface") ?? view.dom, update));
+      const stopAppearance=observeSurfaceAppearance(view.dom.closest<HTMLElement>(".tegg-surface") ?? view.dom, update);widgetCleanup.set(wrapper,()=>{stopScroll();stopAppearance();});
     }
     return wrapper;
   }
@@ -261,9 +278,11 @@ class TextWidget extends WidgetType {
 }
 
 class HtmlPreviewWidget extends WidgetType {
+  private directHandle?:ReturnType<typeof attachHtmlDirectEditing>;
   constructor(readonly source: string, readonly from: number, readonly block: boolean) { super(); }
   eq(other: HtmlPreviewWidget) {
-    return other.source === this.source && other.from === this.from && other.block === this.block;
+    if(other.from!==this.from||other.block!==this.block)return false;
+    if(other.source===this.source||this.source===other.directHandle?.source||other.source===this.directHandle?.source){const handle=this.directHandle??other.directHandle;this.directHandle=handle;other.directHandle=handle;return true;}return false;
   }
   toDOM(view: EditorView) {
     const renderedSource = this.block ? this.source : parserFor(view.state.facet(resourceContext).profile).renderInline(this.source);
@@ -275,13 +294,28 @@ class HtmlPreviewWidget extends WidgetType {
     wrapper.classList.add(this.block ? "cm-live-html-block" : "cm-live-html-inline");
     if(this.block)wrapper.dataset.teggBlockFrom=String(this.from);
     wrapper.tabIndex = 0;
-    wrapper.addEventListener("click", event => {
-      if ((event.target as Element).closest("summary")) return;
-      editSource(view, this.from);
-    });
-    wrapper.addEventListener("keydown", (event) => {
-      if (event.target === wrapper && (event.key === "Enter" || event.key === " ")) editSource(view, this.from);
-    });
+    const tableCleanup=attachHtmlTableEditing(wrapper,view,this.from,this.source);
+    if(tableCleanup){
+      const stopScroll=bindContentScroll(wrapper,displaySessionFor(view),'table',{from:this.from,to:this.from+this.source.length});
+      let disposed=false,stopRefresh=()=>{};
+      const cleanup=()=>{if(disposed)return;disposed=true;stopRefresh();tableCleanup();stopScroll();};
+      widgetCleanup.set(wrapper,cleanup);
+      stopRefresh=bindHtmlTableProjectionRefresh(wrapper,view,()=>{
+        if(disposed||widgetCleanup.get(wrapper)!==cleanup||!wrapper.isConnected||wrapper.closest('.cm-editor')!==view.dom||view.composing||view.compositionStarted||htmlTableWidgetIsComposing(view)||tableWidgetIsComposing(view)||htmlDirectEditingIsComposing(view))return false;
+        // Reuse the normal current-state projection. Never derive a new range
+        // from this widget's old source, or restore an old cell over new content.
+        view.dispatch({effects:refreshDisplay.of(null)});
+        return disposed;
+      });
+      return wrapper;
+    }
+    // CodeMirror makes the returned widget root read-only; its editing host is a child.
+    const directRoot=document.createElement(this.block?'div':'span');directRoot.append(...Array.from(wrapper.childNodes));wrapper.append(directRoot);
+    const directHandle=attachHtmlDirectEditing(directRoot,view,this.from,this.source);
+    if(directHandle){this.directHandle=directHandle;widgetCleanup.set(wrapper,()=>directHandle.dispose());return wrapper;}
+    directRoot.replaceWith(...Array.from(directRoot.childNodes));
+    if(!view.state.readOnly){const notice=document.createElement('div');notice.className='md-html-readonly-notice';setUIText(notice,'This HTML is preserved. Use Edit Source for unsupported structure.');const explicit=action('Edit Source',()=>editSource(view,this.from));wrapper.append(notice,explicit);}
+
     return wrapper;
   }
   destroy(dom: HTMLElement) { widgetCleanup.get(dom)?.(); disposeInteractions(dom); }
@@ -289,15 +323,19 @@ class HtmlPreviewWidget extends WidgetType {
 }
 
 class FootnoteWidget extends WidgetType {
-  constructor(readonly number: number, readonly definition: LinkDefinition) {super();}
+  constructor(readonly number: number, readonly definition: LinkDefinition,readonly referenceFrom:number) {super();}
   eq(other: FootnoteWidget) {return this.number === other.number && this.definition.value === other.definition.value && this.definition.from === other.definition.from;}
   toDOM(view: EditorView) {
-    const button = action(`[${this.number}]`, () => {
-      const panel = openPanel(button, `Footnote ${this.number}`);
-      panel.body.classList.add("md-note-content");
-      void renderMarkdown(this.definition.value, panel.body, {...view.state.facet(resourceContext), onOpenLink: href => view.dom.dispatchEvent(new CustomEvent("tegg-open-link", {detail:href,bubbles:true}))});
-      panel.head.append(action("Edit Source", () => {panel.close(false); editSource(view, this.definition.from);}));
-    });
+    let active:ReturnType<typeof openPanel>|undefined;let timer:ReturnType<typeof setTimeout>|undefined;
+    const show=(focus=true)=>{if(active)return;clearTimeout(timer);rememberFootnoteReference(view,this.definition.label,this.referenceFrom);
+      const panel=active=openPanel(button,`Footnote ${this.number}`,false,focus);panel.body.classList.add('md-note-content');
+      panel.signal.addEventListener('abort',()=>{active=undefined;clearTimeout(timer);});
+      void renderMarkdown(this.definition.value,panel.body,{...view.state.facet(resourceContext),onOpenLink:href=>view.dom.dispatchEvent(new CustomEvent('tegg-open-link',{detail:href,bubbles:true}))});
+      if(!view.state.readOnly)panel.head.append(action('Edit Footnote',()=>{panel.close(false);focusFootnote(view,this.definition.label);}));
+      panel.dialog.addEventListener('mouseenter',()=>clearTimeout(timer));panel.dialog.addEventListener('mouseleave',()=>{timer=setTimeout(()=>panel.close(false),150);});
+    };
+    const button=action(String(this.number),()=>show());button.addEventListener('mouseenter',()=>show(false));button.addEventListener('mouseleave',()=>{if(active)timer=setTimeout(()=>active?.close(false),150);});
+    button.dataset.footnoteReferenceFrom=String(this.referenceFrom);
     button.className = `cm-live-footnote-ref ${renderClassNames.footnoteRef}`;
     setUILabel(button, "Footnote {value}", {value: String(this.number)}); button.setAttribute("aria-haspopup", "dialog");
     button.addEventListener("mousedown", event => {event.preventDefault(); event.stopPropagation();});
@@ -305,6 +343,13 @@ class FootnoteWidget extends WidgetType {
   }
   destroy(dom: HTMLElement) {disposeInteractions(dom);}
   ignoreEvent() {return true;}
+}
+
+class MissingFootnoteWidget extends WidgetType {
+  constructor(readonly label:string,readonly from:number){super();}
+  eq(other:WidgetType){return other instanceof MissingFootnoteWidget&&other.label===this.label&&other.from===this.from;}
+  toDOM(view:EditorView){const button=action('?',()=>{if(view.state.readOnly)return;rememberFootnoteReference(view,this.label,this.from);view.dispatch({effects:requestMissingFootnote.of(this.label)});queueMicrotask(()=>focusFootnote(view,this.label));});button.className='cm-live-footnote-ref md-render-footnote-ref is-missing';button.dataset.footnoteReferenceFrom=String(this.from);setUILabel(button,'Undefined footnote: {label}',{label:this.label});return button;}
+  ignoreEvent(){return true;}
 }
 
 class ReferenceDefinitionWidget extends WidgetType {
@@ -341,22 +386,28 @@ class ReferenceDefinitionWidget extends WidgetType {
   ignoreEvent() { return true; }
 }
 
+const imageSelectionIntents=new WeakMap<EditorView,{from:number;doc:EditorView['state']['doc'];context:unknown}>();
 class ImageWidget extends WidgetType {
   constructor(
     readonly src: string,
     readonly alt: string,
     readonly title: string | undefined,
     readonly from: number,
+    readonly standalone = false,
+    readonly to?: number,
+    readonly imageFrom = from,
+    readonly linkTarget?:string,
   ) { super(); }
 
   eq(other: ImageWidget) {
-    return other.src === this.src && other.alt === this.alt && other.title === this.title && other.from === this.from;
+    return other.src === this.src && other.alt === this.alt && other.title === this.title && other.from === this.from && other.standalone===this.standalone && other.to===this.to && other.imageFrom===this.imageFrom && other.linkTarget===this.linkTarget;
   }
 
   toDOM(view: EditorView) {
     const figure = document.createElement("figure");
     figure.className = `cm-live-image ${renderClassNames.image}`;
     figure.dataset.teggBlockFrom=String(this.from);
+    if(this.standalone)figure.dataset.imageStandalone="true";
     figure.tabIndex = 0;
     figure.setAttribute("aria-label", this.alt || "Markdown image");
     if (this.title) figure.title = this.title;
@@ -367,7 +418,7 @@ class ImageWidget extends WidgetType {
     image.loading = "lazy";
     image.draggable = false;
 
-    const fallback = imagePlaceholder(this.alt || this.src,!this.src);
+    const fallback = imagePlaceholder(this.alt || "",!this.src);
     fallback.classList.add("cm-live-image-fallback");
     fallback.hidden = !!this.src;
     image.hidden = !this.src;
@@ -377,19 +428,31 @@ class ImageWidget extends WidgetType {
     });
 
     const edit = () => {
-      view.dispatch({ selection: { anchor: this.from + 2 }, scrollIntoView: true });
-      view.focus();
+      const object=semanticObjectBoundaries(view).find(item=>item.from===this.from),to=object?.to??this.to;if(to===undefined||view.composing)return;
+      imageSelectionIntents.set(view,{from:this.from,doc:view.state.doc,context:view.state.facet(resourceContext)});
+      view.dispatch({ selection: { anchor: this.from,head:to }, scrollIntoView: true,userEvent:"select" });
+      selection.select();view.focus();
     };
-    figure.addEventListener("click", edit);
+    figure.addEventListener("click",event=>{if(event.target instanceof Element&&event.target.closest("a"))return;edit();});
     figure.addEventListener("keydown", (event) => {
       if (event.target===figure && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
         edit();
       }
     });
-    const controls=objectActions({edit:view.state.readOnly?undefined:()=>editObject(view,this.from,"image"),editLabel:"Edit image"});
+    const controls=objectActions({edit:view.state.readOnly?undefined:()=>editObject(view,this.imageFrom,"image"),editLabel:"Edit image",...(this.standalone&&!this.linkTarget?{view:()=>openObjectViewer(controls.querySelector<HTMLElement>('[data-tegg-ui-label="View image"]')!,image,"","Image"),viewLabel:"View image"}: {})});
+    const selection=bindImageSelection(figure,{image,enabled:()=>!controls.hidden,selectOnImageClick:false});
+    const clearIntent=(event:Event)=>{if(event.type==="blur"||event.target instanceof Node&&!figure.contains(event.target))imageSelectionIntents.delete(view);};document.addEventListener("pointerdown",clearIntent,true);window.addEventListener("blur",clearIntent);
+    const stopSelection=()=>{selection.dispose();document.removeEventListener("pointerdown",clearIntent,true);window.removeEventListener("blur",clearIntent);};
+    const viewer=controls.querySelector<HTMLButtonElement>('[data-tegg-ui-label="View image"]');
+    const ready=()=>{if(imageGeometryUnavailable(image)){image.hidden=true;fallback.hidden=false;}else if(image.complete&&image.naturalWidth){image.hidden=false;fallback.hidden=true;}if(!viewer)return;viewer.disabled=!image.naturalWidth||!image.naturalHeight||image.hidden;controls.hidden=false;const bounds=image.getBoundingClientRect(),width=controls.offsetWidth,height=controls.offsetHeight;controls.hidden=viewer.disabled||bounds.width<width+16||bounds.height<height+16;const intent=imageSelectionIntents.get(view);if(!controls.hidden&&intent?.from===this.from&&intent.doc===view.state.doc&&intent.context===view.state.facet(resourceContext))selection.select();};image.addEventListener("load",ready);image.addEventListener("error",ready);
+    const observer=viewer&&typeof ResizeObserver!=="undefined"?new ResizeObserver(ready):undefined;
+    observer?.observe(image);observer?.observe(figure);observer?.observe(controls);
+    if(viewer)requestAnimationFrame(ready);
     figure.classList.add("md-object-block");
-    figure.append(controls,image,fallback);
+    if(this.linkTarget){const link=document.createElement("a");link.href=this.linkTarget;link.append(image);figure.append(controls,link,fallback);enhanceRenderedLinks(figure,href=>view.dom.dispatchEvent(new CustomEvent("tegg-open-link",{detail:href,bubbles:true,cancelable:true})),view.dom);}else figure.append(controls,image,fallback);
+    const stopGeometry=bindAuthoredImageGeometry(image,view.dom,ready);
+    widgetCleanup.set(figure,()=>{stopGeometry();stopSelection();observer?.disconnect();image.removeEventListener("load",ready);image.removeEventListener("error",ready);});
     return figure;
   }
 
@@ -405,9 +468,10 @@ class TaskWidget extends WidgetType {
     readonly source: string,
     readonly aligned = false,
     readonly editable = true,
+    readonly number = "",
   ) { super(); }
   eq(other: TaskWidget) {
-    return other.checked === this.checked && other.from === this.from && other.source === this.source && other.aligned === this.aligned && other.editable === this.editable;
+    return other.checked === this.checked && other.from === this.from && other.source === this.source && other.aligned === this.aligned && other.editable === this.editable && other.number===this.number;
   }
 
   toDOM(view: EditorView) {
@@ -435,6 +499,7 @@ class TaskWidget extends WidgetType {
     if (!this.aligned) return input;
     const marker = document.createElement("span");
     marker.className = "cm-live-list-marker cm-live-task-marker";
+    if(this.number){const number=document.createElement("span");number.className="cm-live-list-number";number.textContent=this.number;marker.dataset.orderedTask="true";marker.append(number);}
     marker.append(input);
     return marker;
   }
@@ -484,6 +549,9 @@ class HorizontalRuleWidget extends WidgetType {
 }
 
 const setMetadataSource = StateEffect.define<SourceRange | null>();
+const requestMissingFootnote=StateEffect.define<string>();
+const missingFootnoteState=StateField.define<readonly string[]>({create:()=>[],update(value,tr){for(const effect of tr.effects)if(effect.is(requestMissingFootnote)&&!value.includes(effect.value))value=[...value,effect.value];return value;}});
+const refreshDisplay=StateEffect.define<null>();
 const setCalloutSource = StateEffect.define<number | null>();
 const calloutSourceState = StateField.define<number | null>({
   create: () => null,
@@ -549,14 +617,14 @@ class FrontmatterWidget extends WidgetType {
       });
     }, {
       expanded: metadataExpansion.get(view),
-      onExpandedChange: expanded => metadataExpansion.set(view, expanded),
+      onExpandedChange: expanded => {metadataExpansion.set(view, expanded);view.dispatch({effects:refreshDisplay.of(null)});},
       onChange: patch => {
         if (view.state.sliceDoc(this.from, this.to) !== this.source) return false;
         const prefix = this.source.startsWith("---\r\n") ? 5 : 4;
         const activePath = panel.querySelector<HTMLElement>(".md-metadata-value-display[hidden] .md-metadata-value-edit")?.dataset.metadataPath;
         dispatchSourcePatches(view, [{ ...patch, from: this.from + prefix + patch.from, to: this.from + prefix + patch.to }], { isolateHistory: true });
         requestAnimationFrame(() => {
-          if (panel.dataset.metadataTransition === "source") return;
+          if (panel.dataset.metadataTransition) return;
           const button = Array.from(view.dom.querySelectorAll<HTMLElement>(".md-metadata-value-edit")).find(node => node.dataset.metadataPath === activePath);
           (button?.hidden ? button.closest<HTMLElement>("dd") : button)?.focus();
         });
@@ -564,6 +632,7 @@ class FrontmatterWidget extends WidgetType {
       },
     });
     panel.classList.add("cm-live-properties");
+    bindMetadataEditingLeave(panel,view);
     panel.addEventListener("keydown", event => {
       const target = event.target as HTMLElement;
       if (event.isComposing || event.keyCode === 229 || target.closest("input, textarea, select")) return;
@@ -588,8 +657,8 @@ class FrontmatterWidget extends WidgetType {
 }
 
 class CalloutHeaderWidget extends WidgetType {
-  constructor(readonly from: number, readonly type: string, readonly title: string, readonly titleFrom: number) { super(); }
-  eq(other: CalloutHeaderWidget) { return this.from === other.from && this.type === other.type && this.title === other.title && this.titleFrom === other.titleFrom; }
+  constructor(readonly from: number, readonly type: string, readonly title: string, readonly titleFrom: number, readonly to: number, readonly expanded: boolean) { super(); }
+  eq(other: CalloutHeaderWidget) { return this.from === other.from && this.type === other.type && this.title === other.title && this.titleFrom === other.titleFrom && this.to === other.to && this.expanded === other.expanded; }
   toDOM(view: EditorView) {
     const header = document.createElement("span");
     header.className = "callout-editor-header";
@@ -600,23 +669,22 @@ class CalloutHeaderWidget extends WidgetType {
       title.className = "callout-title";
       title.textContent = this.type.toUpperCase();
       if (!view.state.readOnly) title.addEventListener("click", () => {
-        view.dispatch({changes: {from: this.titleFrom, insert: " "}, selection: {anchor: this.titleFrom + 1}, userEvent: "input"});
+        view.dispatch({selection: {anchor: this.titleFrom}});
         view.focus();
       });
       header.append(title);
     }
-    const source = document.createElement("button");
-    source.type = "button";
-    source.textContent = "⋯";
-    setUILabel(source, "View Callout Markdown");
-    source.title = "View Callout Markdown";
-    source.addEventListener("click", event => {
-      event.stopPropagation();
-      view.dispatch({effects: setCalloutSource.of(this.from), selection: {anchor: this.titleFrom}, scrollIntoView: true});
-      view.focus();
-    });
-    source.classList.add("callout-source-action");
-    header.append(source);
+    const session=displaySessionFor(view);
+    let expanded=this.expanded;
+    const fold=document.createElement('button');fold.type='button';fold.className='callout-fold';
+    fold.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    fold.setAttribute('aria-expanded',String(expanded));setUILabel(fold,expanded?'Collapse Callout':'Expand Callout');header.dataset.calloutExpanded=String(expanded);
+    fold.addEventListener('click',event=>{
+      event.stopPropagation();if(view.composing||!commitTableDrafts(view)||!commitHtmlTableDrafts(view))return;
+      const request=new CustomEvent('tegg-container-collapse-request',{bubbles:true,cancelable:true});if(expanded&&!view.dom.dispatchEvent(request))return;
+      expanded=!expanded;session.setExpanded('callout',this.from,this.to,expanded);fold.setAttribute('aria-expanded',String(expanded));setUILabel(fold,expanded?'Collapse Callout':'Expand Callout');header.dataset.calloutExpanded=String(expanded);
+      view.dispatch({effects:refreshDisplay.of(null)});
+    });if(this.titleFrom<this.to)header.append(fold);
     return header;
   }
   destroy(dom: HTMLElement) { widgetCleanup.get(dom)?.(); disposeInteractions(dom); }
@@ -637,6 +705,56 @@ class CalloutSourceToolbar extends WidgetType {
 }
 
 class TableWidget extends EditableTableWidget {}
+
+// Multiline replacements affect the editor's line layout and therefore belong
+// to a state field, never to a ViewPlugin's post-layout decoration callback.
+const commentActivity=StateEffect.define<{focused:boolean;composing:boolean}>();
+function multilineCommentDecorations(state:EditorState,focused:boolean,composing:boolean):DecorationSet {
+  if(composing||editingPerformancePolicy(state.doc.length).sourcePreview)return Decoration.none;
+  const source=state.doc.toString();if(!source.includes('<!--'))return Decoration.none;
+  const excluded:SourceRange[]=[],ranges:Range<Decoration>[]=[];
+  syntaxTree(state).iterate({enter(node){if(['FencedCode','CodeBlock','InlineCode'].includes(node.name)){excluded.push({from:node.from,to:node.to});return false;}}});
+  for(const match of source.matchAll(/<!--[\s\S]*?-->/g)){
+    if(!match[0].includes('\n'))continue;
+    const from=match.index??0,to=from+match[0].length;
+    if(isInside({from,to},excluded)||focused&&state.selection.ranges.some(selection=>selection.empty?selection.from>=from&&selection.from<to:selection.from<to&&selection.to>from))continue;
+    ranges.push(Decoration.replace({}).range(from,to));
+  }
+  return Decoration.set(ranges,true);
+}
+const multilineComments=StateField.define<{decorations:DecorationSet;focused:boolean;composing:boolean;tree:ReturnType<typeof syntaxTree>}>({
+  create:state=>({decorations:multilineCommentDecorations(state,false,false),focused:false,composing:false,tree:syntaxTree(state)}),
+  update(value,transaction){
+    let {focused,composing}=value,changed=false;
+    for(const effect of transaction.effects)if(effect.is(commentActivity)){({focused,composing}=effect.value);changed=true;}
+    const tree=syntaxTree(transaction.state);
+    if(transaction.docChanged||transaction.selection||changed||tree!==value.tree)return {focused,composing,tree,decorations:multilineCommentDecorations(transaction.state,focused,composing)};
+    return value;
+  },
+  provide:field=>EditorView.decorations.from(field,value=>value.decorations),
+});
+const commentCompositionEpoch=new WeakMap<EditorView,number>();
+const multilineCommentActivity=[
+  EditorView.focusChangeEffect.of((state,focused)=>commentActivity.of({focused,composing:state.field(multilineComments,false)?.composing??false})),
+  EditorView.domEventHandlers({
+    compositionstart:(_event,view)=>{
+      commentCompositionEpoch.set(view,(commentCompositionEpoch.get(view)??0)+1);
+      if(view.state.doc.toString().includes('<!--'))view.dispatch({effects:commentActivity.of({focused:view.hasFocus,composing:true})});
+      return false;
+    },
+    compositionend:(_event,view)=>{
+      const epoch=(commentCompositionEpoch.get(view)??0)+1;commentCompositionEpoch.set(view,epoch);
+      // CodeMirror schedules its pending DOM read before custom compositionend
+      // handlers. Redraw only after that read, so the final composed characters
+      // cannot be replaced by a decoration-only update of the older document.
+      queueMicrotask(()=>{
+        if(commentCompositionEpoch.get(view)!==epoch||!view.dom.isConnected||view.composing)return;
+        if(view.state.field(multilineComments,false)?.composing)view.dispatch({effects:commentActivity.of({focused:view.hasFocus,composing:false})});
+      });
+      return false;
+    },
+  }),
+];
 
 function isRangeActive(view: EditorView, from: number, to: number) {
   if (!view.hasFocus) return false;
@@ -708,7 +826,7 @@ function addBlockLineDecorations(
   const last = to <= line.to + 1 ? first : view.state.doc.lineAt(Math.max(from, to - 1)).number;
   while (line.number <= last) {
     const edges = `${line.number === first ? ` ${edgeClassName}-first` : ""}${line.number === last ? ` ${edgeClassName}-last` : ""}`;
-    ranges.push(Decoration.line({class: className + edges}).range(line.from));
+    ranges.push(Decoration.line({class: className + edges,attributes:{"data-block-role":edgeClassName.replace("cm-live-",""),"data-source-from":String(from),"data-source-to":String(to),"data-block-edge":first===last?"both":line.number===first?"first":line.number===last?"last":"middle"}}).range(line.from));
     if (line.number === last) break;
     line = view.state.doc.line(line.number + 1);
   }
@@ -766,7 +884,8 @@ function parseLinkedImage(raw: string) {
   if (outerDestination < 2) return null;
   const image = parseInlineImage(raw.slice(1, outerDestination));
   const destination = raw.slice(outerDestination).match(/^\]\(\s*(?:<[^>]+>|[^\s)]+)(?:\s+["'][^"']*["'])?\s*\)$/);
-  return image && destination ? image : null;
+  const target=destination?parserFor().parseInline(raw,{})[0]?.children?.find(token=>token.type==="link_open")?.attrGet("href"):undefined;
+  return image && destination && target ? {...image,target} : null;
 }
 
 function collectHtmlRanges(view: EditorView, inlineParagraphs: Set<number>) {
@@ -776,11 +895,13 @@ function collectHtmlRanges(view: EditorView, inlineParagraphs: Set<number>) {
   syntaxTree(view.state).iterate({
     enter(node) {
       if (node.name === "HTMLBlock") {
-        result.push({ from: node.from, to: node.to, block: true });
+        const closing=htmlLiteralContainerEnd(source,node.from),last=closing===null?null:view.state.doc.lineAt(closing),to=closing!==null&&closing>node.to&&last&&!source.slice(closing,last.to).trim()?last.to:node.to;
+        if(result.some(range=>node.from>=range.from&&node.from<range.to))return false;
+        result.push({ from: node.from, to, block: true });
         return false;
       }
       if (node.name === "Paragraph") {
-        if (inlineParagraphs.has(node.from)) return false;
+        if (inlineParagraphs.has(node.from)||result.some(range=>node.from>=range.from&&node.from<range.to)) return false;
         const raw = source.slice(node.from, node.to);
         if (markdownParser.parseInline(raw, {})[0]?.children?.some(token => token.type === "html_inline" && !simpleBreakTag.test(token.content))) {
           result.push({ from: node.from, to: node.to, block: false });
@@ -792,9 +913,32 @@ function collectHtmlRanges(view: EditorView, inlineParagraphs: Set<number>) {
   return result;
 }
 
+// A table owns all HTML descendants, including details across source blank
+// lines. Its complete slice must reach the table widget before nested objects.
+function collectTableRanges(view: EditorView, codeRanges: SourceRange[]) {
+  const complete: SourceRange[] = [], unsupported: SourceRange[] = [], stack: number[] = [];
+  const source = view.state.doc.toString();
+  for (let number = 1; number <= view.state.doc.lines; number++) {
+    const line = view.state.doc.line(number);
+    for (const match of line.text.matchAll(/<\/?table\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi)) {
+      const from = line.from + match.index!, to = from + match[0].length;
+      if (isInside({from, to}, codeRanges) || source.lastIndexOf("<!--", from) > source.lastIndexOf("-->", from)) continue;
+      if (match[0][1] !== "/") {
+        if (!stack.length && line.text.slice(0, match.index).trim()) continue;
+        stack.push(line.from);
+      } else if (stack.length) {
+        const start = stack.pop()!;
+        if (!stack.length) (line.text.slice(match.index! + match[0].length).trim() ? unsupported : complete).push({from:start, to:line.to});
+      }
+    }
+  }
+  if (stack.length) unsupported.push({from:stack[0], to:source.length});
+  return {complete, unsupported};
+}
+
 // Lezer splits an HTML block at blank lines. A complete details element must
 // be rendered from one source slice so the browser keeps its body inside it.
-function collectDetailsRanges(view: EditorView, codeRanges: SourceRange[]) {
+function collectDetailsRanges(view: EditorView, codeRanges: SourceRange[], parents: SourceRange[] = []) {
   const complete: SourceRange[] = [];
   const unsupported: SourceRange[] = [];
   const stack: number[] = [];
@@ -804,7 +948,7 @@ function collectDetailsRanges(view: EditorView, codeRanges: SourceRange[]) {
     for (const match of line.text.matchAll(/<\/?details\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi)) {
       const from = line.from + match.index!;
       const to = from + match[0].length;
-      if (isInside({from, to}, codeRanges) || source.lastIndexOf("<!--", from) > source.lastIndexOf("-->", from)) continue;
+      if (isInside({from, to}, codeRanges) || isInside({from, to}, parents) || source.lastIndexOf("<!--", from) > source.lastIndexOf("-->", from)) continue;
       if (match[0][1] !== "/") {
         // A block opener may have attributes or other HTML on its line, but
         // prose containing the same text is ordinary editable Markdown.
@@ -818,7 +962,7 @@ function collectDetailsRanges(view: EditorView, codeRanges: SourceRange[]) {
           const trailing = line.text.slice(match.index! + match[0].length);
           (trailing.trim() ? unsupported : complete).push({from: start, to: line.to});
         }
-      } else unsupported.push({from: line.from, to: line.to});
+      } else if (!line.text.slice(0, match.index).trim()) unsupported.push({from: line.from, to: line.to});
     }
   }
   if (stack.length) unsupported.push({from: stack[0], to: source.length});
@@ -881,6 +1025,12 @@ function buildDecorations(view: EditorView): DecorationSet {
   const headingFollowers: SourceRange[] = [];
   const codeRanges = syntaxRanges(view, new Set(["FencedCode", "CodeBlock", "InlineCode"]));
   const inlineExcluded = syntaxRanges(view, new Set(["InlineCode", "URL", "LinkTitle", "HTMLTag", "Escape"]));
+  const definitions = findLinkDefinitions(source, codeRanges).filter(item => profile !== "gfm" || !item.footnote);
+  const footnotes=footnoteDocument(source,[...codeRanges,...inlineExcluded]);const numbers=new Map(footnotes.definitions.filter(note=>note.number!==undefined).map(note=>[note.label,note.number!]));
+  // Definitions have one semantic projection. Exclude their original source
+  // before collecting HTML/comments so a rich footnote body is not rendered
+  // once in the main document and again in its actual child editor.
+  suppressed.push(...definitions);
 
   // Lezer treats a lone nested '-' after a paragraph as an empty list;
   // CommonMark/Reader treats it as a Setext underline. Do not project a false
@@ -933,34 +1083,35 @@ function buildDecorations(view: EditorView): DecorationSet {
     if (isInside(range, codeRanges)) continue;
     suppressed.push(range);
     if (isRangeActive(view, range.from, range.to)) continue;
-    const line = view.state.doc.lineAt(range.from);
-    if (source.slice(line.from, line.to).trim() === match[0].trim()) {
-      ranges.push(Decoration.line({ class: "cm-live-collapsed-source" }).range(line.from));
-      ranges.push(Decoration.replace({}).range(range.from, range.to));
-    } else {
-      ranges.push(Decoration.replace({}).range(range.from, range.to));
-    }
-  }
-
-  const details = collectDetailsRanges(view, codeRanges);
-  for (const container of details.complete) {
-    suppressed.push(container);
-    if (isRangeActive(view, container.from, container.to)) {
-      addLineDecoration(view, ranges, container.from, container.to, "cm-live-technical-source");
-    } else {
-      collapseMultilineSource(view, ranges, container.from, container.to,
-        new HtmlPreviewWidget(source.slice(container.from, container.to), container.from, true));
+    // A ViewPlugin may hide text on each source line, but cannot replace a
+    // line break. Preserve both neighbouring prose and all original separators.
+    const first=view.state.doc.lineAt(range.from).number,last=view.state.doc.lineAt(Math.max(range.from,range.to-1)).number;
+    for(let number=first;number<=last;number++){
+      const line=view.state.doc.line(number),from=Math.max(line.from,range.from),to=Math.min(line.to,range.to);
+      if(!source.slice(line.from,from).trim()&&!source.slice(to,line.to).trim())ranges.push(Decoration.line({class:'cm-live-collapsed-source'}).range(line.from));
+      if(to>from&&!match[0].includes("\n"))ranges.push(Decoration.replace({}).range(from,to));
     }
   }
 
   const inlineHtml = inlineHtmlFormatting(view.state);
-  for (const html of collectHtmlRanges(view, inlineHtml.paragraphs)) {
+  const htmlRanges = collectHtmlRanges(view, inlineHtml.paragraphs);
+  const tables = collectTableRanges(view, codeRanges);
+  const htmlParents = htmlRanges.filter(range => range.block && /^\s*<[a-z][\w:-]*(?:\s|>)/i.test(source.slice(range.from, range.to)) && !/^\s*<details(?:\s|>)/i.test(source.slice(range.from, range.to)));
+  const details = collectDetailsRanges(view, codeRanges, [...htmlParents, ...tables.complete, ...tables.unsupported]);
+  for (const container of [...tables.complete, ...details.complete]) {
+    suppressed.push(container);
+    // Controlled objects keep their natural projection while the outer caret
+    // or selection touches them. Source editing has an explicit entry point.
+    collapseMultilineSource(view, ranges, container.from, container.to,
+      new HtmlPreviewWidget(source.slice(container.from, container.to), container.from, true));
+  }
+
+  for (const html of htmlRanges) {
     if (isInside(html, codeRanges) || isInside(html, suppressed)
-      || [...details.complete, ...details.unsupported].some(item => html.from < item.to && html.to > item.from)) continue;
+      || [...tables.complete, ...tables.unsupported, ...details.complete, ...details.unsupported].some(item => html.from < item.to && html.to > item.from)) continue;
     suppressed.push(html);
-    if (isRangeActive(view, html.from, html.to)) {
-      addLineDecoration(view, ranges, html.from, html.to, "cm-live-technical-source");
-    } else if (html.block || view.state.doc.lineAt(html.from).number !== view.state.doc.lineAt(Math.max(html.from, html.to - 1)).number) {
+    if(/^\s*<p>\s*<br\s*\/?\s*>\s*<\/p>\s*$/i.test(source.slice(html.from,html.to))&&view.state.doc.lineAt(html.from).number===view.state.doc.lineAt(Math.max(html.from,html.to-1)).number){ranges.push(Decoration.line({class:"cm-live-paragraph md-render-paragraph",attributes:{"data-block-role":"paragraph","data-block-edge":"both","data-explicit-empty":"true","data-source-from":String(html.from),"data-source-to":String(html.to)}}).range(view.state.doc.lineAt(html.from).from));ranges.push(Decoration.replace({}).range(html.from,html.to));continue;}
+    if (html.block || view.state.doc.lineAt(html.from).number !== view.state.doc.lineAt(Math.max(html.from, html.to - 1)).number) {
       // View-plugin replacements must stay within one source line. Render a
       // multiline paragraph on its closing line, as with other multiline previews.
       collapseMultilineSource(view, ranges, html.from, html.to, new HtmlPreviewWidget(source.slice(html.from, html.to), html.from, html.block));
@@ -982,10 +1133,11 @@ function buildDecorations(view: EditorView): DecorationSet {
     ranges.push(Decoration.replace({inlineSyntax: true}).range(pair.contentTo, pair.to));
   }
 
-  const definitions = findLinkDefinitions(source, codeRanges).filter(item => profile !== "gfm" || !item.footnote);
-  const numbers = footnoteNumbers(source, definitions, codeRanges);
   for (const definition of definitions) {
-    suppressed.push(definition);
+    if(definition.footnote){
+      addLineDecoration(view,ranges,definition.from,definition.to,"cm-live-collapsed-source");
+      continue;
+    }
     if (isRangeActive(view, definition.from, definition.to)) {
       addLineDecoration(view, ranges, definition.from, definition.to, "cm-live-reference-source");
     } else {
@@ -995,6 +1147,10 @@ function buildDecorations(view: EditorView): DecorationSet {
     }
   }
 
+  const pending=view.state.field(missingFootnoteState);
+  const projected=[...footnotes.definitions,...footnotes.missing.map(note=>({key:note.label+':0',label:note.label,value:'',from:view.state.doc.length,to:view.state.doc.length,references:note.references,number:undefined,missing:true,draft:pending.includes(note.label)}))];
+  if(profile!=='gfm'&&projected.length)ranges.push(Decoration.widget({widget:new LiveFootnoteSection(projected,livePreview),side:1}).range(view.state.doc.length));
+
   for (const match of (profile === "gfm" ? [] : source.matchAll(/\[\^([^\]\n]+)\]/g))) {
     const from = match.index ?? 0;
     const range = { from, to: from + match[0].length };
@@ -1002,10 +1158,10 @@ function buildDecorations(view: EditorView): DecorationSet {
       || inlineExcluded.some(item => range.from < item.to && range.to > item.from)) continue;
     const number = numbers.get(match[1]);
     suppressed.push(range);
-    if (!number) continue;
-    if (!isRangeActive(view, range.from, range.to)) {
+    if (!number){ranges.push(Decoration.replace({widget:new MissingFootnoteWidget(match[1],from)}).range(range.from,range.to));continue;}
+    {
       ranges.push(Decoration.replace({
-        widget: new FootnoteWidget(number, definitions.find(definition => definition.footnote && definition.label === match[1])!),
+        widget: new FootnoteWidget(number, definitions.find(definition => definition.footnote && definition.label === match[1])!,from),
       }).range(range.from, range.to));
     }
   }
@@ -1031,11 +1187,14 @@ function buildDecorations(view: EditorView): DecorationSet {
         ranges.push(Decoration.widget({widget: new CalloutSourceToolbar(), side: -1}).range(child.headerFrom));
         continue;
       }
+      const expanded=displaySessionFor(view).expanded('callout',child.from,child.to,child.fold!=="-")??child.fold!=="-";
+      if(!expanded){const start=view.state.doc.lineAt(child.headerTo).number+1,end=view.state.doc.lineAt(child.to).number;for(let n=start;n<=end;n++)ranges.push(Decoration.line({attributes:{"data-callout-hidden":"true",style:"display:none"}}).range(view.state.doc.line(n).from));}
+      if(view.state.field(emptyCalloutBodyState)===child.from&&child.to===child.headerTo)ranges.push(Decoration.widget({widget:new EmptyCalloutBodyWidget(child.from,livePreview),side:1}).range(child.headerTo));
       const header = source.slice(child.headerFrom, child.headerTo);
       const marker = header.match(/^\[![A-Za-z][A-Za-z0-9_-]*\][+-]?[ \t]*/)?.[0] ?? "";
       const titleFrom = child.headerFrom + marker.length;
       suppressed.push({from: child.headerFrom, to: titleFrom});
-      ranges.push(Decoration.replace({widget: new CalloutHeaderWidget(child.from, child.type, child.title, child.headerTo)})
+      ranges.push(Decoration.replace({widget: new CalloutHeaderWidget(child.from, child.type, child.title, child.headerTo, child.to, expanded)})
         .range(child.headerFrom, child.title ? titleFrom : child.headerTo));
       if (child.title) {
         ranges.push(Decoration.mark({class: "cm-live-callout-title callout-title"})
@@ -1128,11 +1287,12 @@ function buildDecorations(view: EditorView): DecorationSet {
   const quoteRails = new Map<number, string[]>();
   const literalReferences = new Set<number>();
   // Cache each list's ordinal and marker width once; source numbering is preserved.
-  const listMarkers = new Map<number, {text: string; width: number; depth: number; offsets: number[]}>();
+  const listMarkers = new Map<number, {text: string; width: number; depth: number; offsets: number[];listId:string;loose:boolean;start:number;ordered:boolean;parentId:string;count:number;hasTasks:boolean;ancestors:{id:string;start:number;count:number;ordered:boolean;hasTasks:boolean}[]}>();
   syntaxTree(view.state).iterate({enter(node) {
     if (!["BulletList", "OrderedList"].includes(node.name)) return;
     const items = node.node.getChildren("ListItem");
     const start = Number(source.slice(items[0]?.getChild("ListMark")?.from ?? 0).match(/^\d+/)?.[0] ?? 1);
+    const loose=items.some((item,index)=>item.getChildren("Paragraph").length>1||index>0&&/\n[ \t>]*\n/.test(source.slice(items[index-1].to,item.from)));
     const width = node.name === "OrderedList" ? String(start + items.length - 1).length + 1 : 1;
     let depth = 0;
     for (let ancestor = node.node.parent; ancestor; ancestor = ancestor.parent) {
@@ -1142,13 +1302,15 @@ function buildDecorations(view: EditorView): DecorationSet {
     const parentMarker = parentItem?.getChild("ListMark");
     const parentLayout = parentMarker ? listMarkers.get(parentMarker.from) : undefined;
     const offsets = parentLayout ? [...parentLayout.offsets, parentLayout.width] : [];
-    const columnWidth = Math.max(width, items.some(item => item.getChild("Task")) ? 2 : 1);
+    const hasTasks=items.some(item=>item.getChild("Task")||item.getChild("Paragraph")?.getChild("Task"));
+    const columnWidth = Math.max(width,hasTasks?2:1);
+    const ancestors=parentLayout?[...parentLayout.ancestors,{id:parentLayout.listId,start:parentLayout.start,count:parentLayout.count,ordered:parentLayout.ordered,hasTasks:parentLayout.hasTasks}]:[];
     items.forEach((item, index) => {
       const mark = item.getChild("ListMark");
-      if (mark) listMarkers.set(mark.from, {text: node.name === "OrderedList" ? `${start + index}.` : "•", width: columnWidth, depth, offsets});
+      if (mark) listMarkers.set(mark.from, {text: node.name === "OrderedList" ? `${start + index}.` : "•", width: columnWidth, depth, offsets,listId:displaySessionFor(view).objectId("list",node.from,node.to),loose,start,ordered:node.name==="OrderedList",parentId:parentLayout?.listId??"",count:items.length,hasTasks,ancestors});
     });
   }});
-  const listLines = new Map<number, {width: number; depth: number; offsets: number[]; first: boolean}>();
+  const listLines = new Map<number, {width: number; depth: number; offsets: number[]; first: boolean;listId:string;loose:boolean;start:number;ordered:boolean;parentId:string;count:number;hasTasks:boolean;ancestors:{id:string;start:number;count:number;ordered:boolean;hasTasks:boolean}[]}>();
   const containingList = (node: SyntaxNode | null) => {
     for (let current = node; current; current = current.parent) {
       if (current.name === "ListItem") {
@@ -1245,11 +1407,12 @@ function buildDecorations(view: EditorView): DecorationSet {
         }
         if (!/^\[![A-Za-z]+\]/.test(raw)) {
           const linkedImage = parseLinkedImage(raw);
-          if (linkedImage && !active) {
+          if (linkedImage && (!active||view.state.selection.ranges.some(selection=>!selection.empty&&selection.from<=node.from&&selection.to>=node.to))) {
             suppressed.push(nodeRange);
             const resolvedSource = imageForView(view, linkedImage.src);
+            if(node.node.parent?.name==="Paragraph"&&!source.slice(node.node.parent.from,node.from).trim()&&!source.slice(node.to,node.node.parent.to).trim())ranges.push(Decoration.line({attributes:{"data-image-standalone":"true"}}).range(view.state.doc.lineAt(node.from).from));
             ranges.push(Decoration.replace({
-              widget: new ImageWidget(resolvedSource, linkedImage.alt, linkedImage.title, node.from),
+              widget: new ImageWidget(resolvedSource, linkedImage.alt, linkedImage.title, node.from,node.node.parent?.name==="Paragraph"&&!source.slice(node.node.parent.from,node.from).trim()&&!source.slice(node.to,node.node.parent.to).trim(),node.to,node.from+1,linkedImage.target),
             }).range(node.from, node.to));
             return false;
           }
@@ -1268,10 +1431,11 @@ function buildDecorations(view: EditorView): DecorationSet {
         ranges.push(Decoration.mark({ class: `cm-live-link ${renderClassNames.link}` }).range(node.from, node.to));
       } else if (name === "Image") {
         const image = parseInlineImage(raw);
-        if (image && !active) {
+        if (image && (!active||view.state.selection.ranges.some(selection=>!selection.empty&&selection.from<=node.from&&selection.to>=node.to))) {
           suppressed.push(nodeRange);
           const resolvedSource = imageForView(view, image.src);
-          ranges.push(Decoration.replace({ widget: new ImageWidget(resolvedSource, image.alt, image.title, node.from) }).range(node.from, node.to));
+          if(node.node.parent?.name==="Paragraph"&&!source.slice(node.node.parent.from,node.from).trim()&&!source.slice(node.to,node.node.parent.to).trim())ranges.push(Decoration.line({attributes:{"data-image-standalone":"true"}}).range(view.state.doc.lineAt(node.from).from));
+          ranges.push(Decoration.replace({ widget: new ImageWidget(resolvedSource, image.alt, image.title, node.from,node.node.parent?.name==="Paragraph"&&!source.slice(node.node.parent.from,node.from).trim()&&!source.slice(node.to,node.node.parent.to).trim(),node.to) }).range(node.from, node.to));
           return false;
         }
       } else if (name === "Blockquote") {
@@ -1294,7 +1458,7 @@ function buildDecorations(view: EditorView): DecorationSet {
       } else if (name === "ListItem") {
         addLineDecoration(view, ranges, node.from, node.to, `cm-live-list-item ${renderClassNames.listItem}`);
       } else if (name === "Table") {
-        if (!active) {
+        if(view.state.field(tableSourceState)?.from!==node.from) {
           suppressed.push(nodeRange);
           collapseMultilineSource(view, ranges, node.from, node.to, new TableWidget(raw, node.from, node.to));
           return false;
@@ -1398,7 +1562,7 @@ function buildDecorations(view: EditorView): DecorationSet {
         if (aligned) while (source[to] === " " || source[to] === "\t") to++;
         if (to === line.to && to > node.to) to--;
         ranges.push(Decoration.replace({listSyntax: true,
-          widget: new TaskWidget(/x/i.test(raw), node.from, node.to, raw, aligned, !view.state.readOnly),
+          widget: new TaskWidget(/x/i.test(raw), node.from, node.to, raw, aligned, !view.state.readOnly,(()=>{const mark=node.node.parent?.parent?.getChild("ListMark"),layout=mark?listMarkers.get(mark.from):undefined;return layout?.ordered?layout.text:"";})()),
         }).range(node.from, to));
       } else if (name === "ListMark") {
         if (node.node.parent?.getChild("Task")?.getChild("TaskMarker")) {
@@ -1437,12 +1601,33 @@ function buildDecorations(view: EditorView): DecorationSet {
 
   for (const [from, layout] of listLines) {
     ranges.push(Decoration.line({class: `cm-live-list-layout${layout.first ? " cm-live-list-row" : ""}`,
-      attributes: {style: `--md-list-depth: ${layout.depth}; --md-list-offset: ${layout.offsets.map(width => `max(1.5em, ${width}ch + .5em)`).join(" + ") || "0px"}; --md-list-marker-width: ${layout.width}ch`}}).range(from));
+      attributes: {"data-list-id":String(layout.listId),"data-list-depth":String(layout.depth),"data-list-loose":String(layout.loose),"data-list-order-start":String(layout.start),"data-list-ordered":String(layout.ordered),"data-list-parent":String(layout.parentId),"data-list-item-count":String(layout.count),"data-list-has-tasks":String(layout.hasTasks),"data-list-ancestors":JSON.stringify(layout.ancestors),style: `--md-list-depth: ${layout.depth}; --md-list-offset: ${layout.offsets.map(width => `max(1.5em, ${width}ch + .5em)`).join(" + ") || "0px"}; --md-list-marker-width: ${layout.width}ch`}}).range(from));
   }
 
   for (const [from, depth] of quoteDepths) {
     ranges.push(Decoration.line({class: `cm-live-quote-line ${renderClassNames.quote}`,
       attributes: {style: `--md-quote-depth: ${depth}; background-image: ${Array(depth).fill("linear-gradient(color-mix(in srgb, var(--text) 18%, transparent), color-mix(in srgb, var(--text) 18%, transparent))").join(",")}; background-size: ${Array(depth).fill("2px 100%").join(",")}; background-position: ${quoteRails.get(from)!.map(offset => `${offset} top`).join(",")}; background-repeat: no-repeat`}}).range(from));
+  }
+
+  // Logical neighbors are source blocks, not intervening Markdown separator lines.
+  for(const callout of callouts){let first=true;for(let number=view.state.doc.lineAt(callout.headerTo).number+1;number<=view.state.doc.lineAt(callout.to).number;number++){const line=view.state.doc.line(number),prefix=/^(?: {0,3}>[ \t]?)+/.exec(line.text)?.[0]??'';if(!line.text.slice(prefix.length).trim()){ranges.push(Decoration.line({attributes:{'data-callout-separator':'true'}}).range(line.from));continue;}if(first){let visible=line;while(visible.number<view.state.doc.lines&&ranges.some(range=>range.from===visible.from&&/cm-live-collapsed-source/.test(range.value.spec.class??'')))visible=view.state.doc.line(visible.number+1);ranges.push(Decoration.line({attributes:{'data-callout-body-first':'true'}}).range(visible.from));first=false;}}}
+  const logical:{from:number;to:number;role:string;parent:string}[]=[];
+  syntaxTree(view.state).iterate({enter(node){
+    const names:Record<string,string>={Paragraph:'paragraph',Task:'paragraph',BulletList:'list-block',OrderedList:'list-block',Blockquote:'quote',FencedCode:'code',CodeBlock:'code',Table:'table',HTMLBlock:'html',HorizontalRule:'rule'};
+    const role=/^(?:ATXHeading[1-6]|SetextHeading[12])$/.test(node.name)?'heading':names[node.name];if(!role)return;
+    if(node.from<frontmatter.to||definitions.some(item=>node.from>=item.from&&node.to<=item.to))return false;
+    const raw=source.slice(node.from,node.to),parent=node.node.parent;
+    const actual=/^\s*<p>\s*<br\s*\/?\s*>\s*<\/p>\s*$/i.test(raw)?'explicit-empty':/^\s*<table(?:\s|>)/i.test(raw)?'table':callouts.some(item=>item.from===node.from)?'callout':role;
+    if(parent?.name==='Paragraph'||parent?.name==='Task')return;
+    let from=node.from;if(node.name==='Paragraph'){const header=callouts.find(item=>node.from>=item.headerFrom&&node.from<=item.headerTo);if(header){if(node.to<=header.headerTo)return;const bodyLine=view.state.doc.lineAt(header.headerTo+1);from=bodyLine.from+(/^(?: {0,3}>[ \t]?)+/.exec(bodyLine.text)?.[0].length??0);}}
+    logical.push({from,to:node.to,role:actual,parent:`${parent?.name}:${parent?.from}:${parent?.to}`});
+  }});
+  const prior=new Map<string,string>();
+  for(const block of logical){
+    let line=view.state.doc.lineAt(block.from);
+    while(line.number<view.state.doc.lines&&ranges.some(range=>range.from===line.from&&/cm-live-collapsed-source/.test(range.value.spec.class??'')))line=view.state.doc.line(line.number+1);
+    const previous=prior.get(block.parent);prior.set(block.parent,block.role);
+    ranges.push(Decoration.line({attributes:{"data-block-role":block.role==='explicit-empty'?'paragraph':block.role,"data-block-edge":block.to<=line.to?'both':'first',"data-source-from":String(block.from),"data-source-to":String(block.to),...(block.role==='explicit-empty'?{"data-explicit-empty":"true"}:{}),...(previous?{"data-previous-block-role":previous}:block.parent.startsWith("Document:")?{"data-document-first":"true"}:{"data-container-first":"true"})}}).range(line.from));
   }
 
   // Attach the gap to the following block's first visible line, including
@@ -1500,18 +1685,48 @@ function canMapPlainEdit(update:ViewUpdate,decorations:DecorationSet){
 
 const livePreviewDecorations = ViewPlugin.fromClass(class {
   decorations: DecorationSet;
+  tree:ReturnType<typeof syntaxTree>;
+  private alive=true;private pendingDisplay=false;private stopDisplay:()=>void;
+  private pendingParse=false;private compositionEpoch=0;
 
   constructor(view: EditorView) {
-    this.decorations = buildDecorations(view);
+    this.decorations = buildDecorations(view);this.tree=syntaxTree(view.state);
+    this.stopDisplay=displaySessionFor(view).subscribe(()=>{
+      if(!this.alive||this.pendingDisplay)return;this.pendingDisplay=true;
+      // A shared session also serves retained child editors. Update their real
+      // decorations outside CodeMirror's current update, without a source or
+      // selection transaction or rebuilding an active composition.
+      queueMicrotask(()=>{this.pendingDisplay=false;if(!this.alive||!view.dom.isConnected||view.composing||htmlDirectEditingIsComposing(view)||htmlTableWidgetIsComposing(view)||tableWidgetIsComposing(view))return;view.dispatch({effects:refreshDisplay.of(null)});});
+    });
+  }
+
+  destroy(){this.alive=false;this.compositionEpoch++;this.stopDisplay();}
+
+  compositionStart(){this.compositionEpoch++;}
+  compositionEnd(view:EditorView){
+    const epoch=++this.compositionEpoch;
+    if(!this.pendingParse)return;
+    // CodeMirror schedules a pending composed DOM read before plugin handlers.
+    // Rebuild only afterwards, and never let an older end restore widgets into
+    // a new composition (which may have started without its first text change).
+    queueMicrotask(()=>{
+      if(!this.alive||this.compositionEpoch!==epoch||!view.dom.isConnected||view.compositionStarted||!this.pendingParse)return;
+      view.dispatch({effects:refreshDisplay.of(null)});
+    });
   }
 
   update(update: ViewUpdate) {
+    const tree=syntaxTree(update.state),completedParse=!update.docChanged&&tree!==this.tree;this.tree=tree;
+    if(update.docChanged)mapFootnoteReferences(update.view,update.changes);
+    if(update.docChanged&&!update.view.state.facet(resourceContext).displaySession)displaySessionFor(update.view).map(update.changes);
     if (update.view.composing) {
+      if(completedParse)this.pendingParse=true;
       // Keep the marked-text DOM owned by WebKit intact. Mapping existing
       // decorations is safe; rebuilding widgets can cancel an IME session.
       this.decorations = this.decorations.map(update.changes);
       return;
     }
+    if(completedParse||this.pendingParse&&!update.view.compositionStarted){this.pendingParse=false;this.decorations=buildDecorations(update.view);return;}
     if(canMapPlainEdit(update,this.decorations)){this.decorations=this.decorations.map(update.changes);return;}
     if (update.docChanged || update.selectionSet || update.focusChanged
       || update.transactions.some((transaction) => transaction.effects.length > 0)) {
@@ -1519,6 +1734,10 @@ const livePreviewDecorations = ViewPlugin.fromClass(class {
     }
   }
 }, {
+  eventHandlers:{
+    compositionstart(){this.compositionStart();return false;},
+    compositionend(_event,view){this.compositionEnd(view);return false;},
+  },
   decorations: (plugin) => plugin.decorations,
   provide: (plugin) => EditorView.atomicRanges.of(view => {
     const decorations = view.plugin(plugin)?.decorations;
@@ -1637,31 +1856,7 @@ export function deleteBesideInlineSyntax(view: EditorView, backwards: boolean) {
 }
 
 /** Keep plain quote editing structural, even though its prefixes are hidden. */
-export function editQuoteBoundary(view: EditorView, enter: boolean): boolean {
-  const selection = view.state.selection.main;
-  if (!selection.empty || view.state.selection.ranges.length !== 1) return false;
-  const line = view.state.doc.lineAt(selection.head);
-  const prefix = /^(?: {0,3}>[ \t]?)+/.exec(line.text)?.[0];
-  if (!prefix) return false;
-  let quote = false, excluded = false;
-  syntaxTree(view.state).iterate({from: selection.head, to: selection.head, enter(node) {
-    if (node.name === "Blockquote") quote = true;
-    if (["FencedCode", "CodeBlock", "ListItem"].includes(node.name)) excluded = true;
-  }});
-  if (!quote || excluded || /^\[!/.test(line.text.slice(prefix.length))) return false;
-  const contentFrom = line.from + prefix.length;
-  if (!enter && selection.head > contentFrom) return false;
-  if (!enter || !line.text.slice(prefix.length).trim()) {
-    const lastMarker = prefix.lastIndexOf(">");
-    view.dispatch({changes: {from: line.from + lastMarker, to: contentFrom},
-      selection: {anchor: line.from + lastMarker}, userEvent: "delete"});
-  } else {
-    const at = Math.max(contentFrom, selection.head);
-    view.dispatch({changes: {from: at, insert: "\n" + prefix},
-      selection: {anchor: at + 1 + prefix.length}, userEvent: "input"});
-  }
-  return true;
-}
+export const editQuoteBoundary = editSemanticQuote;
 
 const continueLiveList = insertNewlineContinueMarkupCommand({nonTightLists: false});
 
@@ -1733,17 +1928,43 @@ function keepLiveLineBoundary(view: EditorView, forward: boolean, extend = false
   return place(target);
 }
 
-export const livePreview = [preserveCodeStructure,selectionHistory,EditorView.clipboardOutputFilter.of(literalClipboardText), Prec.highest(keymap.of([
+/** A cell keeps its inline projection and local draft while using real object widgets. */
+export const tableInlineObjectProjection=ViewPlugin.fromClass(class {
+ decorations:DecorationSet;
+ constructor(readonly view:EditorView){this.decorations=this.build();}
+ build(){const ranges:Range<Decoration>[]=[],source=this.view.state.doc.toString(),context=this.view.state.facet(resourceContext),excluded:SourceRange[]=[];syntaxTree(this.view.state).iterate({enter:node=>{
+  if(['InlineCode','CodeBlock','FencedCode'].includes(node.name)){excluded.push({from:node.from,to:node.to});return false;}
+  if(node.name==='Image'){const image=parseInlineImage(source.slice(node.from,node.to));if(image){ranges.push(Decoration.replace({widget:new ImageWidget(imageForView(this.view,image.src),image.alt,image.title,node.from,false,node.to)}).range(node.from,node.to));excluded.push({from:node.from,to:node.to});}return false;}
+ }});if(context.profile!=='gfm')for(let at=0;at<source.length;at++){const math=inlineMathAt(source,at);if(math){if(!excluded.some(item=>math.from<item.to&&math.to>item.from))ranges.push(Decoration.replace({widget:new InlineMathWidget(math.source,math.from)}).range(math.from,math.to));at=math.to-1;}}return Decoration.set(ranges,true);}
+ update(update:ViewUpdate){if(update.docChanged)this.decorations=this.build();}
+},{decorations:item=>item.decorations,provide:plugin=>EditorView.atomicRanges.of(view=>view.plugin(plugin)?.decorations??Decoration.none)});
+installNestedInlineProjection(tableInlineObjectProjection);
+const semanticObjectOutlines=ViewPlugin.fromClass(class {
+ alive=true;scheduled=false;
+ constructor(readonly view:EditorView){this.schedule();}
+ schedule(){if(this.scheduled)return;this.scheduled=true;queueMicrotask(()=>{this.scheduled=false;if(!this.alive)return;const objects=semanticObjectBoundaries(this.view),selection=this.view.state.selection;const intent=imageSelectionIntents.get(this.view);if(intent&&(intent.doc!==this.view.state.doc||intent.context!==this.view.state.facet(resourceContext)||selection.ranges.length!==1||selection.main.empty||selection.main.from!==intent.from))imageSelectionIntents.delete(this.view);for(const node of this.view.dom.querySelectorAll<HTMLElement>('[data-tegg-block-from],[data-source-from],[data-html-table-from]')){if(node.closest('.cm-editor')!==this.view.dom||node.classList.contains('cm-line'))continue;const from=Number(node.dataset.teggBlockFrom??node.dataset.sourceFrom??node.dataset.htmlTableFrom),object=objects.find(item=>item.from===from),selected=!!object&&selection.ranges.some(range=>!range.empty&&range.from<=object.from&&range.to>=object.to);node.classList.toggle('cm-live-object-selected',selected);if(object)node.dataset.sourceTo=String(object.to);}});}
+ update(update:ViewUpdate){if(update.docChanged||update.selectionSet||update.viewportChanged||update.transactions.some(tr=>tr.effects.length))this.schedule();}
+ destroy(){this.alive=false;}
+});
+export const livePreview = [multilineComments,multilineCommentActivity,semanticObjectOutlines,imageSelectionAppearance,semanticSelectionExtension,semanticClipboardExtension(),preserveCodeStructure,selectionHistory,EditorView.clipboardOutputFilter.of(literalClipboardText), Prec.highest(keymap.of([
+  {key:"Mod-a",run:semanticSelectAll},
+  {key:"Ctrl-ArrowLeft",mac:"Alt-ArrowLeft",run:view=>moveSemanticWord(view,false),shift:view=>moveSemanticWord(view,false,true)},
+  {key:"Ctrl-ArrowRight",mac:"Alt-ArrowRight",run:view=>moveSemanticWord(view,true),shift:view=>moveSemanticWord(view,true,true)},
+  {key:"Ctrl-Backspace",mac:"Alt-Backspace",run:view=>deleteSemanticWord(view,true)},
+  {key:"Ctrl-Delete",mac:"Alt-Delete",run:view=>deleteSemanticWord(view,false)},
+  {key:"Escape",run:view=>leaveSemanticObjectSelection(view,0)},
+  {key:"ArrowLeft",run:view=>leaveSemanticObjectSelection(view,-1)},
+  {key:"ArrowRight",run:view=>leaveSemanticObjectSelection(view,1)},
   {mac: "Cmd-ArrowRight", run: view => keepLiveLineBoundary(view, view.textDirectionAt(view.state.selection.main.head) === Direction.LTR),
     shift: view => keepLiveLineBoundary(view, view.textDirectionAt(view.state.selection.main.head) === Direction.LTR, true)},
   {mac: "Cmd-ArrowLeft", run: view => keepLiveLineBoundary(view, view.textDirectionAt(view.state.selection.main.head) !== Direction.LTR),
     shift: view => keepLiveLineBoundary(view, view.textDirectionAt(view.state.selection.main.head) !== Direction.LTR, true)},
   {key: "End", run: view => keepLiveLineBoundary(view, true), shift: view => keepLiveLineBoundary(view, true, true)},
   {key: "Home", run: view => keepLiveLineBoundary(view, false), shift: view => keepLiveLineBoundary(view, false, true)},
-  {key: "Enter", run: view => !view.composing && (editListBoundary(view, true) || editQuoteBoundary(view, true) || continueLiveList(view))},
+  {key: "Enter", run: view => !view.composing && (editListBoundary(view, true) || editQuoteBoundary(view, true) || continueLiveList(view) || insertSemanticParagraph(view))},
   {key: "Shift-Enter", run: insertLiveBreak},
   {key: "Tab", run: view => indentList(view)},
   {key: "Shift-Tab", run: view => indentList(view, true)},
-  {key: "Backspace", run: view => selectCodeBoundary(view, true) || deleteListSelection(view) || editListBoundary(view, false) || editQuoteBoundary(view, false) || deleteScriptContent(view, true) || deleteBesideInlineSyntax(view, true) || deleteLiveBreak(view, true) || deleteListContinuation(view)},
-  {key: "Delete", run: view => selectCodeBoundary(view, false) || deleteListSelection(view) || deleteScriptContent(view, false) || deleteBesideInlineSyntax(view, false) || deleteLiveBreak(view, false)},
-])), metadataSourceState, calloutSourceState, livePreviewDecorations, livePreviewMouseSelection, liveLinks];
+  {key: "Backspace", run: view => deleteSemanticSelection(view) || deleteListSelection(view) || editListBoundary(view, false) || editQuoteBoundary(view, false) || selectSemanticBoundary(view,true) || mergeSemanticParagraphBoundary(view,true) || selectCodeBoundary(view, true) || deleteScriptContent(view, true) || deleteBesideInlineSyntax(view, true) || deleteLiveBreak(view, true) || deleteListContinuation(view)},
+  {key: "Delete", run: view => deleteSemanticSelection(view) || selectSemanticBoundary(view,false) || mergeSemanticParagraphBoundary(view,false) || selectCodeBoundary(view, false) || deleteListSelection(view) || deleteScriptContent(view, false) || deleteBesideInlineSyntax(view, false) || deleteLiveBreak(view, false)},
+])), preserveEmptyCalloutTitle, emptyCalloutBodyState, missingFootnoteState, tableSourceState, metadataSourceState, calloutSourceState, livePreviewDecorations, livePreviewMouseSelection, liveLinks];

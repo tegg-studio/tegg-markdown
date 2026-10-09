@@ -49,11 +49,11 @@ test('table preview blocks stale prose commands while history and find remain us
   await page.evaluate(value=>{
     const host=(window as any).host;host.load(value);host.select('Outside');host.editor.view.focus();
   },original);
-  await page.getByRole('button',{name:'Edit table cell: old',exact:true}).click();
+  await page.getByRole('button',{name:'Edit table cell: old',exact:true}).dblclick();
   const cell=page.locator('.md-table-inline-editor .cm-content');
   await cell.press('ControlOrMeta+A');await page.keyboard.type('changed');
   const edited=original.replace('| old |','| changed |');
-  await expect.poll(source).toBe(edited);await cell.press('Escape');
+  expect(await source()).toBe(original);await cell.press('Enter');await expect.poll(source).toBe(edited);
   const tools=page.locator('#tools');
   await expect(tools.getByRole('button',{name:'Bold',exact:true})).toBeDisabled();
   await expect(tools.getByRole('button',{name:'List',exact:true})).toBeDisabled();
@@ -73,7 +73,7 @@ test('table preview blocks stale prose commands while history and find remain us
   await tools.getByRole('button',{name:'Find and replace',exact:true}).click();
   await expect(page.getByRole('dialog',{name:'Find and replace'})).toBeVisible();
   await page.getByRole('button',{name:'Cancel',exact:true}).click();expect(await source()).toBe(edited);
-  await page.getByRole('button',{name:'Edit table cell: changed',exact:true}).click();
+  await page.getByRole('button',{name:'Edit table cell: changed',exact:true}).dblclick();
   await expect(cell).toBeFocused();await expect(tools.getByRole('button',{name:'Bold',exact:true})).toBeEnabled();
   await cell.press('Escape');await page.locator('.cm-line').filter({hasText:/Outside/}).click();
   await expect(tools.getByRole('button',{name:'Bold',exact:true})).toBeEnabled();

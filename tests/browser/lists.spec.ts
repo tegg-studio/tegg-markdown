@@ -242,14 +242,15 @@ test('cross-item keyboard deletion preserves the surviving child through repeate
   await page.keyboard.press('Shift+ArrowDown');
   const selected=await page.evaluate(()=>(window as any).host.instance.selection().range);
   expect(selected).toEqual({from:3,to:8});
+  // S18-A7: different ListItem parents retain both unselected text tails.
   await page.keyboard.press('Backspace');
-  expect(await sourceOf(page)).toBe('- ad\n  - child');
+  expect(await sourceOf(page)).toBe('- a\n- d\n  - child');
   for(let round=0;round<3;round++) {
     await page.evaluate(()=>(window as any).host.instance.command('undo'));
     expect(await sourceOf(page)).toBe(source);
     expect(await page.evaluate(()=>(window as any).host.instance.selection().range)).toEqual(selected);
     await page.evaluate(()=>(window as any).host.instance.command('redo'));
-    expect(await sourceOf(page)).toBe('- ad\n  - child');
+    expect(await sourceOf(page)).toBe('- a\n- d\n  - child');
   }
 });
 

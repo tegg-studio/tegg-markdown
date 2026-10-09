@@ -221,7 +221,7 @@ describe("shared block command surface", () => {
     ["/math", "Math block", "x^2", "$$\nx^2\n$$"],
     ["/mermaid", "Mermaid", "flowchart TD\n  A --> B", "```mermaid\nflowchart TD\n  A --> B\n```"],
     ["/graphviz", "Graphviz", "digraph { a -> b }", "```graphviz\ndigraph { a -> b }\n```"],
-  ])("reviews %s as a local draft before one reversible insertion", (query, label, body, expected) => {
+  ])("reviews %s as a local draft before one reversible insertion", async (query, label, body, expected) => {
     const root = document.body.appendChild(document.createElement("div"));
     const editor = new TeggMarkdownEditor(root, {documentId: "draft", revision: "r1", source: query, profile: "tegg"}, {}, "live");
     editors.push(editor);
@@ -243,7 +243,7 @@ describe("shared block command surface", () => {
       input.value = body;
       input.dispatchEvent(new Event("input", {bubbles: true}));
       expect(editor.source).toBe(query);
-      root.querySelector<HTMLButtonElement>('button[data-label="Apply"]')!.click();
+      const done=root.querySelector<HTMLButtonElement>('button[data-label="Apply"]')!;await vi.waitFor(()=>expect(done.disabled).toBe(false));done.click();
       expect(editor.source).toBe(expected);
       editor.command("undo");
       expect(editor.source).toBe(query);

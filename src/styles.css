@@ -182,8 +182,8 @@
 :where(.tegg-surface) .task-list-item input, :where(.tegg-surface) .md-render-task { width: 15px; height: 15px; margin-right: 0.5em; accent-color: var(--accent); }
 
 .tegg-reader ul, .tegg-reader ol { padding-inline-start: calc(var(--md-body) * 1.5); margin-block: calc(var(--md-body) * .75); }
-.tegg-reader p:has(> img:only-child), .tegg-reader p:has(> a:only-child > img:only-child) { margin: 18px auto; text-align: center; }
-.tegg-reader p:has(> img:only-child) img, .tegg-reader p:has(> a:only-child > img:only-child) img { display: block;  margin: 0 auto; object-fit: contain; }
+.tegg-reader p[data-image-paragraph=true] { margin: 18px auto; text-align: center; }
+.tegg-reader p[data-image-paragraph=true] img { display: block; margin: 0 auto; object-fit: contain; }
 
 :where(.tegg-surface) .frontmatter { margin: 0 0 24px; color: var(--muted); }
 :where(.tegg-surface) .frontmatter summary { cursor: pointer; font-size: calc(var(--md-body) * .875); font-weight: 600; }
@@ -229,7 +229,7 @@
 }
 .tegg-sdk-editor .cm-focused { outline: 1px solid color-mix(in srgb, var(--accent) 42%, transparent); outline-offset: -1px; }
 .tegg-sdk-editor .cm-cursor { border-left-color: var(--accent); border-left-width: 2px; }
-.tegg-sdk-editor .cm-selectionBackground, .tegg-sdk-editor .cm-content ::selection { background: var(--accent-soft) !important; }
+.tegg-sdk-editor .cm-selectionBackground { background: var(--accent-soft) !important; }
 .tegg-sdk-editor .cm-activeLine { background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
 .tegg-sdk-editor .cm-activeLineGutter { background: transparent; color: var(--accent); }
 .macos-document-surface .tegg-sdk-editor .cm-focused { outline: none; }
@@ -576,7 +576,9 @@
 :where(.tegg-surface) .md-link-popover .md-link-destination:hover { background: transparent; text-decoration: underline; text-underline-offset: 3px; }
 :where(.tegg-surface) .md-link-footer { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 :where(.tegg-surface) .md-link-hint { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); }
-:where(.tegg-surface) .md-link-popover .md-link-text-action { border-color: transparent; background: transparent; padding-inline: 4px; white-space: nowrap; }
+:where(.tegg-surface) .md-link-popover :is(.md-link-text-action,.md-link-copy-address) { border-color: transparent; background: transparent; padding-inline: 4px; white-space: nowrap; }
+/* S12: an Apple mobile context keeps all explicit link actions touch accessible. */
+.tegg-surface .md-link-popover:not(.md-link-editor)[data-mobile=true] button { min-height: 44px; min-width: 44px; }
 :where(.tegg-surface) .md-link-popover label { display: block; margin-bottom: 12px; font-size: 12px; color: var(--muted); }
 :where(.tegg-surface) .md-link-popover input {
   display: block; box-sizing: border-box; width: 100%; height: 32px; margin-top: 4px; padding: 5px 8px;
@@ -669,3 +671,44 @@
   background: color-mix(in srgb, var(--text) 12%, transparent);
   border-color: color-mix(in srgb, var(--text) 16%, transparent);
 }
+
+/* Whole-object selection has an outline without changing content geometry. */
+.cm-live-object-selected {outline:2px solid var(--accent,#376bd8);outline-offset:1px;}
+.md-image-container:hover > .md-image-view-actions,.md-image-container:focus-within > .md-image-view-actions {opacity:1;pointer-events:auto;}
+.md-html-object-actions {display:inline-flex;vertical-align:middle;}
+@media (hover:none){.md-image-container > .md-image-view-actions {opacity:1;pointer-events:auto;}}
+
+/* C1/C7 use interface roles, independently of the reading preset and zoom. */
+.tegg-surface .md-link-popover.md-link-editor{display:flex;flex-direction:column;width:min(440px,calc(100vw - 32px));max-width:calc(100vw - 32px);padding:0;overflow:hidden;border-radius:12px;font:var(--tegg-ui-weight-regular,400) var(--tegg-ui-input-size,13px)/var(--tegg-ui-input-line,19.5px) var(--tegg-ui-font,-apple-system,system-ui,sans-serif)}
+.tegg-surface .md-link-editor>header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:16px;flex:none}
+.tegg-surface .md-link-editor h2{flex:1;min-width:0;margin:0;overflow-wrap:anywhere;font:var(--tegg-ui-weight-semibold,600) var(--tegg-ui-title-size,15px)/var(--tegg-ui-title-line,21px) var(--tegg-ui-font,-apple-system,system-ui,sans-serif)}
+.tegg-surface .md-link-editor>form{min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 16px 16px}
+.tegg-surface .md-link-popover.md-link-editor label{display:block;margin:0 0 16px;font:var(--tegg-ui-weight-regular,400) var(--tegg-ui-label-size,12px)/var(--tegg-ui-label-line,17px) var(--tegg-ui-font,-apple-system,system-ui,sans-serif)}
+.tegg-surface .md-link-popover.md-link-editor input{height:auto;min-height:max(34px,calc(var(--tegg-ui-input-line,19.5px) + 14px));margin-top:6px;padding:6px 9px;border-radius:7px;background:color-mix(in srgb,var(--text) 3%,var(--background));font:var(--tegg-ui-weight-regular,400) var(--tegg-ui-input-size,13px)/var(--tegg-ui-input-line,19.5px) var(--tegg-ui-font,-apple-system,system-ui,sans-serif)}
+.tegg-surface .md-link-popover.md-link-editor button{font:var(--tegg-ui-weight-regular,400) var(--tegg-ui-action-size,13px)/var(--tegg-ui-action-line,18px) var(--tegg-ui-font,-apple-system,system-ui,sans-serif);min-height:30px;padding:5px 10px}
+.tegg-surface .md-link-popover.md-link-editor :is(summary,.md-link-label-note,.md-link-reference-occurrences){font:var(--tegg-ui-weight-regular,400) var(--tegg-ui-label-size,12px)/var(--tegg-ui-label-line,17px) var(--tegg-ui-font,-apple-system,system-ui,sans-serif)}
+.tegg-surface .md-link-popover.md-link-editor .md-link-editor-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;margin:0;border-top:1px solid var(--border);flex:none}
+.tegg-surface .md-link-editor[data-mobile=true] h2{font-size:var(--tegg-ui-title-size,17px);line-height:var(--tegg-ui-title-line,22px);text-align:center}
+.tegg-surface .md-link-popover.md-link-editor[data-mobile=true] input{font-size:max(16px,var(--tegg-ui-input-size,16px));line-height:var(--tegg-ui-input-line,24px)}
+.tegg-surface .md-link-popover.md-link-editor[data-mobile=true] button{font-size:var(--tegg-ui-action-size,17px);line-height:var(--tegg-ui-action-line,22px);min-height:max(44px,calc(var(--tegg-ui-action-line,22px) + 12px));min-width:44px}
+.tegg-surface .md-link-editor[data-mobile=true]>header button{flex:none;border:0;background:transparent;padding:5px}
+.tegg-surface .md-link-popover.md-link-editor[data-mobile=true] :is(label,summary,.md-link-label-note,.md-link-reference-occurrences){font-size:var(--tegg-ui-label-size,13px);line-height:var(--tegg-ui-label-line,18px)}
+@media(max-width:599px){.tegg-surface .md-link-popover.md-link-editor[data-mobile=true]{width:calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));max-width:none;border-radius:12px 12px 0 0}}
+.tegg-surface .md-link-editor[data-mobile=true]>header h2{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.tegg-surface dialog.md-link-popover.md-link-editor{margin:0}
+.tegg-surface dialog.md-link-popover.md-link-editor:not([open]){display:none}
+.tegg-surface dialog.md-link-editor::backdrop{background:#0003}
+.tegg-surface .md-link-editor:has(>.md-link-leave-overlay)>:not(.md-link-leave-overlay){opacity:.55}
+.tegg-surface .md-link-leave-overlay{position:absolute;inset:0;z-index:10;display:grid;place-items:center;padding:16px;box-sizing:border-box;background:color-mix(in srgb,var(--background,#fff) 25%,transparent)}
+.tegg-surface .md-link-leave-choice{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;width:min(100%,400px);max-height:100%;overflow:auto;box-sizing:border-box;padding:16px;border:1px solid var(--border);border-radius:10px;background:var(--background);box-shadow:0 8px 24px #0002}
+.tegg-surface .md-link-leave-choice>span{flex-basis:100%;font:var(--tegg-ui-weight-regular,400) var(--tegg-ui-input-size,13px)/var(--tegg-ui-input-line,19.5px) var(--tegg-ui-font,-apple-system,system-ui,sans-serif)}
+.tegg-surface .md-link-editor[data-mobile=true] .md-link-leave-choice>span{font-size:max(16px,var(--tegg-ui-input-size,16px));line-height:var(--tegg-ui-input-line,24px)}
+
+/* Graphic selection remains a source selection, without changing graphic pixels. */
+.tegg-surface .cm-live-image,.tegg-surface .cm-live-html-block img{user-select:none;-webkit-user-select:none}
+.tegg-surface .cm-line[data-image-standalone=true]{background:transparent!important}
+
+.tegg-surface .md-link-leave-choice>p{flex-basis:100%;margin:0;font:var(--tegg-ui-weight-regular,400) var(--tegg-ui-input-size,13px)/var(--tegg-ui-input-line,19.5px) var(--tegg-ui-font,-apple-system,system-ui,sans-serif)}
+.tegg-surface .md-link-leave-choice>.md-link-leave-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;width:100%}
+.tegg-surface .md-link-editor[data-mobile=true] .md-link-leave-choice>p{font-size:max(16px,var(--tegg-ui-input-size,16px));line-height:var(--tegg-ui-input-line,24px)}

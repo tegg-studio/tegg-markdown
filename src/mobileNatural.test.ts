@@ -133,38 +133,11 @@ describe("mobile natural editing integration", () => {
     undo(view);expect(view.state.doc.toString()).toBe(source);
   });
 
-  it("keeps narrow table drafts cancelable until Apply", () => {
-    vi.stubGlobal("innerWidth", 390);
-    const source = "before\n\n| 名称 |\n| --- |\n| 原内容 |\n\nafter";
-    const {view, parent} = mount(source);
-    const begin = () => {
-      const button = parent.querySelector<HTMLButtonElement>('[aria-label="Edit table cell: 原内容"]');
-      expect(button).not.toBeNull();button!.click();
-      return parent.querySelector<HTMLInputElement>('[aria-label="Cell value"]')!;
-    };
-    const first=begin();first.value="discarded";
-    first.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));
-    expect(view.state.doc.toString()).toBe(source);
-    const second=begin();second.value="新内容";
-    second.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));
-    expect(view.state.doc.toString()).toBe(source.replace("原内容","新内容"));
-    undo(view);expect(view.state.doc.toString()).toBe(source);
-  });
-
-  it("keeps desktop table edits through Escape and restores them with document Undo", () => {
-    vi.stubGlobal("innerWidth", 1024);
-    const source="before\n\n| 名称 |\n| --- |\n| 原内容 |\n\nafter";
-    const {view,parent}=mount(source);
-    parent.querySelector<HTMLButtonElement>('[aria-label="Edit table cell: 原内容"]')!.click();
-    const cell=focusedTableCell(view)!;expect(cell).not.toBeNull();
-    cell.dispatch({changes:{from:0,to:cell.state.doc.length,insert:"新内容"}});
-    expect(view.state.doc.toString()).toBe(source.replace("原内容","新内容"));
-    cell.dom.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));
-    expect(focusedTableCell(view)).toBeNull();
-    expect(view.state.doc.toString()).toBe(source.replace("原内容","新内容"));
-    const preview=parent.querySelector<HTMLButtonElement>('[aria-label="Edit table cell: 新内容"]')!;
-    preview.dispatchEvent(new KeyboardEvent("keydown",{key:"z",metaKey:true,bubbles:true,cancelable:true}));
-    expect(view.state.doc.toString()).toBe(source);
+  it.each([390,1024])("keeps cell drafts cancelable and commits Enter consistently at width %s", width => {
+    vi.stubGlobal("innerWidth",width);const source="before\n\n| 名称 |\n| --- |\n| 原内容 |\n\nafter";const {view,parent}=mount(source);
+    const begin=()=>{parent.querySelector<HTMLButtonElement>('[aria-label="Edit table cell: 原内容"]')!.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));return focusedTableCell(view)!;};
+    const first=begin();first.dispatch({changes:{from:0,to:first.state.doc.length,insert:'discarded'}});expect(view.state.doc.toString()).toBe(source);first.dom.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));expect(view.state.doc.toString()).toBe(source);
+    const second=begin();second.dispatch({changes:{from:0,to:second.state.doc.length,insert:'新内容'}});second.dom.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));expect(view.state.doc.toString()).toBe(source.replace('原内容','新内容'));undo(view);expect(view.state.doc.toString()).toBe(source);
   });
 
   it("opens a mobile table's source through its real Edit Source control without changing source or history", () => {

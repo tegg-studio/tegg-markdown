@@ -127,6 +127,13 @@ Contributor workflow and repository boundaries are documented in [the Git and re
 
 ### Reliable editing development line
 
+The unpublished `0.3.0-preview.1` development candidate also corrects asynchronous
+image zoom labels and Reader image-only paragraph classification. It pins the
+tested parser dependency; use an exact packed artifact and retain the consumer
+lockfile. See [development validation](docs/validation.md#image-presentation-development-follow-up)
+for the separate package, browser and native verification boundaries.
+
+
 The current development branch adds a shared editing controller, optional `/ui`,
 clipboard review, persistent attachment tasks, table operations, recovery journals and
 three-version conflict review. See [the integration guide](docs/reliable-editing.md),

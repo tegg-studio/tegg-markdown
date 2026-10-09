@@ -2,12 +2,12 @@ import { isScalar, type YAMLSeq } from "yaml";
 import { metadataListPatch, type MetadataListEntry } from "./metadataEditing";
 import type { SourcePatch } from "./sourcePatch";
 
-export type MetadataEditorSession = { commit: () => boolean; focus: () => void };
+export type MetadataEditorSession = { form:HTMLElement;commit: () => boolean; focus: () => void;current:()=>boolean;composing:()=>boolean;dispose:()=>void };
 
 export function createMetadataTags(source: string, node: YAMLSeq, path: (string | number)[], controls: {
   renderValue: (item: unknown, index: number) => HTMLElement;
   begin: (session: MetadataEditorSession) => boolean;
-  end: () => void;
+  end: (session:MetadataEditorSession) => void;
   change: (patch: SourcePatch) => boolean;
 }): HTMLElement {
   const wrapper = document.createElement("div");
@@ -48,12 +48,17 @@ export function createMetadataTags(source: string, node: YAMLSeq, path: (string 
     const error = document.createElement("span");
     error.className = "md-metadata-value-error";
     error.setAttribute("role", "alert");
-    let pending: (() => void) | undefined;
+    let pending: (() => void) | undefined,active=false,composing=false;
+    const current=()=>active&&form.isConnected&&wrapper.contains(form);
+    const compositionStart=()=>{composing=true;},compositionEnd=()=>{composing=false;};
+    form.addEventListener('compositionstart',compositionStart,true);form.addEventListener('compositionend',compositionEnd,true);
+    const compositionPointer=(event:Event)=>{if(composing&&event.target instanceof Element&&event.target.closest('button')){event.preventDefault();event.stopImmediatePropagation();}};
+    form.addEventListener('pointerdown',compositionPointer,true);form.addEventListener('mousedown',compositionPointer,true);
     const button = (label: string, action: () => void) => {
       const result = document.createElement("button");
       result.type = "button";
       result.textContent = label;
-      result.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); action(); });
+      result.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); if(current()&&!composing)action(); });
       return result;
     };
     const addTag = () => {
@@ -64,17 +69,19 @@ export function createMetadataTags(source: string, node: YAMLSeq, path: (string 
       return true;
     };
     const restore = () => {
-      controls.end(); form.remove(); display.hidden = false;
+      if(!active)return;active=false;
+      controls.end(session); form.remove(); display.hidden = false;
       wrapper.closest<HTMLElement>("dd")?.focus();
     };
     const commit = () => {
+      if(!current()||composing)return false;
       pending?.(); addTag();
       if (entries.length === node.items.length && entries.every((entry, index) => entry.originalIndex === index && isScalar(node.items[index]) && entry.value === (node.items[index] as {value: unknown}).value)) {
         restore(); return true;
       }
       try {
         if (!controls.change(metadataListPatch(source, node, entries))) throw new Error("This list changed. Reopen it to edit the latest version.");
-        controls.end(); return true;
+        restore(); return true;
       } catch (failure) {
         error.textContent = failure instanceof Error ? failure.message : "Could not save tags.";
         return false;
@@ -96,7 +103,7 @@ export function createMetadataTags(source: string, node: YAMLSeq, path: (string 
           pending = finish;
           input.addEventListener("keydown", event => {
             event.stopPropagation();
-            if (event.isComposing || event.keyCode === 229) return;
+            if (!current() || composing || event.isComposing || event.keyCode === 229) return;
             if (event.key === "Enter" || event.key === "Tab" && !event.shiftKey) { event.preventDefault(); finish(); add.focus(); }
             else if (event.key === "Escape") { event.preventDefault(); pending = undefined; render(); add.focus(); }
           });
@@ -112,18 +119,20 @@ export function createMetadataTags(source: string, node: YAMLSeq, path: (string 
     };
     add.addEventListener("keydown", event => {
       event.stopPropagation();
-      if (event.isComposing || event.keyCode === 229) return;
+      if (!current() || composing || event.isComposing || event.keyCode === 229) return;
       if ((event.key === "Tab" && !event.shiftKey || event.key === "Enter") && add.value.trim()) {
         event.preventDefault(); pending?.(); addTag(); add.focus();
       } else if (event.key === "Escape") { event.preventDefault(); restore(); }
     });
-    form.addEventListener("keydown", event => { event.stopPropagation(); if (!event.isComposing && event.keyCode !== 229 && event.key === "Escape") { event.preventDefault(); restore(); } });
+    form.addEventListener("keydown", event => { event.stopPropagation(); if (current() && !composing && !event.isComposing && event.keyCode !== 229 && event.key === "Escape") { event.preventDefault(); restore(); } });
     const footer = document.createElement("div");
     footer.className = "md-metadata-tag-footer";
     footer.append(hint, button("Save", commit), button("Cancel", restore));
     form.append(chips, footer, error);
-    if (!controls.begin({ commit, focus: () => add.focus() })) return;
-    display.hidden = true; wrapper.append(form); render(); add.focus();
+    const session:MetadataEditorSession={form,commit,focus:()=>add.focus(),current,composing:()=>composing,
+      dispose:()=>{active=false;pending=undefined;form.remove();display.hidden=false;}};
+    if (!controls.begin(session)) return;
+    active=true;display.hidden = true; wrapper.append(form); render(); add.focus();
   });
   return wrapper;
 }

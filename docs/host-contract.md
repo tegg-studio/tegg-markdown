@@ -40,6 +40,12 @@ the latest pending input after composition finishes.
 Streaming content is shown in Reader and cannot be edited through normal SDK
 commands. After updating to `contentState: "settled"`, choose Live Edit or Source.
 Modes preserve undo; replacing a document deliberately starts a fresh session.
+Before any Host-triggered document replacement, navigation or panel destruction,
+call `prepareLeave()` (or low-level `prepareEditingLeave`) and retain the current
+surface when it returns false. An IME rejection must not queue navigation.
+`EditingUI.awaitingLeaveChoice`, resolved and cancelled events distinguish explicit
+draft review from other refusal reasons; see [leave preflight](reliable-editing.md#leaving-an-editing-surface).
+`replaceDocument` remains an explicit reset after the Host has handled that boundary.
 
 ## Resources and navigation
 

@@ -1,3 +1,4 @@
+import {htmlLiteralContainerEnd} from './htmlLiteralSource';
 import {gfmAutolinks, gfmTagfilter} from "./gfmRules";
 import {resolveProfile, type MarkdownProfile} from "./syntaxProfiles";
 import MarkdownIt from "markdown-it";
@@ -115,6 +116,18 @@ function tableAlignmentClassPlugin(md: MarkdownIt) {
   });
 }
 
+// The Tegg controlled-HTML projection keeps literal pre content, including
+// blank lines, inside its explicitly balanced source container.
+function literalHtmlPlugin(md:MarkdownIt) {
+  md.block.ruler.before('html_block','tegg_literal_html',(state,start,end,silent)=>{
+    if(state.level!==0||state.sCount[start]-state.blkIndent>=4)return false;
+    const from=state.bMarks[start]+state.tShift[start],closing=htmlLiteralContainerEnd(state.src,from);if(closing===null)return false;
+    let last=start;while(last<end&&state.eMarks[last]<closing)last++;
+    if(last>=end||state.src.slice(closing,state.eMarks[last]).trim())return false;
+    if(silent)return true;const token=state.push('html_block','',0);token.map=[start,last+1];token.content=state.getLines(start,last+1,state.blkIndent,true);state.line=last+1;return true;
+  },{alt:['paragraph','reference','blockquote']});
+}
+
 export function createMarkdownParser(profile: MarkdownProfile = "tegg", extensions: readonly string[] = ["table", "strikethrough", "autolink", "tagfilter", "tasklist"]) {
   resolveProfile(profile);
   const parser = profile === "tegg" ? new MarkdownIt({html: true, linkify: true, typographer: true})
@@ -131,7 +144,7 @@ export function createMarkdownParser(profile: MarkdownProfile = "tegg", extensio
     parser.renderer.rules.footnote_caption = (tokens, index) => `[${tokens[index].meta.id + 1}]`;
     parser.use(calloutPlugin);
   }
-  if (profile === "tegg") parser.use(deflist).use(sub).use(sup).use(wikiLinkPlugin).use(highlightPlugin);
+  if (profile === "tegg") parser.use(literalHtmlPlugin).use(deflist).use(sub).use(sup).use(wikiLinkPlugin).use(highlightPlugin);
   parser.use(headingIdPlugin, profile === "tegg");
   return parser;
 }

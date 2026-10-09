@@ -1,16 +1,50 @@
+import type {EditorView} from "@codemirror/view";
+import {registerEditingLeave} from "./editingPreflight";
+import {registerRenderedClipboardOpaque} from './renderedSourceClipboard';
 import {setUIText, setUILabel} from "./uiContext";
 import { isMap, isScalar, isSeq, parseDocument } from "yaml";
-import { createMetadataTags } from "./metadataTags";
+import { createMetadataTags,type MetadataEditorSession } from "./metadataTags";
 import { metadataValuePatch } from "./metadataEditing";
 import type { SourcePatch } from "./sourcePatch";
 import { parseWikiLink } from "./profile";
 
 const panelCleanups = new WeakMap<HTMLElement, () => void>();
+const panelCommits = new WeakMap<HTMLElement, () => boolean>();
+const panelCompositions = new WeakMap<HTMLElement, () => boolean>();
+const panelLeaveBindings = new WeakMap<HTMLElement, () => void>();
+export function metadataPanelIsComposing(panel:HTMLElement):boolean{return panelCompositions.get(panel)?.()??false;}
+/** Only a generated panel can register its actual input in the owning view's boundary. */
+export function bindMetadataEditingLeave(panel:HTMLElement,view:EditorView):()=>void{
+  if(!panelCompositions.has(panel))return ()=>{};
+  panelLeaveBindings.get(panel)?.();
+  const stop=registerEditingLeave({view,composing:()=>metadataPanelIsComposing(panel),awaitingChoice:()=>false,
+    prepare:()=>commitMetadataPanel(panel),cancelPending:()=>{}});
+  panelLeaveBindings.set(panel,stop);
+  return ()=>{stop();if(panelLeaveBindings.get(panel)===stop)panelLeaveBindings.delete(panel);};
+}
+export type MetadataActiveDraft = {readonly panel:HTMLElement;readonly token:symbol;current:()=>boolean};
+const panelDrafts = new WeakMap<HTMLElement, () => MetadataActiveDraft | null>();
+/** Class names only narrow traversal; the generated panel/draft registry owns authority. */
+export function captureMetadataActiveDrafts(root:HTMLElement):readonly MetadataActiveDraft[]{
+  const result:MetadataActiveDraft[]=[];
+  for(const owner of [root,...root.querySelectorAll<HTMLElement>('.frontmatter')]){
+    const draft=panelDrafts.get(owner)?.();if(!draft)continue;
+    const {panel,token}=draft;let revoked=false;
+    const current=()=>{if(revoked)return false;if(!root.isConnected||!root.contains(owner)||!owner.contains(panel)||!draft.current()){revoked=true;return false;}return true;};
+    if(current())result.push({panel,token,current});
+  }
+  return result;
+}
+export function commitMetadataPanel(panel:HTMLElement):boolean{return panelCommits.get(panel)?.()??true;}
 let panelSequence = 0;
 
 export function disposeMetadataPanel(panel: HTMLElement) {
   panelCleanups.get(panel)?.();
   panelCleanups.delete(panel);
+  panelCommits.delete(panel);
+  panelDrafts.delete(panel);
+  panelCompositions.delete(panel);
+  panelLeaveBindings.get(panel)?.();panelLeaveBindings.delete(panel);
 }
 
 type MetadataEditingOptions = {
@@ -25,9 +59,24 @@ export function createMetadataPanel(source: string, onEdit?: () => void, options
   panel.className = "frontmatter md-render-properties";
   setUILabel(panel, "Metadata");
   const actions = document.createElement("div");
-  actions.className = "md-metadata-actions";
-  let activeEditor: { commit: () => boolean; focus: () => void } | undefined;
-  if (onEdit) {
+  actions.className = "md-metadata-actions";registerRenderedClipboardOpaque(actions);
+  let alive=true;
+  let activeEditor: MetadataEditorSession & {token:symbol} | undefined;
+  panelCompositions.set(panel,()=>alive&&activeEditor?.current()===true&&activeEditor.composing());
+  panelDrafts.set(panel,()=>{
+    const draft=activeEditor;if(!alive||!draft)return null;
+    return {panel:draft.form,token:draft.token,current:()=>panelDrafts.has(panel)&&panel.isConnected&&!panel.hidden&&
+      activeEditor===draft&&draft.current()&&draft.form.isConnected&&!draft.form.hidden&&panel.contains(draft.form)};
+  });
+  const commitForLeave=()=>{panel.dataset.metadataTransition='leave';const result=activeEditor?.commit()??true;if(!result)delete panel.dataset.metadataTransition;return result;};
+  panelCommits.set(panel,commitForLeave);
+  const leave = (event:Event) => {
+    if(!activeEditor||!(event.target instanceof Node)||panel.contains(event.target))return;
+    if(!commitForLeave()){event.preventDefault();event.stopImmediatePropagation();}
+  };
+  panel.ownerDocument.addEventListener("pointerdown",leave,true);
+  panelCleanups.set(panel,()=>{alive=false;const draft=activeEditor;activeEditor=undefined;draft?.dispose();panel.ownerDocument.removeEventListener("pointerdown",leave,true);});
+  if (onEdit && !options.onChange) {
     const edit = document.createElement("button");
     edit.type = "button";
     edit.className = "md-metadata-edit";
@@ -134,8 +183,10 @@ export function createMetadataPanel(source: string, onEdit?: () => void, options
         text.append(display);
         editValue.addEventListener("mousedown", event => { event.preventDefault(); event.stopPropagation(); });
         editValue.addEventListener("click", event => {
-          event.preventDefault(); event.stopPropagation();
-          if (activeEditor) { activeEditor.focus(); return; }
+          event.preventDefault(); event.stopPropagation();if(!alive)return;
+          const wasConnected=panel.isConnected;
+          if (activeEditor && !commitForLeave()) { activeEditor.focus(); return; }
+          if(wasConnected&&!panel.isConnected){queueMicrotask(()=>{const replacement=[...document.querySelectorAll<HTMLButtonElement>('.md-metadata-value-edit')].find(button=>button.dataset.metadataPath===JSON.stringify(path));replacement?.click();});return;}
           const form = document.createElement("span");
           form.className = "md-metadata-value-form";
           const input = document.createElement(typeof value === "boolean" ? "select" : typeof value === "string" && value.includes("\n") ? "textarea" : "input");
@@ -148,21 +199,29 @@ export function createMetadataPanel(source: string, onEdit?: () => void, options
           }
           input.value = value === null ? "" : String(value);
           const initial = input.value;
+          let composing=false;
+          input.addEventListener("compositionstart",()=>{composing=true;});
+          input.addEventListener("compositionend",()=>{composing=false;});
+          const compositionPointer=(event:Event)=>{if(composing&&event.target instanceof Element&&event.target.closest('button')){event.preventDefault();event.stopImmediatePropagation();}};
+          form.addEventListener('pointerdown',compositionPointer,true);form.addEventListener('mousedown',compositionPointer,true);
           const error = document.createElement("span");
           error.className = "md-metadata-value-error";
           error.setAttribute("role", "alert");
           const restore = () => {
+            if(!alive||activeEditor?.form!==form)return;
             activeEditor = undefined;
             form.remove();
             display.hidden = false;
-            (editValue.hidden ? text.closest<HTMLElement>("dd") : editValue)?.focus();
+            if(!panel.dataset.metadataTransition)(editValue.hidden ? text.closest<HTMLElement>("dd") : editValue)?.focus();
           };
           const commit = () => {
+            if(!alive||activeEditor?.form!==form)return false;
+            if(composing){input.focus();return false;}
             if (input.value === initial) { restore(); return true; }
             try {
               const patch = metadataValuePatch(source, node, input.value);
               if (!options.onChange!(patch)) throw new Error("This value changed. Reopen it to edit the latest version.");
-              activeEditor = undefined;
+              restore();
               return true;
             } catch (failure) {
               error.textContent = failure instanceof Error ? failure.message : "Could not save this value.";
@@ -175,12 +234,12 @@ export function createMetadataPanel(source: string, onEdit?: () => void, options
             const button = document.createElement("button");
             button.type = "button";
             button.textContent = label;
-            button.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); run(); });
+            button.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); if(!composing)run(); });
             return button;
           };
           form.addEventListener("keydown", event => {
             event.stopPropagation();
-            if (event.isComposing || event.keyCode === 229) return;
+            if (!alive || activeEditor?.form!==form || composing || event.isComposing || event.keyCode === 229) return;
             if (event.key === "Escape") { event.preventDefault(); restore(); }
             else if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement) && (!(input instanceof HTMLTextAreaElement) || event.metaKey || event.ctrlKey)) {
               event.preventDefault(); commit();
@@ -189,7 +248,7 @@ export function createMetadataPanel(source: string, onEdit?: () => void, options
           form.append(input, action("Save", commit), action("Cancel", restore), error);
           display.hidden = true;
           text.append(form);
-          activeEditor = { commit, focus: () => input.focus() };
+          activeEditor = { form,token:Symbol("metadata-draft"),commit, focus: () => input.focus(),composing:()=>composing,current:()=>alive&&activeEditor?.form===form,dispose:()=>{form.remove();display.hidden=false;} };
           input.focus();
           if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) input.select();
         });
@@ -254,9 +313,9 @@ export function createMetadataPanel(source: string, onEdit?: () => void, options
         return createMetadataTags(source, node, path, {
           // Share scalar/link rendering and the panel's node/depth budget with Reader.
           renderValue: (item, index) => valueNode(item, depth + 1, [...path, index + 1], false),
-          begin: session => { if (activeEditor) { activeEditor.focus(); return false; } activeEditor = session; return true; },
-          end: () => { activeEditor = undefined; },
-          change: options.onChange,
+          begin: session => { if(!alive)return false;if (activeEditor) { activeEditor.focus(); return false; } activeEditor = {...session,token:Symbol("metadata-tags-draft")}; return true; },
+          end: session => { if(activeEditor?.form===session.form)activeEditor = undefined; },
+          change: patch=>alive&&!!activeEditor&&options.onChange!(patch),
         });
       }
       if (!node.items.length) return literal("[]");
@@ -314,7 +373,7 @@ export function createMetadataPanel(source: string, onEdit?: () => void, options
   toggle.addEventListener("click", event => {
     event.preventDefault();
     event.stopPropagation();
-    if (activeEditor) { activeEditor.focus(); return; }
+    if (activeEditor && !commitForLeave()) { activeEditor.focus(); return; }
     expanded = !expanded;
     options.onExpandedChange?.(expanded);
     update();

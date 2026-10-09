@@ -35,3 +35,6 @@
 .cm-live-table .md-table-inline-editor .cm-live-sup {font-size:.8em;vertical-align:super;}
 
 .cm-live-table .cm-live-table-preview a {cursor:pointer;}
+
+/* A review action stays above the ordinary block toolbar. */
+.md-table-paste-review {position:relative;z-index:21;}

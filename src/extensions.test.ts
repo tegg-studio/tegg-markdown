@@ -71,12 +71,12 @@ describe("extension rendering contracts", () => {
   expect(r.querySelector('dialog li')?.textContent).toBe('List');expect(r.querySelector('dialog code')?.textContent).toBe('$code$');
   [...r.querySelectorAll<HTMLButtonElement>('dialog button')].find(b=>b.textContent==='Full note')!.click();
   expect(document.activeElement).toBe(r.querySelector('.footnote-item'));
-  r.querySelector<HTMLAnchorElement>('.footnote-backref')!.click();expect(document.activeElement).toBe(refs[1]);
+  r.querySelectorAll<HTMLButtonElement>('.footnote-backref')[1].click();expect(document.activeElement).toBe(refs[1]);
   refs[0].click();await renderMarkdown('New revision',r);expect(document.querySelector('dialog')).toBeNull();
  });
  it("preserves missing note markers and exposes base navigation when enhancements disabled", async () => {
   const r=root();await renderMarkdown('Missing[^none] and note[^a].\n\n[^a]: Definition',r,{enhancedInteractions:false});
-  expect(r.textContent).toContain('[^none]');r.querySelector<HTMLAnchorElement>('.footnote-ref a')!.click();
+  expect(r.querySelector('[data-footnote-group="missing"]')?.textContent).toContain('none');r.querySelector<HTMLAnchorElement>('.footnote-ref a[data-footnote-label="a"]')!.click();
   expect(document.activeElement).toBe(r.querySelector('.footnote-item'));expect(r.querySelector('dialog')).toBeNull();
  });
  it("destroys open Reader panels", async () => {
@@ -113,7 +113,7 @@ describe("extension rendering contracts", () => {
    await vi.waitFor(()=>expect(parent.querySelector('.cm-live-footnote-ref')).not.toBeNull());
    const selection=view.state.selection.toJSON();parent.querySelector<HTMLButtonElement>('.cm-live-footnote-ref')!.click();
    expect(parent.querySelector('dialog li')?.textContent).toBe('Three');expect(view.state.doc.toString()).toBe(source);expect(view.state.selection.toJSON()).toEqual(selection);
-   expect(parent.textContent).toContain('[^none]');
+   expect(parent.querySelector('.cm-live-footnote-ref.is-missing')?.textContent).toBe('?');
   } finally {view.destroy();}
   expect(document.querySelector('dialog')).toBeNull();
  });

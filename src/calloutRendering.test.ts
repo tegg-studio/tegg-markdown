@@ -75,7 +75,7 @@ describe("semantic Callout rendering", () => {
     const root = render('> [!custom-type] <img src=x onerror="alert(1)">\n> text');
     const quote = root.querySelector<HTMLElement>(".callout")!;
     expect(quote.dataset.callout).toBe("custom-type");
-    expect(quote.dataset.calloutKind).toBe("note");
+    expect(quote.dataset.calloutKind).toBe("custom-type");
     expect(root.querySelector("[onerror]")).toBeNull();
   });
 });

@@ -1,0 +1,16 @@
+import {registerRenderedClipboardOpaque} from './renderedSourceClipboard';
+import {setUIText,setUILabel} from './uiContext';
+import type {FootnoteReference} from './footnoteModel';
+export type FootnoteGroup='main'|'missing'|'unreferenced'|'duplicates';
+export function footnoteLayout(section:HTMLElement){
+  const heading=document.createElement('h2');heading.className='footnotes-heading';setUIText(heading,'Footnotes');section.append(heading);
+  const groups=new Map<FootnoteGroup,{section:HTMLElement;list:HTMLOListElement}>();
+  return {group(kind:FootnoteGroup){let group=groups.get(kind);if(!group){const node=document.createElement('section');node.className='footnotes-group';node.dataset.footnoteGroup=kind;if(kind!=='main'){const title=document.createElement('h3');title.className='footnote-group-title';setUIText(title,kind==='missing'?'Undefined footnotes':kind==='unreferenced'?'Unreferenced footnotes':'Repeated footnote definitions');node.append(title);if(kind==='unreferenced'){const description=document.createElement('p');description.className='footnote-group-description';setUIText(description,'These notes are preserved and have not been referenced in the text.');node.append(description);}}const list=document.createElement('ol');list.className='footnotes-list';node.append(list);const order:FootnoteGroup[]=['main','missing','unreferenced','duplicates'];const next=[...section.querySelectorAll<HTMLElement>('.footnotes-group')].find(existing=>order.indexOf(existing.dataset.footnoteGroup as FootnoteGroup)>order.indexOf(kind));section.insertBefore(node,next??null);groups.set(kind,group={section:node,list});}return group;},prune(){for(const [kind,group]of groups)if(!group.list.children.length){group.section.remove();groups.delete(kind);}}};
+}
+export function footnoteNavigation(references:readonly FootnoteReference[],activate:(reference:FootnoteReference)=>void){
+  const nav=document.createElement('nav');registerRenderedClipboardOpaque(nav);nav.className='footnote-navigation';setUILabel(nav,'Return to text');
+  const icon=()=>{const span=document.createElement('span');span.className='footnote-return-icon';span.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 0 6-6V3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';return span;};
+  if(references.length>1){const label=document.createElement('span');label.className='footnote-return-label';label.append(icon());const text=document.createElement('span');setUIText(text,'Return to text');label.append(text);nav.append(label);}
+  for(const reference of references){const button=document.createElement('button');button.type='button';button.className='footnote-backref';button.dataset.footnoteReferenceFrom=String(reference.from);if(references.length===1){button.append(icon());const text=document.createElement('span');setUIText(text,'Return to text');button.append(text);}else setUIText(button,'Occurrence {value}',{value:String(reference.occurrence)});setUILabel(button,'Return to footnote {label}, occurrence {value}',{label:reference.label,value:String(reference.occurrence)});button.addEventListener('click',()=>activate(reference));nav.append(button);}
+  return nav;
+}

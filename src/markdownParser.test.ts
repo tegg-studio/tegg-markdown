@@ -118,3 +118,9 @@ https://example.com
     expect(html).not.toContain("<h2 onclick=");
   });
 });
+
+it('keeps literal blank lines inside a complete Tegg HTML pre container',()=>{
+ const value='<div data-x="keep"><pre data-role="author"><code class="retain">alpha\nbeta\ngamma\n\n</code></pre><p>body</p></div>\n\nnext';
+ const html=markdownParser.render(value);
+ expect(html).toContain('<pre data-role="author"><code class="retain">alpha\nbeta\ngamma\n\n</code></pre>');expect(html).toContain('<p>next</p>');
+});

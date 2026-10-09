@@ -1,8 +1,12 @@
+import {attachInputSemanticClipboard} from './contentClipboard';
+import {codeLanguageNames as names} from "./codeLanguage";
+import {exitSemanticObject} from './semanticEditing';
 import {undo, redo} from "./selectionHistory";
 import {setUIText, setUILabel} from "./uiContext";
+import {copySource} from "./renderInteraction";
 import {WidgetType, type EditorView} from "@codemirror/view";
 
-import {resourceContext} from "./editorHost";
+import {resourceContext,displaySessionFor} from "./editorHost";
 import {highlightCode} from "./renderKit";
 import {dispatchSourcePatches} from "./editorPatches";
 
@@ -64,7 +68,7 @@ export function mapCodePosition(before: string, after: string, position: number)
   if(position>=oldEnd) return position+newEnd-oldEnd;
   return newEnd;
 }
-const names: Record<string,string> = {swift:"Swift", json:"JSON", python:"Python", javascript:"JavaScript", typescript:"TypeScript", html:"HTML", css:"CSS", text:"Plain Text", markdown:"Markdown", bash:"Shell", sql:"SQL", yaml:"YAML", xml:"XML", go:"Go", rust:"Rust", java:"Java", kotlin:"Kotlin", c:"C", cpp:"C++", csharp:"C#", ruby:"Ruby", php:"PHP"};
+
 const cleanups = new WeakMap<HTMLElement,()=>void>();
 const controls = new WeakMap<HTMLElement, {update(raw:string,from:number,to:number,prefix:string):void}>();
 export class EditableCodeWidget extends WidgetType {
@@ -98,31 +102,38 @@ export class EditableCodeWidget extends WidgetType {
     const pre = document.createElement("pre"); pre.setAttribute("aria-hidden","true");
     const code = document.createElement("code"); pre.append(code);
     const input = document.createElement("textarea"); setUILabel(input, "Code content"); input.spellcheck=false; input.wrap="off";
-    const resize = () => { if(!wrapper.isConnected) return; const left=input.scrollLeft; input.style.height="0px"; input.style.height=Math.max(input.scrollHeight, 48)+"px"; input.scrollLeft=left; pre.scrollLeft=left; pre.scrollTop=input.scrollTop; view.requestMeasure(); };
-    const paint = () => { code.innerHTML=highlightCode(input.value + (input.value.endsWith("\n") ? "\n" : ""), model().language, view.state.facet(resourceContext).engines); requestAnimationFrame(resize); };
-    const commit = (next:string) => { if(next===raw) return; const focused=document.activeElement===input;
+    let resizeFrame:number|undefined, disposed=false;
+    const resize = () => { if(disposed||!wrapper.isConnected) return; const left=input.scrollLeft; input.style.height="0px"; input.style.height=Math.max(input.scrollHeight,pre.scrollHeight,parseFloat(getComputedStyle(input).lineHeight)||1)+"px"; input.scrollLeft=left; pre.scrollLeft=left; pre.scrollTop=input.scrollTop; view.requestMeasure(); };
+    const scheduleResize = () => {
+      if(disposed||resizeFrame!==undefined)return;
+      resizeFrame=requestAnimationFrame(()=>{resizeFrame=undefined;if(!disposed)resize();});
+    };
+    const stopResize = () => {disposed=true;if(resizeFrame!==undefined){cancelAnimationFrame(resizeFrame);resizeFrame=undefined;}};
+    const paint = () => { code.innerHTML=highlightCode(input.value + (input.value.endsWith("\n") ? "\n" : ""), model().language, view.state.facet(resourceContext).engines); scheduleResize(); };
+    const commit = (next:string, isolated=false) => { if(next===raw||view.state.readOnly||composing) return; const focused=document.activeElement===input;
       const start=input.selectionStart,end=input.selectionEnd,direction=input.selectionDirection;
-      dispatchSourcePatches(view,[{from,to,insert:next,expected:raw}]);
+      dispatchSourcePatches(view,[{from,to,insert:next,expected:raw}],{isolateHistory:isolated});
       if(focused && input.isConnected) {input.focus({preventScroll:true}); input.setSelectionRange(start,end,direction);} };
     const icon = (paths:string) => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths}</svg>`;
     const copyIcon=icon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/>');
     const copy = button("", async ()=>{
-      const text = model().body;
-      const request = new CustomEvent("tegg-copy-text", {detail:text, bubbles:true, cancelable:true});
-      if (!copy.dispatchEvent(request)) return;
-      let copied = false;
-      try { await navigator.clipboard.writeText(text); copied = true; } catch {
-        // Local WKWebView documents may not expose the async Clipboard API.
-        const start=input.selectionStart, end=input.selectionEnd;
-        const focused=document.activeElement as HTMLElement | null;
-        input.focus(); input.select();
-        try { copied=document.execCommand("copy"); } catch { copied=false; }
-        input.setSelectionRange(start,end); focused?.focus({preventScroll:true});
-      }
-      copy.innerHTML=copied ? icon('<path d="m5 12 4 4L19 6"/>') : copyIcon;
-      copy.title=copied ? "Copied" : "Copy failed — try again";
-      setTimeout(()=>{copy.innerHTML=copyIcon;copy.title="Copy code";},1500);
+      if(composing||view.composing)return;
+      const text=model().body,initialRaw=raw,initialFrom=from,initialTo=to;
+      const current=()=>wrapper.isConnected&&raw===initialRaw&&from===initialFrom&&to===initialTo&&!composing&&!view.composing;
+      const copied=await copySource(text,copy,()=>{
+        if(!current()||composing||view.composing)return false;
+        const start=input.selectionStart,end=input.selectionEnd,direction=input.selectionDirection;
+        const focused=document.activeElement as HTMLElement|null;input.focus();input.select();
+        let success=false;try{success=document.execCommand("copy");}catch{ /* Keep the existing browser fallback truthful. */ }
+        if(current()){input.setSelectionRange(start,end,direction);focused?.focus({preventScroll:true});}return success;
+      },current);
+      if(copied===undefined||!current())return;
+      copy.innerHTML=copied?icon('<path d="m5 12 4 4L19 6"/>'):copyIcon;
+      copy.title=copied?"Copied":"Copy failed — try again";
+      setTimeout(()=>{if(current()){copy.innerHTML=copyIcon;copy.title="Copy code";}},1500);
     });
+    copy.addEventListener("pointerdown",event=>{if(composing||view.composing)event.preventDefault();});
+    copy.addEventListener("mousedown",event=>{if(composing||view.composing)event.preventDefault();});
     copy.innerHTML=copyIcon;
     setUILabel(copy, "Copy code"); copy.title="Copy code";
     const wrap=button("",()=>{
@@ -130,6 +141,7 @@ export class EditableCodeWidget extends WidgetType {
       input.wrap=enabled?"soft":"off";
       wrapper.classList.toggle("md-code-wrap",enabled);
       wrap.setAttribute("aria-pressed",String(enabled));
+      displaySessionFor(view).setExpanded("code-wrap",from,to,enabled);
       resize();
     });
     wrap.innerHTML=icon('<path d="M3 6h18M3 12h13a4 4 0 0 1 0 8h-4m3-3-3 3 3 3M3 18h4"/>');
@@ -137,29 +149,41 @@ export class EditableCodeWidget extends WidgetType {
     actions.append(wrap,copy); bar.append(language,actions); area.append(pre,input); wrapper.append(bar,area);
     input.readOnly=view.state.readOnly; language.disabled=view.state.readOnly;
     input.value=model().body;
+    const display=displaySessionFor(view),syncWrapping=()=>{const wrapping=display.expanded("code-wrap",from,to,false),next=wrapping?"soft":"off",changed=input.wrap!==next;input.wrap=next;wrapper.classList.toggle("md-code-wrap",wrapping);wrap.setAttribute("aria-pressed",String(wrapping));if(changed)resize();};
+    const stopDisplay=display.subscribe(syncWrapping);syncWrapping();
     syncLanguage();
     input.addEventListener("compositionstart",()=>{composing=true;});
     input.addEventListener("compositionend",()=>{composing=false; commit(write(input.value)); paint();});
-    input.addEventListener("input",()=>{paint(); if(!composing) commit(write(input.value));});
+    input.addEventListener("input",event=>{paint(); if(!composing) commit(write(input.value),["formatIndent","formatOutdent"].includes((event as InputEvent).inputType));});
     input.addEventListener("scroll",()=>{pre.scrollLeft=input.scrollLeft;pre.scrollTop=input.scrollTop;});
     input.addEventListener("keydown",event=>{
       event.stopPropagation();
-      if(event.isComposing) return;
-      if(view.state.readOnly && (event.key === "Tab" || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z"))) {event.preventDefault(); return;}
-      if(event.key==="Escape") {event.preventDefault();view.dispatch({selection:{anchor:to}});view.focus();}
+      if(event.isComposing||event.keyCode===229||composing) return;
+      if(view.state.readOnly && (["Tab","Enter"].includes(event.key) || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z"))) {event.preventDefault(); return;}
+      if(event.key==="Escape") {event.preventDefault();language.focus({preventScroll:true});}
       if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="z") {
         event.preventDefault();
         (event.shiftKey?redo:undo)(view);
         if(input.isConnected) input.focus({preventScroll:true});
       }
+      if(event.key==="Enter") {event.preventDefault();if(event.metaKey){exitSemanticObject(view,{from,to},!event.shiftKey);}else {input.setRangeText("\n",input.selectionStart,input.selectionEnd,"end");input.dispatchEvent(new Event("input"));}return;}
       if(event.key==="Tab") {
         event.preventDefault(); const start=input.selectionStart,end=input.selectionEnd;
         if(!event.shiftKey && start===end) {input.setRangeText("    ",start,end,"end");}
-        else { const lineStart=input.value.lastIndexOf("\n",start-1)+1; const selected=input.value.slice(lineStart,end); const changed=event.shiftKey?selected.replace(/^(?: {1,4}|\t)/gm,""):selected.replace(/^/gm,"    "); input.setRangeText(changed,lineStart,end,"select"); }
-        input.dispatchEvent(new Event("input"));
+        else { const lineStart=start===0?0:input.value.lastIndexOf("\n",start-1)+1; const affectedEnd=end>start&&input.value[end-1]==="\n"?end-1:end;const selected=input.value.slice(lineStart,affectedEnd); const changed=event.shiftKey?selected.replace(/^(?: {1,4}|\t)/gm,""):selected.replace(/^/gm,"    "); input.setRangeText(changed,lineStart,affectedEnd,"select"); }
+        input.dispatchEvent(new InputEvent("input",{inputType:event.shiftKey?"formatOutdent":"formatIndent"}));
       }
     });
-    language.addEventListener("keydown",event=>event.stopPropagation());
+    bar.addEventListener("keydown",event=>{
+      event.stopPropagation();
+      if(event.isComposing||event.keyCode===229||composing||view.composing)return;
+      const key=event.key.toLowerCase();
+      if((event.metaKey||event.ctrlKey)&&key==="z"||event.ctrlKey&&key==="y"){
+        event.preventDefault();if(view.state.readOnly)return;
+        (key==="y"||event.shiftKey?redo:undo)(view);
+        if(!wrapper.isConnected)view.focus();
+      }
+    });
     language.addEventListener("change",()=>{
       commit(write(model().body,language.value));
       syncLanguage();
@@ -175,17 +199,19 @@ export class EditableCodeWidget extends WidgetType {
         input.value=value;input.setSelectionRange(start,end,direction);
       }
       if(document.activeElement!==language) syncLanguage();
-      paint();
+      syncWrapping();paint();
     }});
+    const stopClipboard=attachInputSemanticClipboard(input,{format:'code',readOnly:()=>view.state.readOnly||input.readOnly,composing:()=>composing||view.composing,current:()=>view.state.sliceDoc(from,to)===raw});
     if(typeof ResizeObserver !== "undefined") {
       let width = -1;
       const observer=new ResizeObserver(entries=>{
         const next=entries[0]?.contentRect.width ?? 0;
-        if(next!==width) {width=next;resize();}
+        if(next!==width) {width=next;scheduleResize();}
       });
       observer.observe(area);
-      cleanups.set(wrapper,()=>observer.disconnect());
+      cleanups.set(wrapper,()=>{stopResize();stopDisplay();stopClipboard();observer.disconnect();});
     }
+    if(!cleanups.has(wrapper))cleanups.set(wrapper,()=>{stopResize();stopDisplay();stopClipboard();});
     paint(); return wrapper;
   }
   destroy(dom: HTMLElement){cleanups.get(dom)?.();controls.delete(dom);}

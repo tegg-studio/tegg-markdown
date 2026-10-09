@@ -35,7 +35,8 @@ export function getCommandStatus(command: string, state: EditorUIState): Command
       return {supported:true,enabled:false,reason:"selection-disabled"};
     }
     if (!state.toolbarEnabled) return {supported:true, enabled:false, reason:"editing-disabled"};
-    if (inlineCommands.has(command) && !state.inlineFormattingEnabled) return {supported:true, enabled:false, reason:"selection-disabled"};
+    // The active code control must remain available to remove literal inline code.
+    if (inlineCommands.has(command) && !state.inlineFormattingEnabled && !(command==="code"&&state.code)) return {supported:true, enabled:false, reason:"selection-disabled"};
     if ((command === "undo" && !state.canUndo) || (command === "redo" && !state.canRedo)) return {supported:true, enabled:false, reason:"empty-history"};
     return {supported:true, enabled:true};
 }

@@ -142,7 +142,7 @@ test('math slash command keeps its query through Cancel and applies one reviewed
   await math.click();
   await page.getByRole('textbox', {name: /Formula source|公式源码/}).fill('x^2');
   expect(await sourceOf(page)).toBe('/math');
-  await page.getByRole('button', {name: /Apply|应用/}).click();
+  await page.getByRole('button', {name: /Done|完成/}).click();
   expect(await sourceOf(page)).toBe('$$\nx^2\n$$');
   await page.evaluate(() => (window as any).host.editor.command('undo'));
   expect(await sourceOf(page)).toBe('/math');

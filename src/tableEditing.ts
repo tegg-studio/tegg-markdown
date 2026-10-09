@@ -5,6 +5,7 @@ export type TablePosition = {row: number; column: number};
 export type TableRectangle = {from: TablePosition; to: TablePosition};
 export type TableOperation =
   | {type: 'cell'; at: TablePosition; value: string}
+  | {type: 'clear'; rectangle: TableRectangle}
   | {type: 'insert-row'; index: number}
   | {type: 'delete-row'; index: number}
   | {type: 'insert-column'; index: number}
@@ -46,6 +47,12 @@ export function applyTableOperation(source: string, operation: TableOperation, o
     case 'cell': {
       integer(operation.at.row,0,rows.length-1); integer(operation.at.column,0,width-1);
       rows[operation.at.row][operation.at.column] = cellValue(operation.value); selection = operation.at; break;
+    }
+    case 'clear': {
+      tableRectangle(source, operation.rectangle);
+      const top=Math.min(operation.rectangle.from.row,operation.rectangle.to.row),bottom=Math.max(operation.rectangle.from.row,operation.rectangle.to.row),left=Math.min(operation.rectangle.from.column,operation.rectangle.to.column),right=Math.max(operation.rectangle.from.column,operation.rectangle.to.column);
+      for(let r=top;r<=bottom;r++)for(let c=left;c<=right;c++)rows[r][c]='';
+      selection={row:top,column:left};break;
     }
     case 'align': {
       integer(operation.column,0,width-1);

@@ -1,8 +1,9 @@
+import type {ValidatingEngine} from "./technicalSyntax";
 export type RenderEngines = {
-  math?: (source: string, display: "inline" | "block") => string;
+  math?: ValidatingEngine<(source: string, display: "inline" | "block") => string>;
   highlight?: (source: string, language: string) => string | undefined;
-  mermaid?: (source: string, target: HTMLElement, current: () => boolean) => Promise<string>;
-  graphviz?: (source: string, target: HTMLElement, current: () => boolean) => Promise<string>;
+  mermaid?: ValidatingEngine<(source: string, target: HTMLElement, current: () => boolean) => Promise<string>>;
+  graphviz?: ValidatingEngine<(source: string, target: HTMLElement, current: () => boolean) => Promise<string>>;
 };
 let defaults: RenderEngines = {};
 const scoped = new WeakMap<HTMLElement, RenderEngines>();

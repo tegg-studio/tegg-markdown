@@ -8,7 +8,8 @@ for (const definition of definitions) {
   for (const id of [definition.id, ...definition.aliases]) types.set(id, definition);
 }
 export function resolveCallout(id: string): CalloutDefinition {
-  return types.get(id.toLowerCase()) ?? definitions[0];
+  const known=types.get(id.toLowerCase());if(known)return known;
+  return {...definitions.find(type=>type.id==='info')!,id:id.toLowerCase(),aliases:[],label:id,symbol:'info',light:'#6e6e73',dark:'#98989d'} as CalloutDefinition;
 }
 export function isKnownCallout(id: string) { return types.has(id.toLowerCase()); }
 

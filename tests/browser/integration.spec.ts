@@ -52,7 +52,7 @@ for(const [version,port] of [[18,18915],[19,18916]]) {
 
 test("eight independent instances keep language and attribution isolated",async({page})=>{
  await page.goto("/");await page.evaluate(()=>(window as any).host.instances(8));
- await expect(page.locator(".tegg-sdk-frame")).toHaveCount(8);await expect(page.getByRole("button",{name:"Copy",exact:true})).toHaveCount(4);await expect(page.getByRole("button",{name:"复制",exact:true})).toHaveCount(4);
+ await expect(page.locator(".tegg-sdk-frame")).toHaveCount(8);await expect(page.getByRole("button",{name:"Copy code",exact:true})).toHaveCount(4);await expect(page.getByRole("button",{name:"复制代码",exact:true})).toHaveCount(4);
  await expect(page.getByText("Powered by Tegg Markdown")).toHaveCount(8);await page.evaluate(()=>(window as any).host.destroy());await expect(page.locator(".tegg-sdk-frame")).toHaveCount(0);
 });
 

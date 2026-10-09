@@ -15,9 +15,36 @@ for(const [name,lead,prefix] of containers) for(const fenced of [false,true]) te
  await open(page,source);
  const input=page.getByRole('textbox',{name:/Code content|代码内容/});
  await expect(input).toHaveValue('first\n    nested');
- for(const method of ['backward','forward','selection','cut']){
+ for(const method of ['backward','forward','selection','cut'])await test.step(method,async()=>{
+  if(method==='forward'){
+   const trigger={from:lead.length,to:lead.length};
+   await caret(page,trigger.from);await page.keyboard.press('Delete');
+   expect(await sourceOf(page)).toBe(source);
+   const selected=await page.evaluate(()=>(window as any).host.instance.selection().range);
+   expect(source.slice(selected.from,selected.to)).toBe(code);
+   await expect(input).toHaveValue('first\n    nested');
+   await page.keyboard.press('Escape');
+   expect(await sourceOf(page)).toBe(source);
+   expect(await page.evaluate(()=>(window as any).host.instance.selection().range)).toEqual(trigger);
+   await page.keyboard.press('Delete');expect(await sourceOf(page)).toBe(source);
+   expect(await page.evaluate(()=>(window as any).host.instance.selection().range)).toEqual(selected);
+   await page.keyboard.press('Delete');await expect(input).toHaveCount(0);
+   // Delete only the explicitly selected child. A quote's rail belongs to its parent.
+   const rail=name==='quote'?'>':'';
+   const changed=source.slice(0,selected.from)+rail+source.slice(selected.to);
+   expect(await sourceOf(page)).toBe(changed);
+   expect(changed.startsWith(lead+gap)).toBe(true);
+   expect(changed.endsWith('\n\n'+(prefix?'- next':'tail'))).toBe(true);
+   for(let round=0;round<3;round++){
+    await page.keyboard.press('ControlOrMeta+z');expect(await sourceOf(page)).toBe(source);
+    expect(await page.evaluate(()=>(window as any).host.instance.selection().range)).toEqual(selected);
+    await expect(input).toHaveValue('first\n    nested');
+    await page.keyboard.press('ControlOrMeta+Shift+z');expect(await sourceOf(page)).toBe(changed);
+    await expect(input).toHaveCount(0);
+   }
+   await page.keyboard.press('ControlOrMeta+z');return;
+  }
   if(method==='backward'){await caret(page,lead.length+1);await page.keyboard.press('Backspace');}
-  else if(method==='forward'){await caret(page,lead.length);await page.keyboard.press('Delete');}
   else{await caret(page,lead.length,lead.length+gap.length);await page.keyboard.press(method==='cut'?'ControlOrMeta+x':'Backspace');}
   await expect(input).toHaveValue('first\n    nested');
   const changed=await sourceOf(page);
@@ -29,7 +56,7 @@ for(const [name,lead,prefix] of containers) for(const fenced of [false,true]) te
    await expect(input).toHaveValue('first\n    nested');
   }
   await page.keyboard.press('ControlOrMeta+z');
- }
+ });
 });
 for(const [name,lead,prefix] of [...containers,['quoted','> paragraph','> ']])test(`code boundaries ${name} empty and boundary lines remain editable`,async({page})=>{
  const source=lead+'\n'+(prefix.includes('>')?'>':'')+'\n'+prefix+'    first\n'+prefix+'        nested';

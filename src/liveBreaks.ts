@@ -1,3 +1,4 @@
+import {calloutRanges} from "./calloutEditing";
 import {isolateHistory} from "@codemirror/commands";
 import {syntaxTree, ensureSyntaxTree} from "@codemirror/language";
 import type {SyntaxNode} from "@lezer/common";
@@ -68,6 +69,8 @@ export function deleteLiveBreak(view: EditorView, backwards: boolean) {
 export function insertLiveBreak(view: EditorView) {
   if (view.state.readOnly || view.composing || view.state.selection.ranges.length !== 1) return false;
   const {from, to} = view.state.selection.main;
+  const callout=calloutRanges(view.state).find(item=>from>=item.headerFrom&&to<=item.headerTo);
+  if(callout){view.dispatch({changes:{from,to,insert:'<br>'},selection:{anchor:from+4},annotations:isolateHistory.of('full'),userEvent:'input'});return true;}
   const tree = ensureSyntaxTree(view.state, to, 50) ?? syntaxTree(view.state);
   let paragraph = false;
   let item: SyntaxNode | null = null;

@@ -1,17 +1,19 @@
+import {readContentClipboard} from './contentClipboard';
+import {contentClipboardType} from './clipboardTransport';
 import {htmlToMarkdown, imageMarkdown, markdownDestination, markdownLabel, type PasteIssue} from './htmlToMarkdown';
 import {parseDelimitedData, tableEditingLimits} from './tableEditing';
 import {serializeMarkdownTable} from './table';
 
 export type ClipboardFile = Readonly<{id: string; name: string; type: string; size: number; blob?: Blob; handle?: unknown}>;
 export type ClipboardInput = Readonly<{
-  text?: string; markdown?: string; html?: string; files?: readonly ClipboardFile[];
+  text?: string; markdown?: string; html?: string; structured?:string; files?: readonly ClipboardFile[];
   cells?: readonly (readonly string[])[]; delimiter?: '\t' | ',';
 }>;
 export type PasteResource = ClipboardFile & {token: string; kind: 'image' | 'attachment'; alt: string; title?: string; source?: string};
-export type PasteContext = {target?: 'document' | 'code' | 'table-cell'; plainText?: boolean; acceptSimplification?: boolean};
+export type PasteContext = {target?: 'document' | 'code' | 'table-cell'; plainText?: boolean; acceptSimplification?: boolean; documentSource?:string};
 export type PastePreparation = {
   status: 'ready' | 'needs-review' | 'rejected'; original: ClipboardInput; markdown: string; plainText: string;
-  cells?: string[][]; resources: PasteResource[]; issues: PasteIssue[];
+  cells?: string[][]; resources: PasteResource[]; issues: PasteIssue[]; sharedDefinitions?:string[];
 };
 export type ClipboardDataLike = {getData(type: string): string; readonly types?: readonly string[]; readonly files?: ArrayLike<File>; readonly items?: ArrayLike<{kind:string;getAsFile():File|null}>};
 /** Capture synchronously in the paste/drop event, before awaiting a picker or storage. */
@@ -22,11 +24,12 @@ export function captureClipboard(data: ClipboardDataLike): ClipboardInput {
   const seen=new Set<File>();
   const files=nativeFiles.filter(file=>!seen.has(file)&&!!seen.add(file)).map((file,index)=>Object.freeze({id:'file-'+index,name:file.name,type:file.type,size:file.size,blob:file}));
   const types=Array.from(data.types??[]);
+  const structured=get(contentClipboardType);
   const markdown=get('text/markdown')||get('text/x-markdown');
   const delimiter=types.includes('text/tab-separated-values')?'\t' as const:types.includes('text/csv')?',' as const:undefined;
   const text=delimiter==='\t'?get('text/tab-separated-values'):delimiter===','?get('text/csv'):get('text/plain');
   const html=get('text/html');
-  return Object.freeze({...(text||types.includes('text/plain')||delimiter?{text}:{}),...(markdown?{markdown}:{}),...(html?{html}:{}),files:Object.freeze(files),...(delimiter?{delimiter}:{})});
+  return Object.freeze({...(structured?{structured}:{}),...(text||types.includes('text/plain')||delimiter?{text}:{}),...(markdown?{markdown}:{}),...(html?{html}:{}),files:Object.freeze(files),...(delimiter?{delimiter}:{})});
 }
 function snapshotInput(input: ClipboardInput): ClipboardInput {
   return Object.freeze({...input,files:input.files?Object.freeze(input.files.map(file=>Object.freeze({...file}))):undefined,cells:input.cells?Object.freeze(input.cells.map(row=>Object.freeze([...row]))):undefined});
@@ -49,7 +52,7 @@ export function preparePaste(input: ClipboardInput, context: PasteContext = {}):
   const original=snapshotInput(input),issues:PasteIssue[]=[],resources:PasteResource[]=[];
   let markdown='',plainText=plainFallback(original),cells:string[][]|undefined;
   const result=(status:PastePreparation['status']):PastePreparation=>({status,original,markdown,plainText,cells,resources,issues});
-  const total=(input.text?.length??0)+(input.markdown?.length??0)+(input.html?.length??0);
+  const total=(input.structured?.length??0)+(input.text?.length??0)+(input.markdown?.length??0)+(input.html?.length??0);
   if(total>4*tableEditingLimits.inputLength){issues.push({code:'input-budget',message:'The paste exceeds the conversion budget. The original input is retained.',requiresReview:true});return result('rejected');}
   const ids=new Set<string>();
   for(const file of original.files??[]){
@@ -59,6 +62,7 @@ export function preparePaste(input: ClipboardInput, context: PasteContext = {}):
     if(original.text===undefined&&original.markdown===undefined&&original.html)plainText=htmlToMarkdown(original.html).plainText;
     markdown=plainText;return result('ready');
   }
+  if(original.structured&&!context.plainText){try{const copy=readContentClipboard(original.structured);if(copy.format==='html'){const converted=preparePaste({...original,structured:undefined,html:copy.source},{...context});return {...converted,original};}markdown=copy.source;const sharedDefinitions:string[]=[];if(copy.definitions?.length){const existing=context.documentSource??'';for(const definition of copy.definitions){if(existing.includes(definition))continue;const key=/^\[([^\]]+)\]:/.exec(definition)?.[1];if(key&&new RegExp('^\\['+key.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\]:','im').test(existing)){issues.push({code:'shared-definition-conflict',message:'This pasted reference conflicts with an existing shared definition. The original input is retained; choose Paste plain text explicitly or inspect the definitions.',requiresReview:true});return result('needs-review');}if(context.target==='table-cell')sharedDefinitions.push(definition);else markdown+='\n\n'+definition;}}return {...result('ready'),...(sharedDefinitions.length?{sharedDefinitions}:{})};}catch(error){issues.push({code:'invalid-semantic-copy',message:(error as Error).message,requiresReview:true});return result('needs-review');}}
   const used=new Set<string>();
   if(original.markdown!==undefined)markdown=original.markdown;
   else if(original.cells||original.delimiter||(original.text?.includes('\t')&&!original.html)) {

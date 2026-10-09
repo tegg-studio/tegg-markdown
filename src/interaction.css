@@ -120,3 +120,29 @@
 .tegg-surface .md-object-block > .katex-display{max-width:100%;overflow-x:auto;overflow-y:hidden;padding-block:4px;}
 .tegg-surface .md-object-viewer:not(.md-formula-viewer){width:900px;height:min(620px,calc(100dvh - 32px));}
 .tegg-surface img[hidden]{display:none!important;}
+
+/* The renderer owns image view actions; reveal never alters document geometry. */
+.tegg-surface .md-image-container:hover > .md-image-view-actions,
+.tegg-surface .md-image-container:focus-within > .md-image-view-actions {opacity:1;pointer-events:auto;}
+.tegg-surface .md-object-toolbar[hidden],.tegg-surface .md-image-view-actions[hidden] {display:none!important;}
+@media(hover:none),(pointer:coarse){
+ .tegg-surface .cm-live-image > .md-object-toolbar,
+ .tegg-surface .md-image-container > .md-image-view-actions {opacity:0;pointer-events:none;}
+ .tegg-surface .cm-live-image[data-image-selected="true"] > .md-object-toolbar,
+ .tegg-surface .cm-live-image:focus-within > .md-object-toolbar,
+ .tegg-surface .md-image-container[data-image-selected="true"] > .md-image-view-actions,
+ .tegg-surface .md-image-container:focus-within > .md-image-view-actions {opacity:1;pointer-events:auto;}
+}
+
+/* Independent viewers inherit interface roles, never reading scale or content roles. */
+.tegg-surface .md-object-panel[data-mobile]{display:flex;flex-direction:column;font:var(--tegg-ui-weight-regular,400) var(--tegg-ui-input-size,13px)/var(--tegg-ui-input-line,19.5px) var(--tegg-ui-font,-apple-system,system-ui,sans-serif)}
+.tegg-surface .md-object-panel[data-mobile]>header{flex:none}
+.tegg-surface .md-object-panel[data-mobile]>header strong{min-width:0;font:var(--tegg-ui-weight-semibold,600) var(--tegg-ui-title-size,15px)/var(--tegg-ui-title-line,21px) var(--tegg-ui-font,-apple-system,system-ui,sans-serif)}
+.tegg-surface .md-object-panel[data-mobile] :is(button,select){font:var(--tegg-ui-weight-regular,400) var(--tegg-ui-action-size,13px)/var(--tegg-ui-action-line,18px) var(--tegg-ui-font,-apple-system,system-ui,sans-serif);min-height:max(30px,calc(var(--tegg-ui-action-line,18px) + 12px))}
+.tegg-surface .md-object-panel[data-mobile] :is(output,label,summary){font:var(--tegg-ui-weight-regular,400) var(--tegg-ui-label-size,12px)/var(--tegg-ui-label-line,17px) var(--tegg-ui-font,-apple-system,system-ui,sans-serif)}
+.tegg-surface .md-object-viewer[data-mobile] .md-object-body{flex:1;min-height:0;height:auto;max-height:none}
+.tegg-surface .md-object-viewer[data-mobile] pre{font:var(--tegg-ui-weight-regular,400) var(--tegg-ui-input-size,13px)/var(--tegg-ui-input-line,19.5px) var(--tegg-ui-mono-font,ui-monospace,monospace)}
+.tegg-surface .md-object-panel[data-mobile=true]>header strong{font-size:var(--tegg-ui-title-size,17px);line-height:var(--tegg-ui-title-line,22px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tegg-surface .md-object-panel[data-mobile=true] :is(button,select){font-size:var(--tegg-ui-action-size,17px);line-height:var(--tegg-ui-action-line,22px);min-width:44px;min-height:max(44px,calc(var(--tegg-ui-action-line,22px) + 12px))}
+.tegg-surface .md-object-panel[data-mobile=true] :is(output,label,summary){font-size:var(--tegg-ui-label-size,13px);line-height:var(--tegg-ui-label-line,18px)}
+.tegg-surface .md-object-viewer[data-mobile=true] pre{font-size:max(16px,var(--tegg-ui-input-size,16px));line-height:var(--tegg-ui-input-line,24px)}

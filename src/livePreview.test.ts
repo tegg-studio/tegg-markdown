@@ -1,4 +1,7 @@
-import {resourceContext} from "./editorHost";
+import {bindUI} from "./uiContext";
+import {TeggMarkdownEditor} from './editor';
+import {ContentDisplaySession} from './contentDisplaySession';
+import {resourceContext,displaySessionFor} from "./editorHost";
 import {markdownParser} from "./markdownParser";
 import {literalClipboardText} from "./literalEditing";
 /** @vitest-environment jsdom */
@@ -7,7 +10,7 @@ import { history, cursorCharLeft, deleteCharBackward, undo, insertNewline } from
 import { EditorState, StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { markdown } from "@codemirror/lang-markdown";
-import {ensureSyntaxTree} from "@codemirror/language";
+import {ensureSyntaxTree,forceParsing,ParseContext} from "@codemirror/language";
 import { GFM } from "@lezer/markdown";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -216,23 +219,52 @@ describe("Live Edit syntax contract", () => {
     }
   });
 
-  it("opens a body link on click but not after dragging a selection", () => {
-    const source = "[Go](target.md) after";
-    const {parent, view} = mount(source);
-    const open = vi.fn();
-    view.dom.addEventListener("tegg-open-link", open);
-    const element = () => parent.querySelector<HTMLElement>(".cm-live-link")!;
-    element().dispatchEvent(new MouseEvent("mousedown", {bubbles: true, button: 0, clientX: 10, clientY: 10}));
-    document.dispatchEvent(new MouseEvent("mouseup", {bubbles: true, button: 0, clientX: 10, clientY: 10}));
-    element().dispatchEvent(new MouseEvent("click", {bubbles: true, button: 0, clientX: 10, clientY: 10}));
-    expect(open).toHaveBeenCalledOnce();
-    expect((open.mock.calls[0][0] as CustomEvent).detail).toBe("target.md");
-    open.mockClear();
-    element().dispatchEvent(new MouseEvent("mousedown", {bubbles: true, button: 0, clientX: 10, clientY: 10}));
-    view.dispatch({selection: {anchor: 1, head: 3}});
-    element().dispatchEvent(new MouseEvent("click", {bubbles: true, button: 0, clientX: 30, clientY: 10}));
-    expect(open).not.toHaveBeenCalled();
-    expect(view.state.doc.toString()).toBe(source);
+  it("keeps ordinary body-link clicks on the text route and opens only pure Mac Command-click without dragging", () => {
+    const platform = vi.spyOn(window.navigator, "platform", "get").mockReturnValue("MacIntel");
+    try {
+      const source = "[Go](target.md) after";
+      const {parent, view} = mount(source);
+      const open = vi.fn();
+      view.dom.addEventListener("tegg-open-link", open);
+      const element = () => parent.querySelector<HTMLElement>(".cm-live-link")!;
+      const gesture = (modifiers: MouseEventInit = {}) => {
+        const options = {bubbles: true, cancelable: true, button: 0, buttons: 1, clientX: 10, clientY: 10, ...modifiers};
+        element().dispatchEvent(new MouseEvent("pointerdown", options));
+        element().dispatchEvent(new MouseEvent("mousedown", options));
+        element().dispatchEvent(new MouseEvent("pointerup", {...options, buttons: 0}));
+        element().dispatchEvent(new MouseEvent("mouseup", {...options, buttons: 0}));
+        const click = new MouseEvent("click", {...options, buttons: 0});
+        element().dispatchEvent(click);
+        return click;
+      };
+      const ordinary = gesture();
+      expect(ordinary.defaultPrevented).toBe(false);
+      expect(open).not.toHaveBeenCalled();
+      expect(element().textContent).toBe("Go");
+      expect(view.state.doc.toString()).toBe(source);
+      expect(gesture({metaKey: true}).defaultPrevented).toBe(true);
+      expect(open).toHaveBeenCalledOnce();
+      expect((open.mock.calls[0][0] as CustomEvent).detail).toBe("target.md");
+      open.mockClear();
+      for (const modifiers of [{ctrlKey: true}, {metaKey: true, ctrlKey: true}, {metaKey: true, altKey: true}, {metaKey: true, shiftKey: true}]) {
+        expect(gesture(modifiers).defaultPrevented).toBe(false);
+        expect(open).not.toHaveBeenCalled();
+      }
+      const command = {bubbles: true, cancelable: true, button: 0, buttons: 1, metaKey: true, clientX: 10, clientY: 10};
+      element().dispatchEvent(new MouseEvent("mousedown", command));
+      element().dispatchEvent(new MouseEvent("mousemove", {...command, clientX: 30}));
+      view.dispatch({selection: {anchor: 1, head: 3}});
+      element().dispatchEvent(new MouseEvent("mouseup", {...command, buttons: 0, clientX: 30}));
+      element().dispatchEvent(new MouseEvent("click", {...command, buttons: 0, clientX: 30}));
+      expect(open).not.toHaveBeenCalled();
+      element().dispatchEvent(new MouseEvent("mousedown", command));
+      view.dispatch({selection: {anchor: 1, head: 3}});
+      element().dispatchEvent(new MouseEvent("mouseup", {...command, buttons: 0}));
+      element().dispatchEvent(new MouseEvent("click", {...command, buttons: 0}));
+      expect(open).not.toHaveBeenCalled();
+      expect(view.state.doc.toString()).toBe(source);
+      expect(undo(view)).toBe(false);
+    } finally { platform.mockRestore(); }
   });
 
   it("routes Metadata links through the host without changing YAML", () => {
@@ -328,15 +360,9 @@ describe("Live Edit syntax contract", () => {
     expect(parent.querySelector('.md-metadata-tag-fields')).toBeNull();
   });
 
-  it("shows block YAML lists by default and opens source without rewriting comments", async () => {
-    const source = "---\n# keep this comment\ntitle: Test\ntags:\n  - markdown\n  - syntax-review\n---\n\nBody";
-    const { parent, view } = mount(source);
-    expect(parent.querySelector(".cm-live-properties summary")).toBeNull();
-    expect(Array.from(parent.querySelectorAll(".md-metadata-chip"), el => el.textContent)).toEqual(["markdown", "syntax-review"]);
-    parent.querySelector<HTMLButtonElement>(".md-metadata-edit")!.click();
-    expect(view.state.doc.toString()).toBe(source);
-    await vi.waitFor(() => expect(view.state.selection.main.anchor).toBe(4));
-    await vi.waitFor(() => expect(parent.querySelector(".cm-live-frontmatter-source")).not.toBeNull());
+  it("shows block YAML lists and preserves comments through explicit Source mode", async () => {
+    const source="---\n# keep this comment\ntitle: Test\ntags:\n  - markdown\n  - syntax-review\n---\n\nBody",root=document.body.appendChild(document.createElement('div')),editor=new TeggMarkdownEditor(root,{documentId:'metadata-source',revision:'1',source},{},'live');
+    try {editor.view.dispatch({selection:{anchor:source.length}});expect(Array.from(root.querySelectorAll('.md-metadata-chip'),el=>el.textContent)).toEqual(['markdown','syntax-review']);expect(root.querySelector('.md-metadata-edit')).toBeNull();expect(editor.setMode('source')).toBe(true);expect(editor.source).toBe(source);expect(editor.setMode('live')).toBe(true);expect(root.querySelector('.cm-live-properties')).not.toBeNull();expect(editor.source).toBe(source);}finally{editor.destroy();root.remove();}
   });
 
   it("edits scalar values without changing keys or comments, and supports undo", () => {
@@ -369,17 +395,9 @@ describe("Live Edit syntax contract", () => {
     expect(view.state.doc.toString()).toBe(source);
   });
 
-  it("saves a pending value before switching to YAML and returns with Done", async () => {
-    const source = '---\nstatus: draft # keep\n---\nBody';
-    const { parent, view } = mount(source);
-    parent.querySelector<HTMLButtonElement>('button[aria-label="Edit status"]')!.click();
-    parent.querySelector<HTMLInputElement>('.md-metadata-value-input')!.value = 'ready';
-    parent.querySelector<HTMLButtonElement>('.md-metadata-edit')!.click();
-    await vi.waitFor(() => expect(parent.querySelector('.cm-metadata-source-toolbar')).not.toBeNull());
-    expect(view.state.doc.toString()).toBe(source.replace('draft', '"ready"'));
-    parent.querySelector<HTMLButtonElement>('button[aria-label="Done editing YAML"]')!.click();
-    await vi.waitFor(() => expect(parent.querySelector('.cm-live-properties')).not.toBeNull());
-    expect(parent.querySelector('.cm-live-properties')?.textContent).toContain('ready');
+  it("commits the pending metadata value before explicit Source mode and retains its comment", async () => {
+    const source='---\nstatus: draft # keep\n---\nBody',root=document.body.appendChild(document.createElement('div')),editor=new TeggMarkdownEditor(root,{documentId:'metadata-value',revision:'1',source},{},'live');
+    try{editor.view.dispatch({selection:{anchor:source.length}});root.querySelector<HTMLButtonElement>('button[aria-label="Edit status"]')!.click();root.querySelector<HTMLInputElement>('.md-metadata-value-input')!.value='ready';expect(editor.setMode('source')).toBe(true);expect(editor.source).toBe(source.replace('draft','"ready"'));expect(editor.setMode('live')).toBe(true);expect(root.querySelector('.cm-live-properties')?.textContent).toContain('ready');}finally{editor.destroy();root.remove();}
   });
 
   it("validates numbers and ignores IME confirmation keys while editing a value", () => {
@@ -400,28 +418,14 @@ describe("Live Edit syntax contract", () => {
     expect(view.state.doc.toString()).toBe(source.replace('12', '24'));
   });
 
-  it.each(['---\ntitle: Test\n---\nBody', '---\ntitle: Test\n---'])('provides Done in explicit YAML mode and exits without moving the cursor elsewhere: %s', async source => {
-    const { parent, view } = mount(source);
-    parent.querySelector<HTMLButtonElement>('.md-metadata-edit')!.click();
-    await vi.waitFor(() => expect(parent.querySelector('.cm-metadata-source-toolbar')).not.toBeNull());
-    view.dispatch({ changes: { from: source.indexOf('Test'), to: source.indexOf('Test') + 4, insert: 'Updated' }, selection: {anchor: 5} });
-    parent.querySelector<HTMLButtonElement>('button[aria-label="Done editing YAML"]')!.click();
-    await vi.waitFor(() => expect(parent.querySelector('.cm-metadata-source-toolbar')).toBeNull());
-    expect(parent.querySelector('.cm-live-properties')?.textContent).toContain('Updated');
-    expect(view.state.doc.toString()).toBe(source.replace('Test', 'Updated'));
+  it.each(['---\ntitle: Test\n---\nBody', '---\ntitle: Test\n---'])('returns from explicit Source mode with edited metadata source intact: %s', async source => {
+    const root=document.body.appendChild(document.createElement('div')),editor=new TeggMarkdownEditor(root,{documentId:'metadata-return',revision:'1',source},{},'live');
+    try{expect(editor.setMode('source')).toBe(true);editor.view.dispatch({changes:{from:source.indexOf('Test'),to:source.indexOf('Test')+4,insert:'Updated'},selection:{anchor:source.length+3}});expect(editor.setMode('live')).toBe(true);expect(root.querySelector('.cm-live-properties')?.textContent).toContain('Updated');expect(editor.source).toBe(source.replace('Test','Updated'));expect(editor.view.state.selection.main.anchor).toBe(source.length+3);}finally{editor.destroy();root.remove();}
   });
 
-  it("keeps Done available while a YAML delimiter is temporarily incomplete", async () => {
-    const source = '---\ntitle: Test\n---\nBody';
-    const { parent, view } = mount(source);
-    parent.querySelector<HTMLButtonElement>('.md-metadata-edit')!.click();
-    await vi.waitFor(() => expect(parent.querySelector('.cm-metadata-source-toolbar')).not.toBeNull());
-    const closing = source.lastIndexOf('---');
-    view.dispatch({changes: {from: closing, to: closing + 1, insert: ''}});
-    expect(parent.querySelector('button[aria-label="Done editing YAML"]')).not.toBeNull();
-    view.dispatch({changes: {from: closing, insert: '-'}});
-    parent.querySelector<HTMLButtonElement>('button[aria-label="Done editing YAML"]')!.click();
-    await vi.waitFor(() => expect(parent.querySelector('.cm-live-properties')).not.toBeNull());
+  it("keeps explicit Source mode available while a YAML delimiter is temporarily incomplete", async () => {
+    const source='---\ntitle: Test\n---\nBody',root=document.body.appendChild(document.createElement('div')),editor=new TeggMarkdownEditor(root,{documentId:'metadata-delimiter',revision:'1',source},{},'live');
+    try{editor.view.dispatch({selection:{anchor:source.length}});expect(editor.setMode('source')).toBe(true);const closing=source.lastIndexOf('---');editor.view.dispatch({changes:{from:closing,to:closing+1,insert:''}});expect(editor.mode).toBe('source');expect(editor.source).toBe(source.slice(0,closing)+source.slice(closing+1));editor.view.dispatch({changes:{from:closing,insert:'-'}});expect(editor.setMode('live')).toBe(true);expect(root.querySelector('.cm-live-properties')).not.toBeNull();expect(editor.source).toBe(source);}finally{editor.destroy();root.remove();}
   });
 
   it("commits a table cell once when Enter is followed by blur", () => {
@@ -431,7 +435,7 @@ describe("Live Edit syntax contract", () => {
     const capture = (event: ErrorEvent) => {errors.push(event.error); event.preventDefault();};
     window.addEventListener("error", capture);
     try {
-      parent.querySelector<HTMLButtonElement>('button[aria-label="Edit table cell: old"]')!.click();
+      parent.querySelector<HTMLButtonElement>('button[aria-label="Edit table cell: old"]')!.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));
       const input = parent.querySelector<HTMLInputElement>('.cm-live-table-cell input:not([hidden])')!;
       input.value = "已验证";
       input.dispatchEvent(new KeyboardEvent("keydown", {key:"Enter",bubbles:true,cancelable:true}));
@@ -449,7 +453,7 @@ describe("Live Edit syntax contract", () => {
   it("does not treat IME candidate Enter or Escape as a table commit/cancel", () => {
     const {parent, view} = mount("| Name |\n| --- |\n| old |\n\nend");
     const button = parent.querySelector<HTMLButtonElement>('button[aria-label="Edit table cell: old"]')!;
-    button.click();
+    button.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));
     const input = parent.querySelector<HTMLInputElement>('.cm-live-table-cell input:not([hidden])')!;
     input.value = "中文候选";
     for (const key of ["Enter", "Escape"]) {
@@ -592,9 +596,9 @@ describe("Live Edit syntax contract", () => {
 
   it("renders extended document and inline syntax", () => {
     verify(["footnotes"], "Text[^local]\n\n[^local]: Footnote text\n\nend", (root) => {
-      expect(root.querySelector(".cm-live-footnote-ref")?.textContent).toBe("[1]");
-      expect(root.querySelector(".cm-live-footnote-definition p")?.textContent).toBe("Footnote text");
-      expect(root.querySelector(".cm-live-footnote-definition button")?.textContent).toBe("Edit Source");
+      expect(root.querySelector(".cm-live-footnote-ref")?.textContent).toBe("1");
+      expect(root.querySelector(".cm-live-footnote-definition .cm-content")?.textContent).toBe("Footnote text");
+      expect(root.querySelector(".cm-live-footnote-definition button")?.getAttribute("aria-label")).toBe("Return to footnote local, occurrence 1");
     });
     verify(["heading-id"], "#### Installation {#install}\n\nend", (root) => {
       expect(root.textContent).toContain("Installation");
@@ -805,17 +809,38 @@ describe("Live Edit syntax contract", () => {
 
 
 describe("Link hover and spaced destinations", () => {
-  it("keeps angle-wrapped filenames as editable links and routes a click", () => {
-    const {parent, view} = mount("[返回主验证文档](<Mac Markdown 全格式逐项验证.md>)\n\nend");
-    expect(parent.querySelector(".cm-live-html-inline")).toBeNull();
-    const link = parent.querySelector<HTMLElement>(".cm-live-link")!;
-    expect(link.textContent).toBe("返回主验证文档");
-    const opened: string[] = [];
-    view.dom.addEventListener("tegg-open-link", event => opened.push((event as CustomEvent).detail));
-    link.dispatchEvent(new MouseEvent("mousedown", {bubbles: true}));
-    link.dispatchEvent(new MouseEvent("click", {bubbles: true}));
-    expect(decodeURI(opened[0])).toBe("Mac Markdown 全格式逐项验证.md");
+  it("keeps angle-wrapped filenames editable and routes only pure Mac Command-click", () => {
+    const platform = vi.spyOn(window.navigator, "platform", "get").mockReturnValue("MacIntel");
+    try {
+      const source = "[返回主验证文档](<Mac Markdown 全格式逐项验证.md>)\n\nend";
+      const {parent, view} = mount(source);
+      expect(parent.querySelector(".cm-live-html-inline")).toBeNull();
+      const link = parent.querySelector<HTMLElement>(".cm-live-link")!;
+      expect(link.textContent).toBe("返回主验证文档");
+      const opened: string[] = [];
+      view.dom.addEventListener("tegg-open-link", event => opened.push((event as CustomEvent).detail));
+      const gesture = (metaKey: boolean) => {
+        const options = {bubbles: true, cancelable: true, button: 0, buttons: 1, metaKey, clientX: 10, clientY: 10};
+        link.dispatchEvent(new MouseEvent("pointerdown", options));
+        link.dispatchEvent(new MouseEvent("mousedown", options));
+        link.dispatchEvent(new MouseEvent("pointerup", {...options, buttons: 0}));
+        link.dispatchEvent(new MouseEvent("mouseup", {...options, buttons: 0}));
+        const click = new MouseEvent("click", {...options, buttons: 0});
+        link.dispatchEvent(click);
+        return click;
+      };
+      expect(gesture(false).defaultPrevented).toBe(false);
+      expect(opened).toEqual([]);
+      expect(gesture(true).defaultPrevented).toBe(true);
+      expect(opened).toEqual([encodeURI("Mac Markdown 全格式逐项验证.md")]);
+      expect(decodeURI(opened[0])).toBe("Mac Markdown 全格式逐项验证.md");
+      expect(parent.querySelector(".cm-live-html-inline")).toBeNull();
+      expect(link.textContent).toBe("返回主验证文档");
+      expect(view.state.doc.toString()).toBe(source);
+      expect(undo(view)).toBe(false);
+    } finally { platform.mockRestore(); }
   });
+
   it("retains one popup across child transitions and cancels every pending close on entry", () => {
     vi.useFakeTimers();
     try {
@@ -1090,11 +1115,11 @@ describe("stable quote editing", () => {
   it("continues a quote, exits one level on an empty line, and restores with undo", () => {
     const {view} = mount("> > Text", 8);
     expect(editQuoteBoundary(view, true)).toBe(true);
-    expect(view.state.doc.toString()).toBe("> > Text\n> > ");
+    expect(view.state.doc.toString()).toBe("> > Text\n> >\n> > ");
     expect(editQuoteBoundary(view, true)).toBe(true);
-    expect(view.state.doc.toString()).toBe("> > Text\n> ");
+    expect(view.state.doc.toString()).toBe("> > Text\n> >\n> ");
     expect(editQuoteBoundary(view, true)).toBe(true);
-    expect(view.state.doc.toString()).toBe("> > Text\n");
+    expect(view.state.doc.toString()).toBe("> > Text\n> >\n");
     undo(view); expect(view.state.doc.toString()).toContain(">");
   });
   it("outdents at visible text start without deleting text", () => {
@@ -1203,6 +1228,23 @@ describe("shared semantic projection", () => {
     expect(parent.querySelector(".cm-live-html-block details")?.textContent).toContain("Folded content.");
   });
 
+  it("keeps details in their HTML table or div instead of treating their closing tag as a separate block", () => {
+    for (const source of [
+      "before\n\n<table><tr><td><details><summary>Title</summary></details></td><td>next</td></tr></table>\n\nafter",
+      "before\n\n<table>\n<tr><td>\n<details>\n<summary>Title</summary>\n\nBody\n\n</details>\n</td><td>next</td></tr>\n</table>\n\nafter",
+      "before\n\n<div><details><summary>Title</summary></details></div>\n\nafter",
+      "before\n\n<div data-x='retain'>\n<details>\n<summary>Title</summary>\n\nBody\n\n</details>\n</div>\n\nafter",
+    ]) {
+      const {parent, view} = mount(source);
+      const root = parent.querySelector('.cm-live-html-block')!;
+      expect(root.querySelectorAll(source.includes('<table>') ? 'table details' : 'details')).toHaveLength(1);
+      expect(root.querySelector('details')!.open).toBe(false);
+      if (source.includes('<table>')) expect(root.classList.contains('cm-live-html-table')).toBe(true);
+      expect(view.state.doc.toString()).toBe(source);
+      expect(parent.textContent).toContain('after');
+    }
+  });
+
   it("keeps nested details together and leaves an unclosed container as visible source", () => {
     const nested = "<details>\n<summary>Outer</summary>\n\n<details>\n<summary>Inner</summary>\n\nchild\n</details>\n\nouter\n</details>\n\nafter";
     const complete = mount(nested, nested.length).parent;
@@ -1247,6 +1289,36 @@ describe("shared semantic projection", () => {
 });
 
 describe("natural callout and object editing", () => {
+  it("refreshes Callout header and body together after an external display-only expansion while retaining source and selection", () => {
+    const source = "> [!note]- Title\n>\n> Before <!-- secret --> after\n\nTail";
+    const {parent, view} = mount(source);
+    const originalSelection = view.state.selection;
+    const to = source.indexOf("\n\nTail");
+    const header = () => parent.querySelector<HTMLElement>(".callout-editor-header")!;
+    const fold = () => header().querySelector<HTMLButtonElement>(".callout-fold")!;
+    expect(header().dataset.calloutExpanded).toBe("false");
+    expect(fold().getAttribute("aria-expanded")).toBe("false");
+    displaySessionFor(view).setExpanded("callout", 0, to, true);
+    view.dispatch({selection: view.state.selection});
+    expect(header().dataset.calloutExpanded).toBe("true");
+    expect(fold().getAttribute("aria-expanded")).toBe("true");
+    expect(fold().getAttribute("aria-label")).toBe("Collapse Callout");
+    expect(parent.textContent).toContain("Before  after");
+    expect(parent.textContent).not.toContain("secret");
+    expect(view.state.selection.eq(originalSelection)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    fold().click();
+    expect(header().dataset.calloutExpanded).toBe("false");
+    expect(fold().getAttribute("aria-expanded")).toBe("false");
+    expect(fold().getAttribute("aria-label")).toBe("Expand Callout");
+    fold().click();
+    expect(header().dataset.calloutExpanded).toBe("true");
+    expect(fold().getAttribute("aria-expanded")).toBe("true");
+    expect(view.state.selection.eq(originalSelection)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undo(view)).toBe(false);
+  });
+
   it("keeps a nested callout projected through title edits, body edits, and undo", () => {
     const source = "> [!note] Outer\n> body\n>\n> > [!tip] Inner\n> > child";
     const {parent, view} = mount(source, source.indexOf("Outer") + 2);
@@ -1263,9 +1335,9 @@ describe("natural callout and object editing", () => {
     expect(parent.querySelector(".cm-live-callout-title")?.textContent).toBe("Outer!");
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(source);
-    parent.querySelector<HTMLButtonElement>(".callout-source-action")?.click();
-    expect(parent.textContent).toContain("[!note]");
-    parent.querySelector<HTMLButtonElement>(".callout-source-action")?.click();
+    parent.querySelector<HTMLButtonElement>(".callout-fold")?.click();
+    expect(view.state.doc.toString()).toBe(source);
+    parent.querySelector<HTMLButtonElement>(".callout-fold")?.click();
     expect(parent.textContent).not.toContain("[!note]");
   });
 
@@ -1409,4 +1481,72 @@ it("keeps code Tab inert during composition and in a read-only document",()=>{
  view.dispatch({effects:StateEffect.appendConfig.of(EditorState.readOnly.of(true))});
  input.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));
  expect(input.value).toBe('code');expect(view.state.doc.toString()).toBe(source);
+});
+
+it('code selected-line indentation includes a real leading blank line and remains one reversible action',()=>{const source='```text\n\nalpha\n```', {view,parent}=mount(source),input=parent.querySelector<HTMLTextAreaElement>('textarea')!;input.focus();input.setSelectionRange(0,input.value.length);input.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));expect(input.value).toBe('    \n    alpha');input.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',shiftKey:true,bubbles:true,cancelable:true}));expect(input.value).toBe('\nalpha');expect(undo(view)).toBe(true);expect(view.state.doc.toString()).toBe('```text\n    \n    alpha\n```');});
+
+describe('multiline hidden comments',()=>{
+ it.each(['Intro\n\n<!-- First\nSecond -->\n\nTail','Before <!-- First\nSecond --> after\n\nTail'])('keeps line separators and surrounding prose while hiding inactive comment source: %j',source=>{
+  const {parent,view}=mount(source);expect(parent.textContent).not.toContain('First');expect(parent.textContent).not.toContain('Second');expect(parent.textContent).toContain('Tail');if(source.startsWith('Before')){expect(parent.textContent).toContain('Before ');expect(parent.textContent).toContain(' after');}expect(view.state.doc.toString()).toBe(source);view.dispatch({selection:{anchor:0}});expect(view.state.doc.toString()).toBe(source);
+ });
+ it('joins both visible sides of an inactive multiline comment in the same projected line',async()=>{
+  const source='Before <!-- First\nSecond --> after\n\nTail',{parent,view}=mount(source);expect([...parent.querySelectorAll('.cm-line')].filter(row=>row.textContent?.includes('Before'))).toHaveLength(1);const line=parent.querySelector('.cm-line')!;expect(line.textContent).toBe('Before  after');view.focus();view.dispatch({selection:{anchor:source.indexOf('First')}});await vi.waitFor(()=>expect(parent.textContent).toContain('First'));expect(parent.textContent).toContain('Second');view.dispatch({selection:{anchor:source.length}});expect(parent.querySelector('.cm-line')!.textContent).toBe('Before  after');expect(view.state.doc.toString()).toBe(source);
+ });
+ it('constructs a CRLF public Live editor containing multiline comments without changing any author bytes',()=>{
+  const root=document.body.appendChild(document.createElement('div')),source='Intro\r\n\r\n<!-- First\r\nSecond -->\r\n\r\nTail',editor=new TeggMarkdownEditor(root,{documentId:'crlf-comment',revision:'1',source,profile:'tegg'},{},'live');try{expect(editor.source).toBe(source);expect(root.textContent).toContain('Tail');expect(root.textContent).not.toContain('Second');expect(editor.setMode('reader')).toBe(true);expect(editor.source).toBe(source);}finally{editor.destroy();}
+ });
+});
+
+it('refreshes object projections after a deferred real Markdown parse completes without source or selection changes',()=>{
+ let released=false,release!:()=>void;const pending=new Promise<void>(resolve=>{release=()=>{released=true;resolve();};});const wrap:import('@lezer/common').ParseWrapper=(inner,input,fragments,ranges)=>released?inner:ParseContext.getSkippingParser(pending).startParse(input,fragments,ranges);const delayed={wrap};
+ const source='before\n\n| A | B |\n| --- | --- |\n| old | 2 |\n\nafter',root=document.body.appendChild(document.createElement('div')),view=new EditorView({parent:root,state:EditorState.create({doc:source,selection:{anchor:source.length},extensions:[markdown({extensions:[GFM,delayed]}),livePreview]})});mounted.push(view);expect(root.querySelector('[aria-label="Editable Markdown table"]')).toBeNull();release();expect(forceParsing(view,source.length,1000)).toBe(true);expect(root.querySelector('[aria-label="Editable Markdown table"]')).not.toBeNull();expect(root.querySelector('[aria-label="Edit table cell: 2"]')).not.toBeNull();expect(view.state.doc.toString()).toBe(source);expect(view.state.selection.main.head).toBe(source.length);
+});
+
+
+it('does not redraw pending composed DOM text before CodeMirror receives it',async()=>{
+ const {view}=mount('after',0);view.focus();view.contentDOM.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));const text=view.contentDOM.querySelector('.cm-line')!.firstChild! as Text;text.data='中文after';const range=document.createRange();range.setStart(text,2);range.collapse(true);const selection=document.getSelection()!;selection.removeAllRanges();selection.addRange(range);view.contentDOM.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));expect(view.contentDOM.textContent).toBe('中文after');await vi.waitFor(()=>expect(view.state.doc.toString()).toBe('中文after'));
+});
+
+it('retains composed input beside an inactive multiline comment and restores its projection after the DOM read',async()=>{
+ const source='Before <!-- First\nSecond --> after',{view}=mount(source,0);view.focus();await new Promise(resolve=>setTimeout(resolve,20));view.contentDOM.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));const text=[...view.contentDOM.querySelectorAll('.cm-line')][0].firstChild! as Text;text.data='中文'+text.data;const range=document.createRange();range.setStart(text,2);range.collapse(true);const selection=document.getSelection()!;selection.removeAllRanges();selection.addRange(range);view.contentDOM.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));expect(view.contentDOM.textContent).toContain('中文');await vi.waitFor(()=>expect(view.state.doc.toString()).toBe('中文'+source));await vi.waitFor(()=>expect(view.contentDOM.textContent).toBe('中文Before  after'));
+});
+
+
+it('shared session expansion refreshes retained remapped child Callout decorations without a parent transaction',async()=>{const source='> [!note]- Child\n>\n> Body\n\nTail',display=new ContentDisplaySession(),parent=document.body.appendChild(document.createElement('div')),view=new EditorView({parent,state:EditorState.create({doc:source,selection:{anchor:source.length},extensions:[history(),markdown({extensions:GFM}),resourceContext.of({documentPath:"",displaySession:display.remapped(at=>at+40)}),livePreview]})});mounted.push(view);const doc=view.state.doc,selection=view.state.selection,to=source.indexOf('\n\nTail');expect(parent.querySelector<HTMLElement>('.callout-editor-header')!.dataset.calloutExpanded).toBe('false');display.setExpanded('callout',40,40+to,true);await Promise.resolve();expect(parent.querySelector<HTMLElement>('.callout-editor-header')!.dataset.calloutExpanded).toBe('true');expect(parent.textContent).toContain('Body');expect(view.state.doc).toBe(doc);expect(view.state.selection).toBe(selection);expect(undo(view)).toBe(false);mounted.splice(mounted.indexOf(view),1);view.destroy();display.setExpanded('callout',40,40+to,false);await Promise.resolve();});
+
+
+it('shared wrap state repaints the retained literal field and preserves its backward selection and source history',async()=>{const source='```text\nfirst second\n```\n\nTail',{view,parent}=mount(source),input=parent.querySelector<HTMLTextAreaElement>('textarea')!,doc=view.state.doc,selection=view.state.selection,session=displaySessionFor(view),to=source.indexOf('\n\nTail');input.focus();input.setSelectionRange(2,8,'backward');session.setExpanded('code-wrap',0,to,true);expect(parent.querySelector('textarea')).toBe(input);expect(input.wrap).toBe('soft');expect(input.selectionStart).toBe(2);expect(input.selectionEnd).toBe(8);expect(input.selectionDirection).toBe('backward');await Promise.resolve();expect(view.state.doc).toBe(doc);expect(view.state.selection).toBe(selection);expect(undo(view)).toBe(false);session.setExpanded('code-wrap',0,to,false);expect(input.wrap).toBe('off');});
+
+
+it('renders HTML footnote body only in its scoped child and excludes a duplicate main Details projection',()=>{const source='Use[^n]\n\n[^n]: <details><summary>Folded</summary><p>Before <!-- Secret --> after</p></details>',{parent,view}=mount(source);expect(parent.querySelectorAll('.cm-html-direct-editor details')).toHaveLength(1);expect(parent.querySelector('.footnote-body .cm-html-direct-editor details')).not.toBeNull();expect(view.state.doc.toString()).toBe(source);expect(undo(view)).toBe(false);});
+
+
+describe('footnote accessible names follow their current source status',()=>{
+ it('names missing, unreferenced and repeated definitions truthfully in both locales without changing source',()=>{
+  const source='Body[^missing].\n\n[^unused]: Spared\n\n[^n]: First\n\n[^n]: Second';
+  const {parent,view}=mount(source),ui=bindUI(parent,{locale:'en-US'});
+  const names=()=>[...parent.querySelectorAll<HTMLElement>('.footnote-body .cm-content')].map(node=>node.getAttribute('aria-label'));
+  try {
+   expect(names()).toEqual(expect.arrayContaining(['Undefined footnote: missing','Unreferenced footnote: unused','Repeated footnote definition: n']));
+   expect(names().filter(name=>name==='Repeated footnote definition: n')).toHaveLength(2);
+   expect(names().some(name=>name?.includes('undefined'))).toBe(false);
+   ui.update({locale:'zh-CN'});
+   expect(names()).toEqual(expect.arrayContaining(['未定义脚注：missing','未引用脚注：unused','重复定义脚注：n']));
+   expect(view.state.doc.toString()).toBe(source);expect(undo(view)).toBe(false);
+  } finally {ui.destroy();}
+ });
+ it('refreshes a retained child name when references change and restores it with one undo',()=>{
+  const source='Body[^missing].\n\n[^unused]: Spared',prefix='Use[^unused].\n\n';
+  const {parent,view}=mount(source),ui=bindUI(parent,{locale:'en-US'});
+  const child=()=>parent.querySelector<HTMLElement>('[data-footnote-label="unused"] .footnote-body .cm-content')!;
+  try {
+   expect(child().getAttribute('aria-label')).toBe('Unreferenced footnote: unused');
+   const original=child();view.dispatch({changes:{from:0,insert:prefix},userEvent:'input.type'});
+   expect(child()).toBe(original);expect(child().getAttribute('aria-label')).toBe('Footnote 1');
+   expect(view.state.doc.toString()).toBe(prefix+source);
+   ui.update({locale:'zh-CN'});expect(child().getAttribute('aria-label')).toBe('脚注 1');
+   expect(undo(view)).toBe(true);expect(view.state.doc.toString()).toBe(source);
+   expect(child().getAttribute('aria-label')).toBe('未引用脚注：unused');
+  } finally {ui.destroy();}
+ });
 });

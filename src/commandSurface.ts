@@ -1,4 +1,5 @@
 import {blockIcon as iconElement} from "./blockIcons";
+import {captureTableActions,tableActionsAtNode,type TableActionLease} from "./tableActionCatalog";
 import {ViewPlugin, EditorView, type ViewUpdate} from "@codemirror/view";
 import type {EditorSelection, Extension} from "@codemirror/state";
 import {ensureSyntaxTree, syntaxTree} from "@codemirror/language";
@@ -12,7 +13,7 @@ import {planStructuralInsert, moveBlockTarget} from "./structuralCommands";
 import {focusCodeAtSelection} from "./codeEditing";
 import {message, setUIText, setUILabel} from "./uiContext";
 
-type Item = {label: string; command: string; icon: string; markdown?: string; kind?: "code" | "block"};
+type Item = {label: string; command: string; icon: string; markdown?: string; kind?: "code" | "block"; tableAction?:string};
 const insertItems: readonly Item[] = [
   {label: "Heading 1", command: "heading1", icon: "H1"}, {label: "Heading 2", command: "heading2", icon: "H2"},
   {label: "Heading 3", command: "heading3", icon: "H3"}, {label: "Heading 4", command: "heading4", icon: "H4"},
@@ -32,7 +33,7 @@ const blockItems: readonly Item[] = [
   {label: "Move up", command: "moveBlockUp", icon: "up"},
   {label: "Move down", command: "moveBlockDown", icon: "down"},
 ];
-type Menu = {kind: "slash" | "insert" | "block"; from: number; to: number; query: string; target: number; identity: EditingIdentity; selection?: EditorSelection};
+type Menu = {kind: "slash" | "insert" | "block"; from: number; to: number; query: string; target: number; identity: EditingIdentity; selection?: EditorSelection; tableActions?:TableActionLease};
 
 class Surface {
   private plus = document.createElement("button");
@@ -83,7 +84,14 @@ class Surface {
       this.lastPointer={x:event.clientX,y:event.clientY};
       if(this.list.contains(event.target as Node)||this.more.contains(event.target as Node)||this.plus.contains(event.target as Node))return;
       this.keyboardTarget=event.pointerType==='touch';
-      if(event.pointerType!=='touch'){this.hovered=null;this.hide();}
+      if(event.pointerType==='touch'){
+        if(this.leaveTimer){clearTimeout(this.leaveTimer);this.leaveTimer=null;}
+        const mounted=event.target instanceof Node?tableActionsAtNode(this.view,event.target,{readOnly:!!this.controller.identity.readOnly}):null;
+        const target=mounted?commandBlockAt(this.view.state,mounted.from+1,this.controller.identity.profile):null;
+        this.hovered=target&&target.from===mounted?.from?target:null;
+        this.hoveredElement=this.hovered?mounted!.panel:null;
+        this.pointer=null;this.sync();
+      }else{this.hovered=null;this.hide();}
     },{signal,capture:true});
     this.view.dom.addEventListener('compositionstart',()=>{this.hovered=null;this.close();this.hide();},{signal,capture:true});
     document.addEventListener('scroll',this.scroll,{signal,capture:true,passive:true});
@@ -106,6 +114,7 @@ class Surface {
     return this.hovered ?? (this.keyboardTarget?commandBlockAt(this.view.state,this.view.state.selection.main.anchor,this.controller.identity.profile):null);
   }
   private pointerMove=(event:PointerEvent)=>{
+    if(this.view.dom.querySelector('.md-table-paste-review:not([hidden]),.md-html-table-review:not([hidden])')){this.hovered=null;this.hide();return;}
     if(event.pointerType==='touch')return;
     // Scrolling/layout can dispatch pointermove without moving the mouse.
     // Keep an explicit keyboard target until the pointer actually moves.
@@ -140,9 +149,11 @@ class Surface {
     }catch{return;}
     this.hovered=commandBlockAt(this.view.state,at,this.controller.identity.profile);this.hoveredElement=element;this.sync();
   }
-  private pointerLeave=()=>{
+  private pointerLeave=(event:PointerEvent)=>{
+    if(event.pointerType==='touch')return;
     this.pointer=null;
     if(this.menu)return;
+    if(this.leaveTimer)clearTimeout(this.leaveTimer);
     this.leaveTimer=setTimeout(()=>{this.hovered=null;this.hoveredElement=null;this.sync();},140);
   };
   private scroll=()=>{
@@ -152,9 +163,11 @@ class Surface {
     else this.position();
   };
   private available() {
-    return this.controller.identity.mode === "live" && !this.controller.unavailableReason &&
+    if(document.activeElement instanceof Element&&this.view.dom.contains(document.activeElement)&&document.activeElement.closest('.md-html-cell-editing,.md-html-table-controls,.md-html-object-actions,.md-table-inline-editor,.md-table-paste-review'))return false;
+    return this.controller.identity.mode === "live" && [null,"read-only"].includes(this.controller.unavailableReason) &&
       this.controller.session?.status !== "editing" && this.controller.session?.status !== "stale" && !this.view.composing;
   }
+  private tableActions(target:BlockTarget|null) {return target?captureTableActions(this.view,target.from,{readOnly:!!this.controller.identity.readOnly}):null;}
   private safeTarget(position:number) {return commandBlockAt(this.view.state,position,this.controller.identity.profile)?.kind==='text';}
   private ownsFocus() {
     const active = document.activeElement;
@@ -187,6 +200,7 @@ class Surface {
       : styles.list ?? (styles.quoted ? {command: "quote", icon: "quote", label: "Quote"} : styles.paragraph);
   }
   private position() {
+    if(this.view.dom.querySelector('.md-table-paste-review:not([hidden]),.md-html-table-review:not([hidden])')){this.hide();return;}
     const target=this.target();if(!target){this.hide();return;}
     this.view.requestMeasure({
       key:this,
@@ -245,8 +259,10 @@ class Surface {
     if(!content.match(/^\/([^\s]*)$/))this.dismissed=null;
     const target=this.target();
     if(!target||(!selection.empty&&!this.menu)){this.hide();return;}
+    const readonly=this.controller.unavailableReason==='read-only';
+    if(readonly&&!this.tableActions(target)?.readOnly){this.hide();return;}
     const empty=target.kind==='text'&&!this.view.state.sliceDoc(target.position,target.to).trim();
-    this.plus.hidden=!empty;this.more.hidden=empty;
+    this.plus.hidden=readonly||!empty;this.more.hidden=empty;
     const current=target.kind==='text'?this.currentType(target.position):{...this.objectLabels[target.kind],command:target.kind};
     if(this.more.dataset.blockType!==current.command)this.more.replaceChildren(iconElement(current.icon));this.more.dataset.blockType=current.command;
     this.more.dataset.blockFrom=String(target.from);this.more.dataset.blockTo=String(target.to);
@@ -261,12 +277,14 @@ class Surface {
     if(!this.available()||!this.view.state.selection.main.empty)return;
     if(this.menu?.kind===kind){this.close();this.sync();return;}
     const block=this.target();if(!block)return;
+    const tableActions=kind==='block'?this.tableActions(block):null;
+    if(this.controller.unavailableReason==='read-only'&&(kind!=='block'||!tableActions?.readOnly))return;
     if(kind==='insert'&&block.kind!=='text')return;
     const target=block.position,context=blockContext(this.view.state,target),styles=this.currentStyles(target);
     const initial=styles.paragraph.command!=='heading0'?styles.paragraph.command:styles.list?.command??'heading0';
     this.active=kind==='block'&&block.kind==='text'?Math.max(0,blockItems.findIndex(item=>item.command===initial)):0;
     this.keyboardNavigation=keyboard;
-    this.menu={kind,from:context.contentFrom,to:context.lineTo,query:'',target,identity:this.controller.identity,selection:this.view.state.selection};
+    this.menu={kind,from:context.contentFrom,to:context.lineTo,query:'',target,identity:this.controller.identity,selection:this.view.state.selection,tableActions:tableActions??undefined};
     this.render();this.sync();
   }
   private render() {
@@ -275,7 +293,12 @@ class Surface {
     const target=this.target();
     const object=this.menu.kind==='block'&&target?.kind!=='text'?target:null;
     const styles = this.menu.kind === "block" && !object ? this.currentStyles(this.menu.target) : null;
-    const objectItems:Item[]=object?[
+    const tableActions=this.menu.tableActions?.current()?this.menu.tableActions:null;
+    if(this.controller.unavailableReason==='read-only'&&!tableActions?.readOnly){this.close();this.hide();return;}
+    const objectItems:Item[]=object?tableActions?[
+      ...tableActions.items.map(item=>({label:item.label,command:'objectTable:'+item.id,icon:'table',tableAction:item.id})),
+      ...(!tableActions.readOnly&&!tableActions.items.some(item=>item.id==='edit-source')?[{label:'Edit Source',command:'objectSource',icon:'source'}]:[]),
+    ]:[
       ...(!['source','divider','definition'].includes(object.kind)?[{label:'Edit object',command:'objectEdit',icon:'edit'}]:[]),
       {label:'Edit Source',command:'objectSource',icon:'source'}]:[];
     const choices = this.menu.kind === "block" ? object?objectItems:blockItems.filter(item => item.command !== "quote" || !styles?.quoted) : insertItems;
@@ -292,7 +315,7 @@ class Surface {
       (item.label.toLocaleLowerCase().includes(query) || message(this.list, item.label).toLocaleLowerCase().includes(query)));
     this.active = Math.min(this.active, Math.max(0, this.items.length - 1));
     this.list.replaceChildren();this.list.dataset.keyboard=String(this.keyboardNavigation);
-    if(object){const title=document.createElement('div');title.className='tegg-command-group';setUIText(title,this.objectLabels[object.kind].label);this.list.append(title);}
+    if(object){const title=document.createElement('div');title.className='tegg-command-group';setUIText(title,tableActions?'Table':this.objectLabels[object.kind].label);this.list.append(title);}
     let group = "";
     for (const [index, item] of this.items.entries()) {
       if (this.menu.kind === "block" && !object) {
@@ -342,9 +365,16 @@ class Surface {
     if (!menu || !item || !sameEditingIdentity(menu.identity, this.controller.identity) ||
       !this.available() || !this.view.state.selection.main.empty ||
       (menu.selection?!menu.selection.eq(this.view.state.selection):this.view.state.selection.main.anchor!==menu.target)) {this.close(); return;}
+    if(this.controller.unavailableReason==='read-only'&&(item.tableAction!=='copy-cells'||!menu.tableActions?.readOnly)){this.close();return;}
     const state = this.view.state;
     if (menu.kind === "block") {
       const target=this.target();if(!target){this.close();return;}
+      if(item.tableAction){
+        const captured=menu.tableActions;
+        this.close();this.hovered=null;this.hide();
+        if(captured?.current())captured.execute(item.tableAction);
+        return;
+      }
       if(item.command.startsWith('object')) {
         this.close();this.hovered=null;this.hide();
         if(item.command==='objectSource'){

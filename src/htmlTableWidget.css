@@ -1,0 +1,33 @@
+.cm-live-html-table {position:relative;}
+.cm-live-html-table td.md-html-cell-selected,.cm-live-html-table th.md-html-cell-selected {outline:2px solid var(--accent,#796652);outline-offset:-2px;background-image:linear-gradient(var(--selection,rgba(121,102,82,.10)),var(--selection,rgba(121,102,82,.10)));}
+.cm-live-html-table [contenteditable=true] {outline:2px solid var(--accent,#796652);outline-offset:-2px;}
+.md-html-table-controls {position:absolute;right:0;top:0;display:none;align-items:center;gap:4px;z-index:3;}
+.cm-live-html-table[data-cell-selected=true]:focus-within>.md-html-table-controls {display:flex;}
+.md-html-table-controls button,.md-html-table-controls summary {min-height:28px;min-width:28px;font:inherit;cursor:pointer;}
+.md-html-table-controls details {position:relative;}
+.md-html-table-controls details>div {position:absolute;right:0;display:grid;background:var(--surface,#fff);border:1px solid var(--border,#ddd);padding:4px;min-width:max-content;}
+.md-html-table-error {font:inherit;color:var(--text,#222);}
+.tegg-mobile .md-html-table-controls button,.tegg-mobile .md-html-table-controls summary {min-width:44px;min-height:44px;}
+
+.cm-live-html-table[data-cell-editing=false]>.md-html-table-controls>button:nth-child(2),.cm-live-html-table[data-cell-editing=false]>.md-html-table-controls>button:nth-child(3) {display:none;}
+.cm-live-html-table[data-cell-editing=true]>.md-html-table-controls>button:first-child {display:none;}
+.md-html-table-controls button,.md-html-table-controls summary {min-width:var(--md-control-floor,28px);min-height:var(--md-control-floor,28px);}
+
+.md-html-table-review {position:absolute;inset-inline-end:0;top:36px;z-index:5;max-width:min(480px,100%);background:var(--surface,#fff);border:1px solid var(--border,#ddd);padding:12px;box-shadow:0 4px 16px #0002;}
+.md-html-table-review[hidden],.md-html-range-handle[hidden] {display:none;}
+.md-html-table-review pre {max-height:180px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;}
+.md-html-table-review>div {display:flex;gap:8px;flex-wrap:wrap;}
+.md-html-table-review button {min-width:44px;min-height:44px;font:inherit;}
+.md-html-range-handle {position:absolute;width:44px;height:44px;padding:0;z-index:4;touch-action:none;border:0;background:transparent;}
+.md-html-range-handle::after {content:"";position:absolute;inset:16px;border-radius:50%;background:var(--accent,#796652);border:1px solid var(--surface,#fff);}
+.md-html-table-controls details>div {max-height:min(65vh,440px);overflow:auto;}
+@media(pointer:coarse) {.md-html-table-controls button,.md-html-table-controls summary {min-width:44px;min-height:44px;}.md-html-table-review {top:48px;}}
+
+.cm-live-html-table table summary[data-tegg-temporary=true]:empty::after {content:attr(aria-label);}
+
+/* Standalone SDK actions are interface chrome, outside the unchanged grid.
+   An explicit Host controls mode keeps the Host's existing placement. */
+.cm-live-html-table>.md-html-table-controls[data-default-placement]{position:fixed;right:auto;z-index:30;width:max-content;box-sizing:border-box;flex-wrap:wrap;overflow:auto;padding:4px;gap:4px;border:1px solid var(--border,#ddd);border-radius:4px;background:var(--surface,#fff);font:var(--tegg-ui-action-size,13px)/var(--tegg-ui-action-line,18px) system-ui,sans-serif;}
+.md-html-table-controls[data-default-placement]>button,.md-html-table-controls[data-default-placement]>details{flex:none;white-space:nowrap;}
+.md-html-table-controls[data-default-placement] details>div{position:fixed;right:auto;bottom:auto;z-index:31;min-width:0;width:max-content;box-sizing:border-box;overflow:auto;}
+@media(pointer:coarse){.cm-live-html-table>.md-html-table-controls[data-default-placement]{font-size:var(--tegg-ui-action-size,17px);line-height:var(--tegg-ui-action-line,22px);}}

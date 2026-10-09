@@ -1,5 +1,18 @@
 # Validation status — 0.2.0-preview.2
 
+## Image presentation development follow-up
+
+The unpublished `0.3.0-preview.1` candidate adds source and real-browser regression
+coverage for asynchronous image dimension labels and authored image-only
+paragraphs. It retains numeric zoom across locale changes and covers inline,
+linked, multiple and noninteractive Reader images with source preservation.
+Its parser dependency is pinned to the existing tested lockfile version
+`@codemirror/language@6.12.4`. Run the complete unit/type/build/package gate,
+fresh packed consumers and the full browser suite against the final archive;
+native Host and physical-device checks remain separate. Historical published
+counts below do not describe this development candidate.
+
+
 ## Current published version
 
 `@tegg/markdown@0.2.0-preview.2` is published on npm. The package was built from

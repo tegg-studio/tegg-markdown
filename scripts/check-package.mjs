@@ -26,6 +26,13 @@ for (const name of names) {
 for (const value of Object.values(pkg.exports))
   for (const file of typeof value === "string" ? [value] : Object.values(value))
     if (!names.includes(file.replace(/^\.\//, ""))) throw new Error("Export absent from tarball: " + file);
+// Source maps are public package data too. Inspect path metadata, including workers.
+const machinePath = value => /^(?:[a-z]:[\\/]|[\\/]|file:\/\/)|(?:^|[\\/])(?:Users|home|Volumes|private)[\\/]/i.test(value);
+for (const name of names.filter(name => name.endsWith(".map"))) {
+  const map = JSON.parse(readFileSync(name, "utf8"));
+  for (const source of [map.sourceRoot ?? "", ...(map.sources ?? [])])
+    if (machinePath(source)) throw new Error("Build-machine path in public source map: " + name);
+}
 const tracked = execFileSync("git", ["ls-files", "-z"], {encoding:"utf8"}).split("\0").filter(Boolean);
 for (const name of tracked)
   if (/^(App|QuickLook|Tests|Web)\/|(?:^|\/)\.env(?:\.|$)|\.(?:swift|entitlements|p8|p12|pem|key|mobileprovision)$/.test(name))

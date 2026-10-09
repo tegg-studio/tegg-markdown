@@ -19,6 +19,7 @@ export type {ResourcePolicy} from "./resources";
 export type {ReadonlyRenderers, ReadonlyRenderer, RenderNode, RenderContext} from "./renderExtensions";
 export type {RenderEngines} from "./renderEngines";
 export type {Locale, UIMessages, UIOptions} from "./uiContext";
+export type {CellDraftAuxiliaryActions,CellDraftAuxiliaryRequest,CellDraftAuxiliaryMount,CellDraftAuxiliaryHost} from "./cellDraftAuxiliary";
 
 export {getSupportedCommands, getCommandStatus} from "./editor";
 export type {CommandStatus} from "./editor";

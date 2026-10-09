@@ -1,3 +1,9 @@
+import {editingLeaveIsComposing,cancelIndependentEditingLeave} from './editingPreflight';
+import {executeHtmlDirectCommand,htmlDirectEditingOwnsFocus,htmlDirectEditingIsComposing,focusedHtmlDirectState} from './htmlDirectEditing';
+import {focusedFootnoteEditor,executeFocusedFootnoteCommand,footnoteEditingIsComposing} from './footnoteEditing';
+import {prepareEditingLeave} from "./editingLeave";
+import {ContentDisplaySession} from "./contentDisplaySession";
+import {commitHtmlTableDrafts,htmlTableWidgetOwnsFocus,htmlTableWidgetIsComposing,executeHtmlTableCommand,focusedHtmlTableState,htmlTableWidgetIsEditing} from './htmlTableWidget';
 import {clearPendingInlineStyle} from "./pendingInlineStyle";
 import {undo, redo} from "./selectionHistory";
 import {detectNewlinePolicy} from "./newlinePolicy";
@@ -6,7 +12,7 @@ import {createDocumentConflict,planDocumentReconciliation,type DocumentConflict,
 import type {RecoveryJournal,RecoveryReason} from "./recoveryJournal";
 import {EditingController} from "./editingController";
 import {getSupportedCommands,getCommandStatus,type CommandStatus} from "./commandRegistry";
-import {disposeInteractions} from "./renderInteraction";
+import {disposeInteractions,type TextCopyEvent} from "./renderInteraction";
 import {bindEngines} from "./renderEngines";
 import {bindUI, type UIOptions, setUIText, setUILabel} from "./uiContext";
 import {allowedImageURL} from "./resources";
@@ -18,11 +24,12 @@ import {Compartment, EditorState} from "@codemirror/state";
 import {EditorView, keymap} from "@codemirror/view";
 import {markdown} from "@codemirror/lang-markdown";
 import {GFM} from "@lezer/markdown";
-import {indentWithTab, undoDepth, redoDepth} from "@codemirror/commands";
+import {undoDepth, redoDepth} from "@codemirror/commands";
 import {editorSetup} from "./editorSetup";
+import {commitMetadataPanel} from "./metadata";
 import {livePreview} from "./livePreview";
-import {resourceContext} from "./editorHost";
-import {focusedTableCell,focusedTableToolbarState,tableWidgetOwnsFocus,tableWidgetIsComposing,executeFocusedTableCommand} from "./tableWidget";
+import {resourceContext,displaySessionMapping} from "./editorHost";
+import {focusedTableCell,focusedTableToolbarState,tableWidgetOwnsFocus,tableWidgetIsComposing,executeFocusedTableCommand,commitTableDrafts} from "./tableWidget";
 import {focusCodeAtSelection} from "./codeEditing";
 import {executeEditorCommand, editorToolbarState, type EditorToolbarState} from "./editorToolbar";
 import {HeadingIndex, type OutlineHeading} from "./headingIndex";
@@ -31,7 +38,7 @@ import {editCurrentLink} from "./liveLinks";
 import {appearanceScale, appearanceWidth} from "./typography";
 import {TechnicalMarkdownReader, type ReaderHost, type SelectionReference} from "./reader";
 import {createAttribution, type AttributionPlacement} from "./attribution";
-import {observeTypography} from "./typography";
+import {observeTypography,refreshTypography} from "./typography";
 import {technicalMarkdownProfile} from "./syntaxContract";
 
 export type EditorMode = "reader" | "live" | "source";
@@ -69,6 +76,7 @@ export type EditorHost = ReaderHost & {
 export class TeggMarkdownEditor {
   private readonly frame = document.createElement("div");
   private readonly editorRoot = document.createElement("div");
+  private readonly displaySession=new ContentDisplaySession();
   private readonly readerRoot = document.createElement("div");
   private readonly budgetNotice = document.createElement("p");
   private readonly preview = new Compartment();
@@ -118,12 +126,13 @@ export class TeggMarkdownEditor {
     this.stopTypography = observeTypography(this.editorRoot);
     this.readerRoot.tabIndex = -1;
     setUILabel(this.readerRoot, "Markdown Reader");
-    this.reader = new TechnicalMarkdownReader(this.readerRoot, new Proxy(host,{get: (target,key) => key === "openLink" ? (href: string) => this.handleLink(href) : Reflect.get(target,key)}));
+    this.reader = new TechnicalMarkdownReader(this.readerRoot, new Proxy(host,{get: (target,key) => key === "displaySession" ? this.displaySession : key === "openLink" ? (href: string) => this.handleLink(href) : Reflect.get(target,key)}));
     this.viewValue = new EditorView({parent: this.editorRoot, state: this.createState(input)});
     this.editing=new EditingController(this.viewValue,{identity:()=>({documentId:this.document.documentId,generation:this.generation,sequence:this.sequence,profile:this.document.profile,mode:this.modeValue,readOnly:this.document.contentState==="streaming"})});
     this.frame.addEventListener("tegg-open-link", this.openLink);
     this.frame.addEventListener("tegg-copy-text", this.copyText);
     this.frame.addEventListener("tegg-callout-menu", this.openCalloutMenu);
+    this.frame.addEventListener("tegg-source-mode-request",this.sourceRequest);this.frame.addEventListener("tegg-container-collapse-request",this.collapseRequest);
     this.frame.addEventListener("tegg-toolbar-state", this.queueState);
     this.frame.addEventListener("focusin", this.queueState);
     this.frame.addEventListener("focusout", this.queueState);
@@ -151,8 +160,11 @@ export class TeggMarkdownEditor {
   private copyText = (event: Event) => {
     if (!this.host.copyText) return;
     event.preventDefault(); event.stopPropagation();
-    try { Promise.resolve(this.host.copyText((event as CustomEvent<string>).detail)).catch(error => this.report(error)); }
-    catch (error) { this.report(error); }
+    if(this.composing||this.viewValue.composing||editingLeaveIsComposing(this.viewValue)||tableWidgetIsComposing(this.viewValue)||htmlTableWidgetIsComposing(this.viewValue)||htmlDirectEditingIsComposing(this.viewValue)||footnoteEditingIsComposing(this.viewValue))return;
+    const generation=this.generation,sequence=this.sequence,modeEpoch=this.modeEpoch,target=event.target as Node|null;
+    const request=event as TextCopyEvent;
+    let completion:Promise<void>;try{completion=Promise.resolve(this.host.copyText(request.detail));}catch(error){completion=Promise.reject(error);}request.completion=completion;
+    void completion.catch(error=>{if(!this.destroyed&&generation===this.generation&&sequence===this.sequence&&modeEpoch===this.modeEpoch&&target?.isConnected)this.report(error);});
   };
   private openCalloutMenu = (event: Event) => {
     event.stopPropagation();
@@ -190,13 +202,14 @@ export class TeggMarkdownEditor {
     menu.addEventListener("keydown", event => {if(event.key==="Escape"){event.preventDefault();menu.remove();this.viewValue.focus();}});
     this.frame.append(menu); menu.focus();
   };
+  private sourceRequest=(event:Event)=>{event.preventDefault();if(this.setMode('source')){const from=(event as CustomEvent).detail?.from;if(Number.isInteger(from))this.viewValue.dispatch({selection:{anchor:Math.min(this.viewValue.state.doc.length,from)}});}};
+  private collapseRequest=(event:Event)=>{if(!this.prepareLeave())event.preventDefault();};
   private mixedNewlines(source:string){return detectNewlinePolicy(source).readOnly;}
   private createState(input: EditorDocument): EditorState {
     return EditorState.create({doc: input.source, extensions: [
-      editorSetup, markdown({extensions: GFM}), EditorView.lineWrapping,
+      displaySessionMapping, editorSetup, markdown({extensions: GFM}), EditorView.lineWrapping,
       EditorState.lineSeparator.of(input.source.includes("\r\n") ? "\r\n" : "\n"),
-      keymap.of([indentWithTab]),
-      resourceContext.of({documentPath: input.documentPath ?? "", profile: input.profile, engines: this.host.engines, resolveImage: (src, path) => allowedImageURL(this.host.resolveImage?.(src, path) ?? src, this.host.resourcePolicy) ?? ""}),
+      resourceContext.of({displaySession:this.displaySession,documentPath: input.documentPath ?? "", profile: input.profile, engines: this.host.engines, resolveImage: (src, path) => allowedImageURL(this.host.resolveImage?.(src, path) ?? src, this.host.resourcePolicy) ?? ""}),
       EditorView.contentAttributes.of({"aria-label":"Markdown Editor"}),
       this.preview.of(this.modeValue === "live" && !this.accessible && !editingPerformancePolicy(input.source).sourcePreview ? livePreview : []),
       this.editable.of([EditorView.editable.of(input.contentState !== "streaming" && !this.mixedNewlines(input.source)), EditorState.readOnly.of(input.contentState === "streaming" || this.mixedNewlines(input.source))]),
@@ -211,6 +224,7 @@ export class TeggMarkdownEditor {
         if (update.docChanged || update.selectionSet || update.focusChanged || update.transactions.some(tr=>tr.effects.length)) this.queueState();
         if (update.selectionSet) {try {this.host.onSelection?.(this.selection());} catch(error) {this.report(error);}}
         if (!update.docChanged) return;
+
         const beforeBudget=editingPerformancePolicy(this.document.source).sourcePreview;
         this.document.source = update.state.sliceDoc();
         if(beforeBudget!==(editingPerformancePolicy(this.document.source).sourcePreview))queueMicrotask(()=>{if(!this.destroyed)this.applyMode();});
@@ -252,6 +266,7 @@ export class TeggMarkdownEditor {
   replaceDocument(input: EditorDocument): UpdateResult {
     this.assertAlive(); this.validate(input);
     if (this.composing || this.viewValue.composing) return "composing";
+    this.displaySession.clear();
     this.document = {...input}; this.savedSource = input.source;this.conflictValue=null;this.setSaveState("saved");
     this.headings = new HeadingIndex();
     this.generation = crypto.randomUUID(); this.sequence = 0; this.acknowledgedSequence = 0;
@@ -302,11 +317,14 @@ export class TeggMarkdownEditor {
     }else{this.conflictValue=createDocumentConflict({base:conflict.base,local:this.snapshot(),incoming});this.setSaveState("conflict");}
     this.checkpointRecovery(plan.status==="ready"?"dirty":"conflict");this.queueState();return plan;
   }
+  /** Commit legal local drafts before a Host leaves this editor. Failed or composing drafts stay active. */
+  prepareLeave():boolean {this.assertAlive();if(this.composing){cancelIndependentEditingLeave(this.viewValue);return false;}return prepareEditingLeave(this.viewValue,this.frame,this.editing);}
   setMode(mode: EditorMode): boolean {
     this.assertAlive();
     if (!["reader","live","source"].includes(mode)) throw new TypeError("Invalid mode");
     if (this.composing || this.viewValue.composing || (this.document.contentState === "streaming" && mode !== "reader")) return false;
     if (mode === this.modeValue) return true;
+    if (!this.prepareLeave()) return false;
     const previous = this.scrollElement;
     const ratio = previous.scrollTop / Math.max(1, previous.scrollHeight - previous.clientHeight);
     clearPendingInlineStyle(this.viewValue);
@@ -325,6 +343,8 @@ export class TeggMarkdownEditor {
     this.calloutMenu?.remove(); this.calloutMenu=undefined;
     this.editorRoot.dataset.mode = this.modeValue;
     this.readerRoot.hidden = this.modeValue !== "reader"; this.editorRoot.hidden = this.modeValue === "reader";
+    // A hidden Reader has zero allocated width; refresh before its first visible render.
+    if (this.modeValue === "reader") refreshTypography(this.readerRoot);
     this.viewValue.dispatch({effects:this.preview.reconfigure(this.modeValue === "live" && !this.accessible && !editingPerformancePolicy(this.source).sourcePreview ? livePreview : [])});
     if (this.modeValue === "reader") this.renderReady = this.reader.render({
       ...this.document, fontScale:this.appearance.fontScale, contentWidth:this.appearance.contentWidth,
@@ -334,7 +354,8 @@ export class TeggMarkdownEditor {
   command(command: string): boolean {
     this.assertAlive();
     if (!this.commandStatus(command).enabled) return false;
-    if (executeFocusedTableCommand(this.viewValue,command)) return true;
+    if(executeHtmlDirectCommand(this.viewValue,command)||executeHtmlTableCommand(this.viewValue,command)||executeFocusedTableCommand(this.viewValue,command)||executeFocusedFootnoteCommand(this.viewValue,command))return true;
+    if(htmlDirectEditingOwnsFocus(this.viewValue)||htmlTableWidgetOwnsFocus(this.viewValue)||tableWidgetOwnsFocus(this.viewValue)||focusedFootnoteEditor(this.viewValue))return false;
     this.viewValue.focus();
     if (command === "undo") return undo(this.viewValue);
     if (command === "redo") return redo(this.viewValue);
@@ -352,7 +373,8 @@ export class TeggMarkdownEditor {
     this.assertAlive();
     const state=this.state, status=getCommandStatus(command,state);
     if(!status.supported)return status;
-    if(focusedTableCell(this.viewValue)&&!["bold","italic","underline","strike","highlight","subscript","superscript","code","link","wikilink","undo","redo"].includes(command))
+    const context=focusedFootnoteEditor(this.viewValue)??this.viewValue;
+    if((focusedTableCell(context)||htmlTableWidgetIsEditing(context)||htmlDirectEditingOwnsFocus(context))&&!["bold","italic","underline","strike","highlight","subscript","superscript","code","link","wikilink","undo","redo"].includes(command))
       return {supported:true,enabled:false,reason:"selection-disabled"};
     return status;
   }
@@ -362,10 +384,13 @@ export class TeggMarkdownEditor {
     const active = document.activeElement;
     const tableActionMenu = tableWidgetOwnsFocus(this.viewValue) && active instanceof HTMLSelectElement && active.matches('.md-table-actions select');
     const independent = this.frame.contains(active) && !tableActionMenu && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement);
-    const available = !this.viewValue.state.readOnly && this.modeValue !== "reader" && this.document.contentState !== "streaming" && !this.composing && !tableWidgetIsComposing(this.viewValue) && !independent;
-    const previewFocus=tableWidgetOwnsFocus(this.viewValue)&&!focusedTableCell(this.viewValue);
-    return {...(focusedTableToolbarState(this.viewValue)??editorToolbarState(this.viewValue.state)), profile:this.document.profile ?? "tegg", commands:getSupportedCommands(this.document.profile), mode:this.modeValue, dirty:this.dirty, toolbarEnabled:available&&!previewFocus, tablePreviewFocused:previewFocus,
-      canUndo:available && undoDepth(this.viewValue.state) > 0, canRedo:available && redoDepth(this.viewValue.state) > 0};
+    const available = !this.viewValue.state.readOnly && this.modeValue !== "reader" && this.document.contentState !== "streaming" && !this.composing && !editingLeaveIsComposing(this.viewValue) && !tableWidgetIsComposing(this.viewValue) && !htmlTableWidgetIsComposing(this.viewValue) && !htmlDirectEditingIsComposing(this.viewValue) && !footnoteEditingIsComposing(this.viewValue) && !independent;
+    const context=focusedFootnoteEditor(this.viewValue)??this.viewValue,cell=focusedTableCell(context);
+    const previewFocus=tableWidgetOwnsFocus(context)&&!cell||htmlTableWidgetOwnsFocus(context)&&!htmlTableWidgetIsEditing(context);
+    const child=cell??(context!==this.viewValue?context:null),htmlState=focusedHtmlTableState(context),directState=focusedHtmlDirectState(context);
+    const historyView=cell??(directState?context:this.viewValue);
+    return {...editorToolbarState(this.viewValue.state),...(child?editorToolbarState(child.state):{}),...(focusedTableToolbarState(context)??{}),...(htmlState??{}),...(directState??{}), profile:this.document.profile ?? "tegg", commands:getSupportedCommands(this.document.profile), mode:this.modeValue, dirty:this.dirty, toolbarEnabled:available&&!previewFocus, tablePreviewFocused:previewFocus,
+      canUndo:available&&(htmlState?.canUndo??undoDepth(historyView.state)>0),canRedo:available&&(htmlState?.canRedo??redoDepth(historyView.state)>0)};
   }
   private queueState = () => {
     // Hosts without a toolbar subscriber can read state explicitly when needed.
@@ -399,6 +424,13 @@ export class TeggMarkdownEditor {
     }, 150);
   }
   get scrollElement(): HTMLElement {this.assertAlive(); return this.modeValue === "reader" ? this.readerRoot : this.viewValue.scrollDOM;}
+  /** Focus a source-owned visible boundary without editing or switching modes. */
+  locateSourceRange(range:{from:number;to:number}):boolean {
+    this.assertAlive();if(!Number.isInteger(range.from)||!Number.isInteger(range.to)||range.from<0||range.to<range.from||range.to>this.source.length)return false;
+    if(this.modeValue==='reader')return !!this.reader.locateSourceRange(range);
+    const newline=this.viewValue.state.lineBreak,position=(at:number)=>this.source.slice(0,at).split(newline).join('\n').length;
+    this.viewValue.dispatch({selection:{anchor:position(range.from),head:position(range.to)},scrollIntoView:true});this.viewValue.focus();return true;
+  }
   /** Wait for the current Reader render before inspecting or navigating its DOM. */
   async ready(): Promise<void> {await this.renderReady;}
   async navigateHeading(id: string, snapshot: OutlineSnapshot = this.outline()): Promise<boolean> {
@@ -461,7 +493,7 @@ export class TeggMarkdownEditor {
     this.frame.removeEventListener("focusin", this.queueState); this.frame.removeEventListener("focusout", this.queueState);
     this.frame.removeEventListener("tegg-open-link", this.openLink);
     this.frame.removeEventListener("tegg-copy-text", this.copyText);
-    this.frame.removeEventListener("tegg-callout-menu", this.openCalloutMenu);
+    this.frame.removeEventListener("tegg-callout-menu", this.openCalloutMenu);this.frame.removeEventListener("tegg-source-mode-request",this.sourceRequest);this.frame.removeEventListener("tegg-container-collapse-request",this.collapseRequest);
     this.ui.destroy(); this.stopEngines(); this.editing.destroy(); this.issuedSnapshots.clear(); this.viewValue.destroy(); this.reader.destroy(); this.stopTypography(); this.frame.remove();
   }
 }

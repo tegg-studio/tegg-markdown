@@ -1,3 +1,5 @@
+import {htmlSourceNodes} from './htmlTableEditing';
+import {changeHtmlAttribute} from './htmlReferenceDraft';
 import {readCode,writeCode} from "./codeEditing";
 import type {ObjectKind} from "./editingController";
 
@@ -5,6 +7,7 @@ export type TechnicalDraft = {body:string; label:string; serialize:(body:string)
 /** A conservative projection: unsupported or incomplete wrappers stay editable as source. */
 export function technicalDraft(kind:ObjectKind,source:string):TechnicalDraft|null {
   if(kind==="math"){
+    if(source.startsWith('<')){try{const nodes=htmlSourceNodes(source),node=nodes[0];if(nodes.length===1&&node.from===0&&node.to===source.length&&Object.hasOwn(node.attributes,'data-tegg-math')&&Object.hasOwn(node.attributes,'data-tex')){const template=document.createElement('template');template.innerHTML=source;const body=template.content.firstElementChild!.getAttribute('data-tex')!;return {body,label:'Formula source',serialize:next=>changeHtmlAttribute(source,'data-tex',next)};}}catch{return null;}}
     const delimiter=source.startsWith("$$")?"$$":source.startsWith("$")?"$":null;
     if(!delimiter||!source.endsWith(delimiter)||source.length<delimiter.length*2)return null;
     const inner=source.slice(delimiter.length,-delimiter.length);

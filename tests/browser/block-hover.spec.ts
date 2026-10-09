@@ -49,9 +49,9 @@ test('nested task continuation and quoted heading preserve independent container
 test('table and Mermaid have object menus without paragraph conversions and keep Cancel source-safe',async({page})=>{
  const source='Alpha\n\n| Name | State |\n| --- | --- |\n| Task | Ready |\n\n```mermaid\nflowchart LR\nA --> B\n```\n\nEnd';await open(page,source);
  await page.locator('.cm-live-table').hover();await expect(trigger(page)).toHaveAttribute('data-block-type','table');await trigger(page).click();
- await expect(menu(page).getByRole('option',{name:'Heading 1',exact:true})).toHaveCount(0);await expect(menu(page).getByRole('option',{name:'Edit object',exact:true})).toBeVisible();
- await menu(page).getByRole('option',{name:'Edit object',exact:true}).click();
- await expect(page.locator('.tegg-editing-panel')).toBeVisible();await page.getByRole('button',{name:'Cancel',exact:true}).click();expect(await sourceOf(page)).toBe(source);
+ await expect(menu(page).getByRole('option',{name:'Heading 1',exact:true})).toHaveCount(0);await expect(menu(page).getByRole('option',{name:'Edit cell',exact:true})).toBeVisible();
+ await menu(page).getByRole('option',{name:'Edit cell',exact:true}).click();
+ const tableCell=page.locator('.md-table-inline-editor .cm-content');await expect(tableCell).toBeVisible();expect(await sourceOf(page)).toBe(source);await tableCell.press('Escape');await expect(page.locator('.md-table-inline-editor')).toHaveCount(0);expect(await sourceOf(page)).toBe(source);
  await page.locator('.cm-preview-widget').hover();await expect(trigger(page)).toHaveAttribute('data-block-type','mermaid');
  await expect.poll(async()=>{const obj=await page.locator('.cm-preview-widget').boundingBox(),b=await trigger(page).boundingBox();return Math.abs(b!.y-obj!.y);}).toBeLessThan(35);
  await trigger(page).click();await menu(page).getByRole('option',{name:'Edit object',exact:true}).click();
