@@ -299,6 +299,7 @@ const chinese: UIMessages = {
   "Table. Scroll horizontally for more columns.": "表格。横向滚动查看更多列。",
   "Code. Scroll horizontally for long lines.": "代码。横向滚动查看长行。",
   "Math. Scroll horizontally for long expressions.": "公式。横向滚动查看长公式。",
+  "Image. Scroll to pan; use zoom controls to enlarge.": "图片。滚动平移，使用缩放控件放大。",
   "Diagram or formula. Scroll to pan; use zoom controls to enlarge.": "图表或公式。滚动平移，使用缩放控件放大。",
 };
 export const defaultMessages = Object.freeze({"en-US": Object.freeze({}) as UIMessages, "zh-CN": Object.freeze(chinese)});

@@ -139,3 +139,52 @@ incoming source appear saved under its revision. Re-read storage and resolve the
 three-version conflict first; do not retry acknowledgements with an invented
 revision or clear the conflict by overwriting the draft. A later local edit remains
 dirty when an earlier, otherwise valid snapshot is acknowledged.
+
+## Explicit Reader task actions
+
+`TeggMarkdownReader` is read-only by default. To enable a writable task document,
+provide `taskToggleEnabled: true`, a real `documentId`, nonempty Host `generation`
+and nonnegative integer `sequence` in `render(input)`, plus `onTaskToggle` and
+`onError` callbacks. Streaming content, composition and unsupported mixed/CR
+newline policies remain non-writable. This capability does not enable general
+Reader text editing or confer filesystem/cloud permission.
+
+`taskAt(node)` recognizes this render's actual generated task controls or own
+body; `selectedTask(selection)` requires one current noncollapsed selection
+inside a single task's own body. Nested table/code/HTML/quote/list objects and
+crossing unrelated owners reject. A genuine nested task may own its own body.
+Author attributes/class names, cloned nodes, serialized references and objects
+from another render/instance do not establish authority. Querying changes no
+source, focus or scroll. Never use a non-null query as a permission grant.
+
+`toggleTask(task)` submits one checkbox-character patch to `onTaskToggle` with
+its exact source, current task identity and AbortSignal. The Host must recheck
+permission, document/generation/revision/sequence and current source immediately
+before applying it through its ordinary single undo/save transaction. Native
+menus also own their actual opening/closing and selection lease; query fresh and
+revalidate on invocation. The SDK does not provide a native menu callback.
+
+Return `{accepted: false}` to reject. For accepted changes return
+`{accepted: true, input}` with the exact requested one-character source change,
+same document/generation/profileVersion and an advanced integer sequence;
+preserve `request.task.profileVersion` explicitly in the returned input. The
+SDK updates its projection only after a valid current ACK. Reject/Abort/error
+never writes error text into Markdown or treats an aborted completion as a new
+render. Report failures through `onError` outside document content. Host writes
+are the Host's responsibility: cancellation is not automatic rollback of a
+write already performed, and ACK is not proof of a durable disk/cloud save.
+
+The public `@tegg/markdown/core` functions `queryTaskSourceSelection(source, range)`
+and `planTaskOwnerToggle(source, owner)` use raw UTF-16 source coordinates,
+including BOM/frontmatter and CRLF. They require the exact parser-issued owner
+and complete captured source, excluding nested non-owner objects.
+`queryEditorTaskSelection(state, rawSource)` uses the current single CodeMirror
+selection and exact document; `planEditorTaskOwnerToggle(state, rawSource, owner)`
+returns CodeMirror-coordinate patches after rechecking the current selection.
+Do not interchange raw-source and CodeMirror coordinates. Read-only/multiple
+selection, source drift, copied owners and changed selection fail closed.
+
+A minimal current-selection action is `const task = reader.selectedTask(); if
+(task) await reader.toggleTask(task);` within the Host's fresh, permitted action
+flow. Retain attribution, ordinary leave/IME preflight, undo and persistence
+contracts. Quick Look and other Hosts are not opted into writing implicitly.

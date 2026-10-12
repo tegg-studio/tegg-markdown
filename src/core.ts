@@ -100,3 +100,9 @@ export type {TechnicalValidationOutcome,TechnicalValidator,TechnicalDraftKind} f
 
 /** Actual SDK-generated image actions, for presentation measurement only. */
 export {renderedImageViewControls} from "./renderInteraction";
+
+export {resolveTaskMarkers,planTaskToggle,toggleTaskSource} from "./taskMarker";
+export type {TaskMarker} from "./taskMarker";
+export type {ReaderTaskReference,ReaderTaskToggleRequest,ReaderTaskToggleResult} from "./reader";
+export {queryTaskSourceSelection,queryEditorTaskSelection,planTaskOwnerToggle,planEditorTaskOwnerToggle} from './taskSourceOwner';
+export type {TaskSourceOwner} from './taskSourceOwner';

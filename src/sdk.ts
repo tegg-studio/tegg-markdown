@@ -39,3 +39,5 @@ export type {NewlinePolicy} from "./newlinePolicy";
 export {applySourcePatches,validateSourcePatches,SourcePatchError} from "./sourcePatch";
 export type {SourcePatch,SourceRange} from "./sourcePatch";
 export * from "./controlledExtensions";
+
+export type {ReaderTaskReference,ReaderTaskToggleRequest,ReaderTaskToggleResult} from "./reader";

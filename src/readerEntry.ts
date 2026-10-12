@@ -17,3 +17,5 @@ export {registerRenderedClipboardOpaque} from './renderedSourceClipboard';
 
 /** Locate only actual source owners registered by the Reader renderer. */
 export {locateRenderedSourceRange} from "./markdown";
+
+export type {ReaderTaskReference,ReaderTaskToggleRequest,ReaderTaskToggleResult} from "./reader";

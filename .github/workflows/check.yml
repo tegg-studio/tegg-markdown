@@ -27,5 +27,6 @@ jobs:
             .validation/browser-results.json
             .validation/recovery-browser-results.json
             .validation/package-evidence.json
+            .validation/*.tgz
             .validation/release-evidence.json
             test-results/

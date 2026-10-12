@@ -119,7 +119,7 @@ export function openObjectViewer(trigger: HTMLElement, visual: HTMLElement, sour
   const {dialog, body, head, signal, close} = openPanel(trigger, title, true);
   if(title==="Formula")dialog.classList.add("md-formula-viewer");
   const controls = document.createElement("nav"); setUILabel(controls, "View controls");
-  const stage = document.createElement("div"); stage.className = "md-object-stage"; stage.tabIndex = 0; setUILabel(stage, "Diagram or formula. Scroll to pan; use zoom controls to enlarge.");
+  const stage = document.createElement("div"); stage.className = "md-object-stage"; stage.tabIndex = 0; setUILabel(stage, visual.tagName.toLowerCase()==="img" ? "Image. Scroll to pan; use zoom controls to enlarge." : "Diagram or formula. Scroll to pan; use zoom controls to enlarge.");
   // Scrolling is immediate, including hosts that set smooth scrolling globally.
   stage.style.scrollBehavior="auto";
   const content = document.createElement("div"); content.className = "md-object-content";
