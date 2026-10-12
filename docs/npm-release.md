@@ -1,5 +1,32 @@
 # npm preview distribution
 
+## Proposed task-owner follow-up — 0.3.0-preview.2, not published
+
+This proposed developer preview adds Host-opted-in Reader task actions and
+source-bound task-owner queries. Reader remains read-only by default. A trusted
+owner identifies a current rendered/parser task; it never grants Host write
+permission. See [Host contract](host-contract.md#explicit-reader-task-actions)
+for acknowledgements, cancellation and raw-source boundaries.
+
+The earlier published preview below remains immutable. This proposed version
+has not been published, and its final public CI, registry and native Host evidence
+must be recorded against its own exact archive. Existing OS IME, accessibility
+and product-specific claims do not transfer automatically.
+
+### Version and identity preparation
+
+A read-only official registry observation on 2026-10-12 found
+`0.3.0-preview.2` absent; this does not reserve or authorize the version.
+Recheck availability before freezing and immediately before publication.
+At that observation `preview` was `0.3.0-preview.1` and `latest` was
+`0.2.0-preview.2`; a preview publication must not silently redefine stable status.
+
+Changing version, included documents or package contents creates a new archive
+identity. Validate and publish the exact final archive with `--ignore-scripts`;
+do not rename or republish the earlier same-version development tarball.
+Only an actual registry integrity match and fresh registry-installed consumers
+can close publication. GitHub tag/release and native acceptance are separate.
+
 ## Current published preview — 0.3.0-preview.1 (2026-10-09)
 
 Install the exact preview version and retain your lockfile:

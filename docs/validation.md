@@ -1,5 +1,33 @@
 # Validation status — 0.3.0-preview.1
 
+## Proposed task-owner follow-up — 0.3.0-preview.2, not published
+
+This proposed developer preview adds Host-opted-in Reader task actions and
+source-bound task-owner queries. Reader remains read-only by default. A trusted
+owner identifies a current rendered/parser task; it never grants Host write
+permission. See [Host contract](host-contract.md#explicit-reader-task-actions)
+for acknowledgements, cancellation and raw-source boundaries.
+
+The earlier published preview below remains immutable. This proposed version
+has not been published, and its final public CI, registry and native Host evidence
+must be recorded against its own exact archive. Existing OS IME, accessibility
+and product-specific claims do not transfer automatically.
+
+### Development evidence and final-candidate boundary
+
+The external development candidate passed 125 unit files / 4,731 tests,
+unit/type/build/declaration/package checks, five normal packed consumers and
+949 Chromium/Firefox/WebKit methods, with zero failures/skips/flaky outcomes.
+The dedicated task regressions include 68 units and 27 compiled browser methods.
+That run supplied its test fixture through external orchestration; public CI
+needs the committed sixth packed task consumer before the final release gate.
+
+These counts identify the development source and its same-version development
+archive, not an official 0.3.0-preview.2 package or registry reinstallation.
+Final clean public CI (including CAS/recovery), release-archive consumers,
+registry readback and claimed native Host checks remain pending. Keep the earlier
+published 4,670/922/12 results below associated with their original archive.
+
 ## Current published preview — 0.3.0-preview.1 (2026-10-09)
 
 Install the exact preview version and retain your lockfile:

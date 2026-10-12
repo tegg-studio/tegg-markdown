@@ -1,3 +1,8 @@
+import {detectNewlinePolicy} from "./newlinePolicy";
+import type {TaskMarker} from "./taskMarker";
+import {applySourcePatches} from "./sourcePatch";
+import {renderedTaskMarker,renderedTaskSource,queryRenderedTask,querySelectedRenderedTask} from "./readerTasks";
+import type {SourcePatch} from "./sourcePatch";
 import type {ContentDisplaySession} from "./contentDisplaySession";
 import {bindEngines, type RenderEngines} from "./renderEngines";
 import {bindUI, type UIOptions} from "./uiContext";
@@ -14,6 +19,10 @@ import { technicalMarkdownProfile } from "./syntaxContract";
 
 export type ReaderInput = {
   documentId?: string;
+  /** Explicit writable capability. Default Reader, Quick Look and other Hosts stay read-only. */
+  taskToggleEnabled?: boolean;
+  generation?: string;
+  sequence?: number;
   source: string;
   profile?: MarkdownProfile;
   revision?: string;
@@ -35,9 +44,15 @@ export type NormalizedReaderInput = {
   contentWidth: number;
 };
 
+export type ReaderTaskReference = Readonly<{documentId:string;revision:string;generation:string;sequence:number;profileVersion:string;projection:number;marker:TaskMarker}>;
+export type ReaderTaskToggleRequest = Readonly<{task:ReaderTaskReference;source:string;patch:SourcePatch;signal:AbortSignal}>;
+/** ACK only after the Host's one undo/save transaction; rejected writes keep the original projection. */
+export type ReaderTaskToggleResult = {accepted:false}|{accepted:true;input:ReaderInput};
+
 export type SelectionReference = {documentId: string; revision: string; text: string; generation?: string; sequence?: number; range?: {from: number; to: number}};
 export type ReaderHost = UIOptions & {
   displaySession?:ContentDisplaySession;
+  onTaskToggle?(request:ReaderTaskToggleRequest):ReaderTaskToggleResult|Promise<ReaderTaskToggleResult>;
   copyText?(text: string): void | Promise<void>;
   onSelection?(selection: SelectionReference): void;
   scrollBehavior?: "preserve" | "follow" | "host";
@@ -73,6 +88,64 @@ export function normalizeReaderInput(input: ReaderInput): NormalizedReaderInput 
 export class TechnicalMarkdownReader {
   /** Focus and scroll the actual visible owner without changing source or mode. */
   locateSourceRange(range:{from:number;to:number}):HTMLElement|null {return this.destroyed?null:locateRenderedSourceRange(this.root,range);}
+  private taskInput?:ReaderInput;
+  private tasks=new Map<TaskMarker,ReaderTaskReference>();
+  private taskPending=false;
+  private composing=false;
+  /** Query actual registered owners without focusing or scrolling. */
+  taskAt(node:Node):ReaderTaskReference|null {const marker=queryRenderedTask(this.root,node);return marker?this.tasks.get(marker)??null:null;}
+  selectedTask(selection=this.root.ownerDocument.getSelection()):ReaderTaskReference|null {const marker=querySelectedRenderedTask(this.root,selection);return marker?this.tasks.get(marker)??null:null;}
+  async toggleTask(task:ReaderTaskReference):Promise<boolean> {
+    const input=this.taskInput,host=this.host.onTaskToggle;
+    if(this.destroyed||this.taskPending||this.composing||!input||!host||!this.host.onError||!input.taskToggleEnabled||detectNewlinePolicy(input.source).readOnly||!input.documentId||!input.generation||!Number.isSafeInteger(input.sequence)||input.sequence!<0||input.contentState==='streaming'||this.tasks.get(task.marker)!==task||task.projection!==this.queued||renderedTaskSource(task.marker)!==input.source)return false;
+    const epoch=this.queued,signal=this.renderController!.signal;
+    const focused=this.root.ownerDocument.activeElement,restoreFocus=focused instanceof HTMLInputElement&&renderedTaskMarker(focused)===task.marker;
+    let patch:SourcePatch,nextSource:string;
+    try {
+      const marker=task.marker;
+      if(marker.to-marker.from!==3||input.source.slice(marker.from,marker.to)!==marker.expected||!['[ ]','[x]','[X]'].includes(marker.expected))throw new Error('Task marker no longer matches its renderer-owned source');
+      patch={from:marker.from+1,to:marker.from+2,expected:marker.expected[1],insert:marker.checked?' ':'x'};
+      nextSource=applySourcePatches(input.source,[patch]);
+    }catch(error){this.reportTaskFailure(error,task.marker);return false;}
+    this.taskPending=true;
+    this.root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(node=>{if(renderedTaskMarker(node))node.disabled=true;});
+    try {
+      const result=await host(Object.freeze({task,source:input.source,patch:Object.freeze(patch),signal}));
+      if(this.destroyed||epoch!==this.queued||signal.aborted)return false;
+      if(!result.accepted)throw new Error('Task change was not accepted. The original task is preserved.');
+      const next=result.input;
+      if(next.source!==nextSource||next.documentId!==input.documentId||next.generation!==input.generation||next.profileVersion!==input.profileVersion||!Number.isSafeInteger(next.sequence)||next.sequence!<=task.sequence)throw new Error('Task acknowledgement does not match the requested source and owner');
+      await this.render(next);
+      if(this.destroyed||this.queued!==epoch+1)return false;
+      if(restoreFocus&&this.taskInput?.source===next.source){const control=[...this.root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')].find(node=>renderedTaskMarker(node)?.from===task.marker.from);if(control&&!control.disabled)control.focus({preventScroll:true});}
+      return true;
+    } catch(error) {if(!this.destroyed&&epoch===this.queued&&!signal.aborted)this.reportTaskFailure(error,task.marker);return false;}
+    finally {if(epoch===this.queued){this.taskPending=false;this.enableTasks();}}
+  }
+  private reportTaskFailure(error:unknown,_marker:TaskMarker) {
+    // The Host presents its existing native error state; never insert failure
+    // text into task content or change its approved line/spacing geometry.
+    this.host.onError?.(error);
+  }
+  private enableTasks() {
+    const input=this.taskInput,policyWritable=!!input&&!detectNewlinePolicy(input.source).readOnly;
+    for(const node of this.root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
+      const marker=renderedTaskMarker(node);
+      const enabled=!!marker&&!!input?.taskToggleEnabled&&!!this.host.onTaskToggle&&!!this.host.onError&&!!input.documentId&&!!input.generation&&Number.isSafeInteger(input.sequence)&&input.sequence!>=0&&input.contentState!=='streaming'&&!this.taskPending&&!this.composing;
+      // Preserve the existing mixed/CR newline read-only policy.
+      const valid=enabled&&policyWritable;
+      node.disabled=!valid;node.tabIndex=valid?0:-1;
+      if(valid){for(const label of node.closest('li')?.querySelectorAll<HTMLLabelElement>('label')??[])if(label.htmlFor===node.id||label.htmlFor===node.dataset.originalId){node.setAttribute('aria-label',label.textContent?.trim()||'Task');label.removeAttribute('for');}}
+    }
+  }
+  private bindTasks(input:ReaderInput,normalized:NormalizedReaderInput) {
+    this.taskInput={...input,documentId:normalized.documentId,revision:normalized.revision,profileVersion:normalized.profileVersion,contentState:normalized.contentState};this.tasks.clear();this.taskPending=false;
+    for(const node of this.root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')){
+      const marker=renderedTaskMarker(node);if(!marker)continue;
+      this.tasks.set(marker,Object.freeze({documentId:normalized.documentId,revision:normalized.revision,profileVersion:normalized.profileVersion,generation:input.generation??'',sequence:input.sequence??-1,projection:this.queued,marker}));
+    }
+    this.enableTasks();
+  }
   private stopEngines: () => void;
   private ui: ReturnType<typeof bindUI>;
   private destroyed = false;
@@ -90,6 +163,12 @@ export class TechnicalMarkdownReader {
   private stopTheme: () => void;
   constructor(private readonly root: HTMLElement, private readonly host: ReaderHost = {}) {
     root.classList.add("tegg-reader");
+    root.addEventListener('compositionstart',()=>{this.composing=true;this.enableTasks();},{signal:this.life.signal});
+    root.addEventListener('compositionend',()=>{this.composing=false;this.enableTasks();},{signal:this.life.signal});
+    root.addEventListener('click',event=>{
+      const node=event.target;if(!(node instanceof HTMLInputElement)||node.type!=='checkbox'||!renderedTaskMarker(node))return;
+      event.preventDefault();event.stopPropagation();const task=this.taskAt(node);if(task)void this.toggleTask(task);
+    },{signal:this.life.signal});
     root.ownerDocument.addEventListener("selectionchange",this.selectionChanged,{signal:this.life.signal});
     root.addEventListener("tegg-copy-text",event=>{
       if(!this.host.copyText) return; event.preventDefault();event.stopPropagation();
@@ -121,6 +200,9 @@ export class TechnicalMarkdownReader {
   async render(input: ReaderInput) {
     if (this.destroyed) throw new Error("Reader has been destroyed");
     const request = ++this.queued;
+    this.renderController?.abort();
+    this.tasks.clear();this.taskInput=undefined;this.taskPending=false;
+    this.root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(node=>{node.disabled=true;node.tabIndex=-1;});
     // Coalesce bursts before parsing. Every promise settles; the newest snapshot wins.
     if (input.contentState === "streaming" && this.root.hasChildNodes()) {await new Promise<void>(resolve => requestAnimationFrame(() => resolve())); if (request !== this.queued || this.destroyed) return;}
     const profile = resolveProfile(input.profile);
@@ -134,7 +216,6 @@ export class TechnicalMarkdownReader {
     const anchorTop = anchor?.getBoundingClientRect().top;
     const scrollTop = scroll.scrollTop;
     const follow = this.host.scrollBehavior === "follow" && scroll.scrollHeight-scroll.clientHeight-scroll.scrollTop <= 2;
-    this.renderController?.abort();
     const controller = this.renderController = new AbortController();
     const {signal} = controller;
     const pending: Array<{raw: string; resolved: Promise<string | null>}> = [];
@@ -162,7 +243,8 @@ export class TechnicalMarkdownReader {
       onOpenLink: (href) => {if (!this.destroyed && this.activeDocument === normalized.documentId) this.host.openLink?.(href, normalized.documentPath);},
       onEvent: (event) => {if (!this.destroyed && this.activeDocument === normalized.documentId) this.host.onEvent?.({ ...event, documentPath: normalized.documentPath });},
     });
-    if (signal.aborted) return;
+    if (signal.aborted || request !== this.queued || this.destroyed) return;
+    this.bindTasks(input,normalized);
     if (follow) scroll.scrollTop = scroll.scrollHeight;
     else if (this.host.scrollBehavior === "host") { /* Host owns position. */ }
     else if (anchor && this.root.contains(anchor) && anchorTop !== undefined) scroll.scrollTop += anchor.getBoundingClientRect().top - anchorTop;

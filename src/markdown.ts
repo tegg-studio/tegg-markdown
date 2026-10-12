@@ -1,3 +1,5 @@
+import type {TaskMarker} from "./taskMarker";
+import {registerReaderTask,renderedTaskMarker} from "./readerTasks";
 import {bindHtmlDetailsDisplay} from './htmlDetailsDisplay';
 import {parsedCodeBody} from './codeLiteral';
 import {registerRenderedSourceRange,registerRenderedClipboardOpaque,registerRenderedClipboardLiteral,type RenderedSourceRange} from './renderedSourceClipboard';
@@ -101,7 +103,30 @@ export function locateRenderedSourceRange(root:HTMLElement,range:{from:number;to
 
 function sourceNode(node:Node,range:RenderedSourceRange){sourceNodeRanges.set(node,range);registerRenderedSourceRange(node,range);}
 function adoptSourceRange(previous:Node,next:Node){const before=sourceNodeRanges.get(previous),after=sourceNodeRanges.get(next);if(!after)return;const delta=after.from-(before?.from??after.from);sourceNode(previous,after);if(delta&&previous instanceof Element)for(const child of previous.querySelectorAll('*')){const range=sourceNodeRanges.get(child);if(range)sourceNode(child,{...range,from:range.from+delta,to:range.to+delta});}}
-type ClipboardProjection={id:string;ranges:Map<string,RenderedSourceRange>;codeBodies:Map<string,string>;offsets:number[];source:string;body:string;htmlOwners?:boolean};
+const sourceTaskBodies=new WeakMap<Node,TaskMarker>();
+function bindReaderTaskBody(input:HTMLInputElement,marker:TaskMarker,source:string) {
+      const owner=input.closest('li');if(!owner)return;
+      const bodies:Node[]=[],blocked:Node[]=[];
+      // The first paragraph contains the registered plugin control. Tight-list
+      // paragraphs have no DOM wrapper; only their actual inline siblings belong.
+      let firstBody:Element|null=input.parentElement;
+      while(firstBody&&firstBody!==owner&&!sourceNodeRanges.has(firstBody))firstBody=firstBody.parentElement;
+      if(firstBody&&firstBody!==owner)bodies.push(firstBody);
+      else if(input.parentElement!==owner)bodies.push(input.parentElement!);
+      else for(let node=input.nextSibling;node;node=node.nextSibling){
+        if(sourceNodeRanges.has(node))break;bodies.push(node);
+      }
+      // Other direct paragraphs require the same parser-owned task body.
+      // Descendant lists, code, tables, HTML and quotes are not task text owners.
+      for(const child of owner.children){
+        if(child===input||bodies.includes(child))continue;
+        const range=sourceNodeRanges.get(child);if(!range)continue;
+        if(sourceTaskBodies.get(child)===marker)bodies.push(child);
+        else blocked.push(child);
+      }
+      registerReaderTask(input,marker,bodies,blocked,source);
+}
+type ClipboardProjection={id:string;ranges:Map<string,RenderedSourceRange>;codeBodies:Map<string,string>;offsets:number[];source:string;body:string;htmlOwners?:boolean;tasks?:Map<string,TaskMarker>;taskOriginals?:Map<object,string>;taskBodies?:Map<string,TaskMarker>};
 /** Only a scoped renderer asks for nested HTML ownership. Match a complete
  * lexical tree to the fresh projection before registering real DOM identities. */
 function scopedHtmlOwners(rendered:string,raw:string,first:number,context:ClipboardProjection){
@@ -121,6 +146,51 @@ function rendererFor(profile: MarkdownProfile = "tegg") {
   const parser = parserFor(profile);
   if (configured.has(parser)) return parser;
   configured.add(parser);if(profile!=='gfm')configureMissingFootnotes(parser);
+  // Capture original actual inline token contents before the task plugin changes
+  // them. Neither author attributes nor a source-wide marker scan grants a task.
+  parser.core.ruler.before('github-task-lists','tegg_reader_task_original',state=>{
+    const context=state.env?.teggClipboardProjection as ClipboardProjection|undefined;
+    if(!context?.tasks)return;
+    context.taskOriginals=new Map();
+    for(let index=2;index<state.tokens.length;index++){
+      const inline=state.tokens[index];
+      if(inline.type==='inline'&&state.tokens[index-1].type==='paragraph_open'&&state.tokens[index-2].type==='list_item_open')context.taskOriginals.set(inline,inline.content);
+    }
+  });
+  parser.core.ruler.after('github-task-lists','tegg_reader_task_binding',state=>{
+    const context=state.env?.teggClipboardProjection as ClipboardProjection|undefined;
+    if(!context?.tasks)return;
+    const itemTasks=new Map<object,TaskMarker>();context.taskBodies=new Map();
+    const canonicalBody=extractFrontmatter(context.source).body,canonicalBase=context.source.length-canonicalBody.length;
+    for(let index=2;index<state.tokens.length;index++){
+      const inline=state.tokens[index],paragraph=state.tokens[index-1],item=state.tokens[index-2],checkbox=inline.children?.[0],original=context.taskOriginals?.get(inline);
+      if(inline.type!=='inline'||paragraph.type!=='paragraph_open'||item.type!=='list_item_open'||!item.map||!paragraph.map||!checkbox||checkbox.type!=='html_inline'||!checkbox.content.startsWith('<input class="task-list-item-checkbox"')||original===undefined)continue;
+      const expected=original.slice(0,3);if(!['[ ]','[x]','[X]'].includes(expected)||original[3]!==' ')continue;
+      const lineFrom=context.offsets[paragraph.map[0]],lineTo=context.offsets[paragraph.map[0]+1]??context.source.length;
+      if(lineFrom===undefined)continue;
+      let rawLine=context.source.slice(lineFrom,lineTo);if(rawLine.endsWith('\n'))rawLine=rawLine.slice(0,-1);if(rawLine.endsWith('\r'))rawLine=rawLine.slice(0,-1);
+      // Verify the complete original token first line at one exact position in
+      // its parser-projected raw line, never an unscoped repeated marker match.
+      const first=original.split('\n')[0],offset=rawLine.indexOf(first);
+      if(offset<0||offset!==rawLine.lastIndexOf(first))continue;
+      const from=lineFrom+offset,to=from+3;
+      if(from<canonicalBase||context.source.slice(from,to)!==expected||from<(context.offsets[item.map[0]]??0)||to>(context.offsets[item.map[1]]??context.source.length))continue;
+      const marker=Object.freeze({from,to,expected,checked:expected!=='[ ]',bodyLine:context.source.slice(canonicalBase,from).split('\n').length-1});
+      const key=context.id+'-task-'+index;context.tasks.set(key,marker);itemTasks.set(item,marker);
+      checkbox.content=checkbox.content.replace('<input','<input data-tegg-task-key="'+key+'"');
+    }
+    // Only a paragraph whose immediate actual block parent is this registered
+    // list-item token belongs to its task body. Nested blocks never inherit it.
+    const stack:typeof state.tokens=[];
+    state.tokens.forEach((token,index)=>{
+      if(token.nesting===-1){stack.pop();return;}
+      if(token.type==='paragraph_open'){
+        const parent=stack.at(-1),marker=parent?.type==='list_item_open'?itemTasks.get(parent):undefined;
+        if(marker)context.taskBodies!.set(context.id+'-'+index,marker);
+      }
+      if(token.nesting===1)stack.push(token);
+    });
+  });
   const tableFallback=parser.renderer.rules.table_open;
   parser.renderer.rules.table_open=(tokens,index,options,env,self)=>{const token=tokens[index];if(token.map){token.attrSet('data-content-source-line',String(token.map[0]));token.attrSet('data-content-source-to-line',String(token.map[1]));}return tableFallback?tableFallback(tokens,index,options,env,self):self.renderToken(tokens,index,options);};
   const htmlFallback=parser.renderer.rules.html_block;
@@ -263,6 +333,7 @@ const blockCaches = new WeakMap<HTMLElement, {key: string; blocks: Array<{raw: s
 /** Reuse is deliberately limited to blocks without cross-block IDs, resources or custom ownership. */
 function independentBlock(node: Node) {
   if (!(node instanceof HTMLElement)) return true;
+  if([...node.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')].some(input=>renderedTaskMarker(input)))return false;
   if(node.tagName === "P" && !node.attributes.length && !node.childElementCount) return true;
   return !node.matches(".frontmatter, .footnotes, [id], [src], [poster]") && !node.querySelector('[id], [src], [poster], [href^="#"], [data-tegg-math], .footnote-ref');
 }
@@ -280,12 +351,16 @@ export async function renderMarkdown(source: string, root: HTMLElement, options:
   const {metadata, body} = options.profile && options.profile !== "tegg" ? {metadata: null, body: source} : extractFrontmatter(source);
   const parser=rendererFor(options.profile),notes=options.profile==='gfm'?undefined:readerFootnoteDocument(parser,body.replace(/\r\n/g,'\n'));
   const base=source.length-body.length,offsets=[base];for(const line of body.match(/[^\n]*\n|[^\n]+$/g)??[])offsets.push(offsets.at(-1)!+line.length);
-  const projection={id:crypto.randomUUID(),ranges:new Map<string,RenderedSourceRange>(),codeBodies:new Map<string,string>(),offsets,source,body};
+  const projection:ClipboardProjection&{tasks:Map<string,TaskMarker>}={id:crypto.randomUUID(),ranges:new Map<string,RenderedSourceRange>(),codeBodies:new Map<string,string>(),tasks:new Map<string,TaskMarker>(),offsets,source,body};
   const raw = parser.render(body, {outline: true, profile: options.profile ?? 'tegg',teggFootnotes:notes,teggClipboardProjection:projection});
   const work = document.createElement("div"); work.className = root.className; work.dataset.enhancements = root.dataset.enhancements;
   const stopEngines = bindEngines(work, enginesFor(root)); interactionRoots.set(work, root);
   work.innerHTML = sanitizeRenderedHtml(raw, options.documentPath, options.resolveImage);
-  for(const node of work.querySelectorAll<HTMLElement>('[data-tegg-copy-key]')){const key=node.dataset.teggCopyKey!,range=projection.ranges.get(key),codeBody=projection.codeBodies.get(key);if(codeBody!==undefined)sourceCodeBodies.set(node,codeBody);node.removeAttribute('data-tegg-copy-key');if(range)sourceNode(node,range);}
+  for(const node of work.querySelectorAll<HTMLElement>('[data-tegg-copy-key]')){const key=node.dataset.teggCopyKey!,range=projection.ranges.get(key),codeBody=projection.codeBodies.get(key);if(codeBody!==undefined)sourceCodeBodies.set(node,codeBody);node.removeAttribute('data-tegg-copy-key');if(range)sourceNode(node,range);const task=projection.taskBodies?.get(key);if(task)sourceTaskBodies.set(node,task);}
+  for(const input of work.querySelectorAll<HTMLInputElement>('[data-tegg-task-key]')){
+    const marker=projection.tasks.get(input.dataset.teggTaskKey!);input.removeAttribute('data-tegg-task-key');
+    if(marker&&input.type==='checkbox')registerReaderTask(input,marker,[],[],source);
+  }
   const crlfPositions:number[]=[];for(let at=0,normalized=0;at<body.length;at++,normalized++)if(body[at]==='\r'&&body[at+1]==='\n'){crlfPositions.push(normalized);at++;}const bodySourcePosition=(offset:number)=>{let low=0,high=crlfPositions.length;while(low<high){const mid=(low+high)>>>1;if(crlfPositions[mid]<offset)low=mid+1;else high=mid;}return base+offset+low;};
   if(notes){const normalizedBase=source.replace(/\r\n/g,'\n').length-body.replace(/\r\n/g,'\n').length;projectReaderFootnotes(work,notes,parser,options.documentPath,options.resolveImage,source,body,(root,value,position)=>{
     const offsets=[0];for(const line of value.split('\n'))offsets.push(offsets.at(-1)!+line.length+1);const scoped:ClipboardProjection={id:crypto.randomUUID(),ranges:new Map(),codeBodies:new Map(),offsets,source:value,body:value,htmlOwners:true};
@@ -322,6 +397,8 @@ export async function renderMarkdown(source: string, root: HTMLElement, options:
     readerDisplayBindings.set(details,{kind:'details',sync,rebind,dispose:()=>{alive=false;binding?.dispose();}});sourceDetailsDisplay.set(details,sync);rebind(session,range);}}
   for(const quote of work.querySelectorAll<HTMLElement>('blockquote.callout')){const range=sourceNodeRanges.get(quote),title=quote.querySelector('.callout-title');if(range){const updateCopy=()=>{const current=sourceNodeRanges.get(quote);if(current)sourceNode(quote,{...current,object:quote.dataset.calloutExpanded==='false'});};updateCopy();rebindRenderedCalloutDisplay(quote,options.displaySession,{from:Number(quote.dataset.sourceFrom),to:Number(quote.dataset.sourceTo)},updateCopy);if(title)sourceNode(title,{...range,object:false,calloutTitle:true});}}
   for(const note of notes?.definitions??[]){const node=Array.from(work.querySelectorAll<HTMLElement>('.footnote-item')).find(item=>item.dataset.footnoteKey===note.key);if(node)sourceNode(node,{from:bodySourcePosition(note.from),to:bodySourcePosition(note.to)});}
+  // Bind final generated nodes after code/table wrappers replace source nodes.
+  for(const input of work.querySelectorAll<HTMLInputElement>('input[type=checkbox]')){const marker=renderedTaskMarker(input);if(marker)bindReaderTaskBody(input,marker,source);}
   secureTaskInputs(work); enhanceFootnotes(work, href => options.onOpenLink?.(href), options.enhancedInteractions !== false); secureLinks(work, options);
   const diagrams = Array.from(work.querySelectorAll<HTMLElement>(".diagram"));
   const enhanced = Array.from(work.childNodes);

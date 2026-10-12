@@ -1,6 +1,6 @@
 import {bindUI, type UIOptions} from "./uiContext";
 import {disposeInteractions} from "./renderInteraction";
-import {TechnicalMarkdownReader, type ReaderHost, type ReaderInput} from "./reader";
+import {TechnicalMarkdownReader, type ReaderHost, type ReaderInput, type ReaderTaskReference} from "./reader";
 import {createAttribution, type AttributionPlacement} from "./attribution";
 export class TeggMarkdownReader {
   private readonly frame = document.createElement("div");
@@ -23,6 +23,9 @@ export class TeggMarkdownReader {
     return this.reader.render(input);
   }
   locateSourceRange(range:{from:number;to:number}):HTMLElement|null {return this.destroyed?null:this.reader.locateSourceRange(range);}
+  taskAt(node:Node):ReaderTaskReference|null {return this.destroyed?null:this.reader.taskAt(node);}
+  selectedTask(selection=document.getSelection()):ReaderTaskReference|null {return this.destroyed?null:this.reader.selectedTask(selection);}
+  toggleTask(task:ReaderTaskReference):Promise<boolean> {return this.destroyed?Promise.resolve(false):this.reader.toggleTask(task);}
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true; disposeInteractions(this.frame); this.reader.destroy(); this.ui.destroy(); this.frame.remove();

@@ -3,6 +3,7 @@
 | Capability | Available behavior | Boundary |
 |---|---|---|
 | Reader / Live Edit / Source | All included | Browser-only preview API |
+| Proposed Reader task actions | Explicit Host opt-in, trusted current task, Host ACK | Unpublished follow-up; default read-only; Host permission/undo/storage remain required |
 | Basic Markdown / GFM | Headings, formatting, lists, tasks, tables, links, code | Unknown syntax remains editable source |
 | Table editing | Cells, row/column operations, alignment, rectangular clipboard and narrow-screen controls | No spreadsheet formulas, arbitrary merged cells or Office parity |
 | Code blocks | Top-level code content/language editing | Nested blocks may require Source |
@@ -39,7 +40,7 @@ claim pixel parity with github.com or exhaustive support for every GitHub servic
 See [performance budgets](performance.md) for source fallbacks and optional rendering
 limits. Source remains authoritative in every profile.
 
-## Reliable editing candidate
+## Historical reliable editing preparation — before preview.1 publication
 
 The `0.3.0-preview.1` development candidate adds shared local editing sessions,
 offline HTML/text/Markdown/TSV/CSV review, durable attachment tasks, optional UI,

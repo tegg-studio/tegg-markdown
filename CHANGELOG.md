@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0-preview.2 — proposed, not published
+
+- Add explicit Reader task-writing opt-in with Host acknowledgement; default
+  Readers remain read-only and failures leave source/body unchanged.
+- Query task owners from fresh actual rendered controls or parser selections.
+  Reject copied/stale owners, authored HTML/context attributes, nested non-owner
+  blocks and cross-task selection; preserve BOM and uniform LF/CRLF coordinates.
+- Keep lightweight Reader runtime independent of Lezer/CodeMirror/React and
+  unconfigured engines. Source/Editor retain their shared Lezer task planner.
+- Add a sixth normal packed task consumer for public CI; retain the original
+  five consumers, lightweight module-graph assertion and browser assertions.
+
+The final versioned archive, public CI and registry publication are pending.
+Earlier entries and package identities below remain historical records.
+
 ## 0.3.0-preview.1 — 2026-10-09
 
 - Keep the visible viewer center stable when WebKit quantizes scroll offsets.

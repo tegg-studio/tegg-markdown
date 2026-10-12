@@ -48,7 +48,7 @@ test("external review applies only selected changes and final explicit choices a
   expect(partial.copies).toEqual([]);
   await page.getByRole("button", {name: "Keep my version for all remaining changes", exact: true}).click();
   await page.getByRole("button", {name: "Complete review", exact: true}).click();
-  await expect(page.getByRole("status")).toContainText("still needs a successful save");
+  await expect(page.getByRole("status")).toContainText("Review completed. Check the document’s save status.");
   const complete = await page.evaluate(() => (window as any).readFixture());
   expect(complete.state.local.baseRevision).toBe("disk-2");
   expect(complete.state.local.source).toContain("beta=human");

@@ -69,7 +69,7 @@ describe("optional external change review UI", () => {
     await vi.waitFor(() => expect(item.host.adoptIncomingBaseline).toHaveBeenCalledTimes(1));
     expect(item.get().local.source).toContain("beta=local");
     expect(item.get().local.source).toContain("gamma=old");
-    expect(ui.element.textContent).toContain("still needs a successful save");
+    expect(ui.element.textContent).toContain("Review completed. Check the document’s save status.");
   });
 
   it("requires explicit decisions and never writes after the displayed document changes", async () => {
