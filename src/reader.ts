@@ -200,6 +200,7 @@ export class TechnicalMarkdownReader {
   async render(input: ReaderInput) {
     if (this.destroyed) throw new Error("Reader has been destroyed");
     const request = ++this.queued;
+    this.renderController?.abort();
     this.tasks.clear();this.taskInput=undefined;this.taskPending=false;
     this.root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(node=>{node.disabled=true;node.tabIndex=-1;});
     // Coalesce bursts before parsing. Every promise settles; the newest snapshot wins.
@@ -215,7 +216,6 @@ export class TechnicalMarkdownReader {
     const anchorTop = anchor?.getBoundingClientRect().top;
     const scrollTop = scroll.scrollTop;
     const follow = this.host.scrollBehavior === "follow" && scroll.scrollHeight-scroll.clientHeight-scroll.scrollTop <= 2;
-    this.renderController?.abort();
     const controller = this.renderController = new AbortController();
     const {signal} = controller;
     const pending: Array<{raw: string; resolved: Promise<string | null>}> = [];
@@ -243,7 +243,7 @@ export class TechnicalMarkdownReader {
       onOpenLink: (href) => {if (!this.destroyed && this.activeDocument === normalized.documentId) this.host.openLink?.(href, normalized.documentPath);},
       onEvent: (event) => {if (!this.destroyed && this.activeDocument === normalized.documentId) this.host.onEvent?.({ ...event, documentPath: normalized.documentPath });},
     });
-    if (signal.aborted) return;
+    if (signal.aborted || request !== this.queued || this.destroyed) return;
     this.bindTasks(input,normalized);
     if (follow) scroll.scrollTop = scroll.scrollHeight;
     else if (this.host.scrollBehavior === "host") { /* Host owns position. */ }

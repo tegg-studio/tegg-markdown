@@ -131,3 +131,44 @@ describe('Reader MarkdownIt token provenance without Editor runtime authority',(
   expect(root.querySelector('[data-tegg-task-key]')).toBeNull();expect(reader.taskAt(controls[1])?.marker.from).toBe(source.lastIndexOf('[ ]'));
  });
 });
+
+describe('new input immediately invalidates obsolete task renders',()=>{
+ it.each(['same-document','different-document'])('never republishes writable owners before the newer streaming frame: %s',async(identity)=>{
+  let frame!:FrameRequestCallback;
+  vi.spyOn(globalThis,'requestAnimationFrame').mockImplementation(callback=>{frame=callback;return 1;});
+  const handler=vi.fn(ack),{root,reader}=fixture({onTaskToggle:handler});
+  const oldRender=reader.render(input);
+  const next={...input,documentId:identity==='same-document'?input.documentId:'new-owner',sequence:1,source:'- [ ] newest',taskToggleEnabled:false,contentState:'streaming' as const};
+  const newestRender=reader.render(next);
+  expect(frame).toBeTypeOf('function');
+  await oldRender;
+  // Inspect the overlap itself, before allowing the newest render to run.
+  expect(checkbox(root).disabled).toBe(true);
+  expect(reader.taskAt(checkbox(root))).toBeNull();
+  checkbox(root).click();expect(handler).not.toHaveBeenCalled();
+  frame(0);await newestRender;
+  const task=reader.taskAt(checkbox(root))!;
+  expect(task.documentId).toBe(next.documentId);expect(task.sequence).toBe(1);
+  expect(root.textContent).toContain('newest');expect(root.textContent).not.toContain('first');
+  expect(checkbox(root).disabled).toBe(true);expect(await reader.toggleTask(task)).toBe(false);
+  expect(handler).not.toHaveBeenCalled();expect(next.source).toBe('- [ ] newest');
+ });
+ it('aborts a pending Host ACK at receipt of streaming input before the next frame',async()=>{
+  let frame!:FrameRequestCallback;
+  vi.spyOn(globalThis,'requestAnimationFrame').mockImplementation(callback=>{frame=callback;return 1;});
+  let request!:ReaderTaskToggleRequest,finish!:(value:ReturnType<typeof ack>)=>void;
+  const onError=vi.fn(),handler=vi.fn((value:ReaderTaskToggleRequest)=>{request=value;return new Promise<ReturnType<typeof ack>>(resolve=>{finish=resolve;});});
+  const {root,reader}=fixture({onTaskToggle:handler,onError});await reader.render(input);
+  const oldTask=reader.taskAt(checkbox(root))!,pending=reader.toggleTask(oldTask);
+  const newest=reader.render({...input,source:'- [ ] newest',sequence:1,taskToggleEnabled:false,contentState:'streaming'});
+  expect(request.signal.aborted).toBe(true);expect(checkbox(root).disabled).toBe(true);
+  expect(reader.taskAt(checkbox(root))).toBeNull();
+  finish(ack(request));expect(await pending).toBe(false);
+  expect(checkbox(root).checked).toBe(false);expect(checkbox(root).disabled).toBe(true);
+  expect(onError).not.toHaveBeenCalled();expect(handler).toHaveBeenCalledTimes(1);
+  frame(0);await newest;
+  expect(reader.taskAt(checkbox(root))!.sequence).toBe(1);expect(checkbox(root).checked).toBe(false);
+  expect(checkbox(root).disabled).toBe(true);expect(root.textContent).toContain('newest');
+  expect(await reader.toggleTask(oldTask)).toBe(false);expect(handler).toHaveBeenCalledTimes(1);
+ });
+});
